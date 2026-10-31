@@ -7213,13 +7213,16 @@ mod tests {
         }
     }
 
-    /// **What one hit costs the tick it lands on**, in a [`room`]: a body, a floor of two triangles and one of twenty
-    /// thousand, and a wall 0.9 m from the wound, for a bullet-sized wound and a heavy one, with the floor's mist and
-    /// without. Not a test: it prints `METRIC` lines and the floor's stain count, as `bench_carnage` prints the
-    /// carnage's. Each shot enters the body's far side, so the wound looks at the wall and its spray reaches it, and the
-    /// droplets nothing catches reach the floor. Run it with
-    /// `cargo test --release --lib -- hit_tick_cost --ignored --nocapture`, alone on the host: the time of one tick is
-    /// the number a caller's frame pays.
+    /// **What one hit costs the tick it lands on, and what the blood it leaves costs every tick after**, in a [`room`]: a
+    /// body, a floor of two triangles and one of twenty thousand, and a wall 0.9 m from the wound, for a bullet-sized wound
+    /// and a heavy one, with the floor's mist and without. Not a test: it prints `METRIC` lines and the floor's stain count,
+    /// as `bench_carnage` prints the carnage's. Each shot enters the body's far side, so the wound looks at the wall and its
+    /// spray reaches it, and the droplets nothing catches reach the floor. `hit_tick_ms_*` is the 45 ticks that each take a
+    /// hit; `wet_tick_ms_median_*` is the 90 ticks after the last one with nothing new thrown, which is every frame of a
+    /// scene while its blood is wet (until iteration 7 it was as large as the hit tick: the canvases' passes over blood that
+    /// moves). Run it with `cargo test --release --lib -- hit_tick_cost --ignored --nocapture`, alone on the host and
+    /// alternated with the build it is compared to, since a single run on a shared one varies by two: the time of one tick
+    /// is the number a caller's frame pays.
     #[test]
     #[ignore]
     fn hit_tick_cost() {
@@ -7259,6 +7262,14 @@ mod tests {
             println!("METRIC hit_tick_ms_worst_{label}={worst:.4}");
             println!("METRIC quiet_tick_ms_{label}={quiet:.4}");
             println!("floor_{label}: {HITS} hits, wetted {:.3} m2 in {} stains", floor_wet.0, floor_wet.1);
+            let mut wet = Vec::with_capacity(90);
+            for _ in 0..90 {
+                let t = std::time::Instant::now();
+                app.world_mut().run_schedule(FixedUpdate);
+                wet.push(t.elapsed().as_secs_f64() * 1e3);
+            }
+            wet.sort_by(f64::total_cmp);
+            println!("METRIC wet_tick_ms_median_{label}={:.4}", wet[wet.len() / 2]);
         }
     }
 }
