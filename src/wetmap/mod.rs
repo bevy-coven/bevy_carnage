@@ -1,6 +1,6 @@
 #![doc = include_str!("../../docs/wetmap.md")]
 
-mod canvas;
+pub(crate) mod canvas;
 mod digest;
 mod settings;
 mod uv;

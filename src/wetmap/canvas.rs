@@ -15,6 +15,9 @@ use crate::bloodstain::dry::{DRY_REF_AREA_M2, DRY_REF_TICKS, appearance_with_fre
 use crate::bloodstain::spectral::Film;
 use crate::bloodstain::stain::{StainShape, rasterise};
 
+/// PROBE: temporary stamp counters.
+pub static PROBE: [std::sync::atomic::AtomicU64; 6] = [const { std::sync::atomic::AtomicU64::new(0) }; 6]; // PROBE
+
 /// Thickness levels the fresh-colour table holds per tick. Sixteen: blood's colour moves fastest
 /// in the first quarter-millimetre and is flat past a couple, so the levels are spent where the
 /// substrate still shows through.
@@ -717,6 +720,7 @@ impl WetCanvas {
     /// `span` is capped so the scratch cannot exceed a 2048-texel edge: at the shipped 128-texel
     /// canvas that is never reached, and on a canvas large enough to reach it a subtexel edge is not
     /// what is limiting the look.
+    // PROBE
     fn stamp(&mut self, uv: Vec2, shape: &StainShape, tick: u32, span: u32) {
         if !uv.is_finite() {
             return;
@@ -728,9 +732,15 @@ impl WetCanvas {
         if self.fine.len() != fine_need {
             self.fine.resize(fine_need, 0);
         }
+        let t_ras = std::time::Instant::now(); // PROBE
         if !rasterise(shape, fine_px, &mut self.fine) {
             return;
         }
+        PROBE[0].fetch_add(t_ras.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+        PROBE[1].fetch_add(1, std::sync::atomic::Ordering::Relaxed); // PROBE
+        PROBE[2].fetch_add(fine_need as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+        PROBE[3].fetch_add(px as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+        let t_rest = std::time::Instant::now(); // PROBE
         let need = (px as usize) * (px as usize);
         if self.mask.len() != need {
             self.mask.resize(need, 0);
@@ -796,6 +806,7 @@ impl WetCanvas {
                 self.dirty_since = Some(tick);
             }
         }
+        PROBE[4].fetch_add(t_rest.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
     }
 
     /// **Stamp a stain where a world-space ray hits this actor.**
