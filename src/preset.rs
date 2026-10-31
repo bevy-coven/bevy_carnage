@@ -2982,31 +2982,42 @@ fn throw_spray(
             });
         }
     }
-    // **The floors**, in closed form, for every droplet nothing above caught. A stain's seed is the
-    // spray's own seed mixed with the droplet's ordinal, which is how a stain is matched to its droplet.
+    // **The floors**, for every droplet nothing above caught, each its own stain as on a wall or a skin: its
+    // landing point is the closed form's (`crate::bloodstain::stain::stains`), and its size, stretch and
+    // spines are `hard_stain`'s from the speed and slant it arrives with. Until now a floor took the blob a
+    // sheet takes, 2 to 12 cm a side for a droplet a few millimetres across, so eight droplets read as eight
+    // pieces of jam. A stain's seed is the spray's own seed mixed with the droplet's ordinal, which is how a
+    // stain is matched to its droplet.
     let spray_seed = wound_seed(wound);
     for s in surfaces.iter().filter(|s| s.entity != struck && s.gore.kind == GoreKind::Floor) {
         let Some(asset) = meshes.get(&s.mesh) else { continue };
         let Some((floor_mesh, floor_xf)) = drawn_now(s, asset, posed, identity) else { continue };
         let Ok((_, _, _, _, _, Some(mut wet))) = bodies.get_mut(s.entity) else { continue };
         let plane_y = floor_xf.translation().y;
+        let fall = (wound.at[1] - plane_y).max(0.0);
         for stain in crate::bloodstain::stain::stains(wound, &dials.blood, plane_y) {
-            if caught.get((stain.seed ^ spray_seed) as usize).copied().unwrap_or(false) {
+            let ordinal = stain.seed ^ spray_seed;
+            if caught.get(ordinal as usize).copied().unwrap_or(false) {
                 continue;
             }
-            let at = Vec3::new(stain.at[0], stain.at[1] + 0.5, stain.at[2]);
-            let shape = StainShape {
-                major: stain.radius * 2.2,
-                minor: stain.radius * 2.0,
-                spines: 3,
-                satellites: 1,
-                direction: [0.0, 1.0],
-                seed: stain.seed,
-            };
+            let above = Vec3::new(stain.at[0], stain.at[1] + 0.5, stain.at[2]);
+            let Some(landing) = ray_hit(floor_mesh, floor_xf, above, Vec3::NEG_Y) else { continue };
+            let arrives = arriving(&crate::bloodstain::droplet(wound, ordinal, &dials.blood), fall, dials.blood.gravity);
+            let Some(shape) = hard_stain(floor_mesh, floor_xf, &landing, &arrives, &dials.blood, stain.seed) else { continue };
             let texels = wet.size();
-            let _ = wet.paint_world_with(floor_mesh, floor_xf, at, Vec3::NEG_Y, &shape_on(&s.gore, &shape, texels), tick, edges);
+            wet.paint_uv_with(landing.uv, &shape_on(&s.gore, &shape, texels), tick, edges);
         }
     }
+}
+
+/// **A droplet as it arrives on a plane `fall` below where it left**: the horizontal velocity it left with
+/// and the vertical one it has gained over the drop, downward whichever way it set out. The closed form
+/// `crate::bloodstain::stain::stains` lands it by, and `impact_at_plane` reads its slant from.
+fn arriving(d: &crate::bloodstain::Droplet, fall: f32, gravity: f32) -> crate::bloodstain::Droplet {
+    let v = Vec3::from_array(d.dir) * d.speed;
+    let down = (v.y * v.y + 2.0 * gravity * fall).max(0.0).sqrt();
+    let arrival = Vec3::new(v.x, -down, v.z);
+    crate::bloodstain::Droplet { dir: arrival.normalize_or_zero().to_array(), speed: arrival.length(), diameter: d.diameter }
 }
 
 /// **What a surface is drawn as now, without posing it**: its asset placed by its own transform, or
