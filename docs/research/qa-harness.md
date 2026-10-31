@@ -101,6 +101,12 @@ and the list itself comes from `parse_examples`, which reads `Cargo.toml` and ta
 - **The test is the dry plan.** `tests/qa_roster.rs` runs the script (`QA_DRY=1`, and a real
   recorders-only round against an empty binary directory) and holds what it plans and reports to
   `Cargo.toml` and `examples/`.
+- **A windowed run's watchdog budget grows with its script.** The old flat 180 s killed `skinned`
+  (1620 frames) in two of three rounds and `sever` (2660 frames) in the one full round, on a host
+  whose load average was 6 to 15: an off-screen run there is 5 to 10 frames a second, and a slow
+  host was reported as a missing example. The budget is 180 s or `60 + frames/4` s, whichever is
+  larger; `QA_TIMEOUT` is still one flat limit for everyone. The watchdog exists to catch a hang, and
+  a hung run never exits at any budget.
 
 ## Parameters
 
@@ -109,6 +115,7 @@ and the list itself comes from `parse_examples`, which reads `Cargo.toml` and ta
 | `QA_FEATURES` | empty | Design default: a default round builds the default features, as a consumer gets them |
 | `gated_by` | `vfx` for six examples | From `Cargo.toml`'s `required-features`; held to it by `tests/qa_roster.rs` |
 | `bench_carnage` | off every list | Design default: it is timed by the loop's bench, three runs before and after, and refuses a noisy reading; a QA round is not a timing run |
+| watchdog budget | `max(180, 60 + frames/4)` s per windowed run | Design default, measured on this host (see above); the quarter-second per frame is a floor on a busy host, not a rate the example reaches when idle |
 
 ## Validation targets
 
@@ -122,6 +129,9 @@ and the list itself comes from `parse_examples`, which reads `Cargo.toml` and ta
 4. Each `capture_skinned` variant run through the script prints the same digest twice, and the same
    digest as the binary run by hand with the recipe's flags.
 5. `skinned` under the autopilot writes every screenshot its script asks for.
+6. A dry round gives every windowed run at least a quarter-second per scripted frame, and
+   `QA_TIMEOUT=7` gives every one exactly 7 s. Today: `bullet_holes` gets 180 s for 1880 frames.
+7. A full default round on a busy host finishes with no `hit its timeout` line.
 
 ## What great looks like
 
