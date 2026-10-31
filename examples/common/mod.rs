@@ -40,6 +40,10 @@ pub mod flesh_scene;
 /// body that is not in its bind pose. Behind `flesh` because it wears the preset's `Gore`.
 #[cfg(feature = "flesh")]
 pub mod mannequin;
+/// **The digest line the two preset recorders print**: the sorted fold their `digest=` field has always
+/// used, and the `flay=` and `dermis=` fields beside it. Behind `flesh`, which owns `DermisCanvas`.
+#[cfg(feature = "flesh")]
+pub mod digest;
 /// **A studio to light a scene in**: a procedural environment, prefiltered on the CPU into the two
 /// cubemaps `EnvironmentMapLight` takes, so wet blood has a room to reflect. No compute, so it works
 /// on WebGL2 as well.
