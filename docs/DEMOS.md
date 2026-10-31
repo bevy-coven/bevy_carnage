@@ -562,6 +562,14 @@ The same mannequin with a plaster wall 1.2 m behind it (`preset_scene::spawn_wal
 
 **Re-cut for 0.5.64**, which draws a droplet in flight as a streak and so changes the frames after every hit: `skinned.gif`, `skinned_break.gif`, `skinned_shirt.gif`, `skinned_through.gif`, `skinned_guard.gif`, `preset.gif`, `tiers.gif`, `carnage.gif` and `flesh.gif`, which also brings them past 0.5.63's flat small films. `skinned_stroll.gif`, `skinned_bruises.gif` and the kernels' clips were drawn before 0.5.63; that change moves no canvas and no digest, and old against new every clip that draws a wet film on flesh differs by under 0.04 code values a pixel on average. `docs/small_films.png` is what it changed, seen close.
 
+**Floor spray (the release after 0.7.0).** A floor takes each droplet as its own stain and `GoreDials::floor_mist` more droplets
+for the floors alone (`docs/research/floor-spatter.md`). On the headless recorders without `vfx`, every fifth frame, 0.7.0 against the
+change: `capture_preset`'s floor differs from frame 30 in a 324 by 117 pixel patch; `capture_skinned`'s default, `--through`, `--shirt`,
+`--break` and `--blows` differ from frame 70 in a 20 by 5 pixel patch at the bottom edge, and **not on the wall**; `--guard`,
+`--stroll` and `--quiet` are pixel-identical. The default camera hardly sees the floor in front of the body: `capture_skinned --eye
+0,4.2,0.3 --at 0,0,0` shows it from above and `--eye 0.0,1.5,3.1 --at 0,0,1.3 --floor 512` from the front at 6 mm a texel. The
+committed clips predate it and cannot be re-cut here (no ImageMagick, and `vfx` does not build on Bevy 0.20).
+
 **Not re-cut after the default throw changed (the release after 0.7.0), and why.** `GoreDials::default()` now lands what
 a wound throws on a floor under it (`preset::GORE_SPATTER_SPEED_SCALE`), so a floor in a default scene carries a few stains these clips predate. They
 cannot be re-cut here: they were recorded with `vfx`, which cannot build on Bevy 0.20, and `tools/gif.sh` needs ImageMagick.

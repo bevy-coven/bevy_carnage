@@ -1045,9 +1045,9 @@ const FINE_TEXELS: f32 = 4.0;
 /// - *Coverage.* A stamp's profile saturates only inside about 0.44 of its radius and it is placed on a whole texel, so
 ///   a stamp of two texels, whose four texels all lie off its centre, peaked at 73 of 255, one of three at 243 and a
 ///   slanted one of one texel at 18; and a stain smaller than the stamp's floor of a texel and a half is drawn as a
-///   whole one. [`WetCanvas::paint_speck`] lays the stain's own area, hard-edged, at its own place to a fraction of a
-///   texel: a 3 mm drop is a tint of a 12 mm texel, a 12 mm one is a saturated texel, and nothing in between is dimmer
-///   than a smaller one.
+///   whole one. [`WetCanvas::paint_speck`] lays the stain's own area, over a soft round footprint, at its own place to a
+///   fraction of a texel: a 3 mm drop is a tint of a 12 mm texel, a 12 mm one is a saturated texel, and nothing in
+///   between is dimmer than a smaller one.
 /// - *Cost.* The mask holds the whole silhouette, so a spine is a share of the stamp's own width, and on a stain of four
 ///   texels the longest is a texel and a half. A two-texel stamp with its spines and satellites rasterised at four
 ///   samples a texel cost 45 µs (`hit_tick_cost`), nearly all of it `exp` and `atan2` per sample; a speck costs under 2.

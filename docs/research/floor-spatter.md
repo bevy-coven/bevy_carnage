@@ -80,59 +80,87 @@ where they fall, which way each is drawn out and how big the big ones are.
 
 ## Model adopted
 
-Two changes, no new physics, both in the preset, which is the one module that owns a look.
+Three changes, no new physics, in the preset (the one module that owns a look) and one new canvas primitive.
 
-1. **A floor stamps each droplet as its own physical stain.** The closed-form landing of `stains` stays the
-   placement (it is what puts a drop where the throw says). The stain's size, stretch, spines and satellites are
-   `hard_stain`'s, from the speed and slant the droplet arrives with (`impact_at_plane`'s relation), exactly as a wall
-   or a skin has had since 0.5.62. The floor's UV comes from a cast down on the landing point through the mesh's
-   hierarchy (`crate::bvh`), not from the canvas walking every triangle of the floor once per drop.
-2. **`GoreDials::default()` states the preset's droplet density**, as iteration 4 made it state the preset's flight
-   scale: `blood.droplets_per_m2 = GORE_DROPLETS_PER_M2`. `BloodSettings::default()` keeps `2400`: its constants are
-   the paper's and the bloodstain goldens pin them. The ceiling `max_droplets_per_wound = 512` stays, and bounds the
-   floor pass; the number of droplets cast at walls and bodies (`SPRAY_CAST`, `WALL_CAST`) stays, so their cost is
-   bounded as it was.
+1. **A floor stamps each droplet as its own physical stain.** The closed-form landing (`crate::bloodstain::landing`, flown
+   at the dial's `spatter_speed_scale`) stays the placement. The stain's size, stretch and slant are `hard_stain`'s from
+   the speed and angle the droplet arrives at, as a wall or a skin has had since 0.5.62. The floor's UV comes from a cast
+   down on the landing through the mesh's index (`crate::bvh`), not from the canvas walking every triangle once per drop.
+2. **The floor's mist.** A wound throws `floor_mist` (`9`) fine droplets at the floors for each droplet it throws at
+   everything: the same stream (`droplet(wound, i)` is a pure function of the wound and the ordinal, so ordinals `0..9`
+   are what they were and the mist is `9..90`), each cast at the same surfaces and caught by the first it reaches, stamped
+   only on a floor. **A wall, a skin and a cloth take the primaries alone**, so what they take and what stamping it
+   costs are what they were. This replaced a first design that raised `droplets_per_m2` for every surface: measured, a
+   stamp of four texels or more costs 0.2 to 0.4 ms (`exp` and `atan2` per sample, spines and satellites at four samples
+   a texel), a wall at 512 casts up to 128 droplets a wound, half of them that size, and `hit_tick_cost` already reads
+   28 ms for a heavy wound facing a wall at the leaf's count.
+3. **A droplet under four texels across is a speck** (`WetCanvas::paint_speck`), not a stamp. Measured on the floor at 12 mm
+   a texel: a stamp of two texels peaks at 73 of 255 (all four of its texels lie off the profile's centre), one of three at
+   243, a slanted one of one at 18, and a stain smaller than the stamp's floor of a texel and a half is drawn as a whole
+   one; a two-texel stamp with its spines costs 45 us. A speck is the blood of an ellipse (its area, in bytes) placed to a
+   fraction of a texel, so the blood a canvas cannot resolve reads as the tint it would be and a size spread survives at any
+   resolution; it costs about 2 us. **It is spread over a soft round footprint, not laid as a hard disc**: a first version
+   laid the area hard-edged, and the floor read as rotated squares (below, `## Deviations`). The flesh shader reads a canvas
+   through a cubic B-spline and draws the stain where that crosses 4 % coverage, and a disc on a texel grid is a square after
+   that; a `(1 - rho^2)^3` bump, normalised to the area, over `SPECK_GROW` (2) times the ellipse's axes and at least
+   `SPECK_FLOOR` (1.2) texels, comes out round (`/tmp/c6/speckshape.py` read the bump through the B-spline and the edge, for
+   ellipses of 0.2 to 1.4 texels). From four texels across a stain is a stamp as before.
 
 ## Parameters
 
 | Parameter | Value | Provenance |
 |---|---|---|
-| `GORE_DROPLETS_PER_M2` | to be set against the validation targets below | **Tuned, and says so.** No paper gives a droplet count per wound area at game scale; the paper's stain counts are in a figure the corpus does not extract. Set so one bullet-sized crater leaves a fan of about a hundred stains on the shipped floor, against 111 drops in Ref 7's fan and 220 in Ref 1's wall. A design default. |
-| `BloodSettings::droplets_per_m2` | `2400` (unchanged) | The leaf's own. |
-| `max_droplets_per_wound` | `512` (unchanged) | Bounds the floor pass and a consumer's effect capacity. |
+| `GoreDials::floor_mist` / `GORE_FLOOR_MIST` | `9` | **Tuned, and says so.** No paper gives a droplet count per wound area at game scale; the paper's stain counts are in a figure the corpus does not extract. Set so a bullet-sized crater (9 droplets at the leaf's count) leaves a field of stains on the shipped floor: 25 stains in the preset's test, 4 with no mist; the reference photograph's fan has 111 in 45 cm. A design default. |
+| `BloodSettings::droplets_per_m2` | `2400` (unchanged) | The leaf's own; the walls', skins' and cloths' count. |
+| `max_droplets_per_wound` | `512` (unchanged) | Bounds the mist too: primaries plus mist never exceed it. |
+| `FINE_TEXELS` | `4` | **Tuned, and says so.** Where a spine on a stain is a texel wide (the longest spine is about 0.6 of the body's width, and the mask holds the whole silhouette). |
+| `SPECK_MAX_SEMI` | `2` texels | Four texels across, `FINE_TEXELS`: a stain wider than that is a stamp's. |
+| `SPECK_GROW`, `SPECK_FLOOR` | `2`, `1.2` texels | **Tuned, and say so.** The footprint's reach past the ellipse, and its least; the least is past 0.71, the farthest a point is from the nearest texel's centre, so a speck always lands. Chosen by reading the bump through the B-spline and the edge. |
 | floor stain shape | `hard_stain` | The wall's and skin's, unchanged. |
 
 ## Validation targets
 
-1. **Count.** A 3.5 cm impact at chest height on the shipped floor (256 texels, 3 m) leaves at least 60 separate stains
-   (components of `amount > 32`) in the preset's own test, where it leaves under 15 now.
-2. **Drops, not sheets.** The largest stain's width is at most 15 cm and the median at most 4 cm; the wetted area is
-   under 5 % of the floor's fan. Ref 7: p90 / p10 of the equivalent diameters 7.7; Ref 1: 10.3. The floor at 12 mm a
-   texel cannot reach those spreads (its smallest stamp is 18 mm), so the target on the floor is p90 / p10 of at
-   least 2, and at 512 texels at least 3.
-3. **Cost.** One hit tick (`hit_tick_cost`, an ignored measurement test, median of 45 hits) on a floor of two
-   triangles and one of twenty thousand, with and without a wall behind: no more than 1 ms over the tick as it is
-   now, and the 20 000-triangle floor no more than 1 ms over the 2-triangle one (the cast goes through the index).
-4. **Bounded.** No wound stamps more than `max_droplets_per_wound` stains on a floor.
-5. **Locks.** `BloodSettings::default()` untouched: every bloodstain golden passes without edit, `bench_carnage`'s
-   digest `0x4366a8b64352c85a` and its timing unmoved (it does not call the preset).
+Set before the code, and graded in the log against what was measured.
+
+1. **Count.** A 3.5 cm impact at chest height on the shipped floor (256 texels, 3 m) leaves at least 15 separate stains and
+   at least four times as many as with the mist at nothing (`a_shot_leaves_a_fan_of_drops_on_the_floor_not_a_few_blobs`).
+   *Measured: 4 without, 25 with.* About half the droplets land past the slab's far edge: the count is geometry-bound.
+2. **Drops, not sheets.** The widest stain at most 12 cm across. *Measured: 7 cm.* On a 12 mm texel a stain's apparent
+   size is the flesh shader's crisp-edge threshold on a B-spline of its few texels (about 2.6 texels across for a
+   saturated one), so the smallest drop reads 3 cm; at 512 texels, 1.6 cm.
+3. **The wall and the skin are untouched** (`a_wall_and_a_skin_take_no_mist`: the same shot, mist at nothing and at its
+   default, leaves both canvases' digests equal) and **nothing passes through a wall** (`the_mist_does_not_pass_through_a_wall`:
+   373 texels wetted behind the wall's place without it, none with it). In the recorders `capture_skinned --through`'s frames
+   differ from 0.7.0's only in a 20 by 5 pixel patch at the bottom edge, and not on the wall.
+4. **Cost.** `hit_tick_cost`, median of 45 hits, alternated with the tick as it was, five times each (a body, a floor of two
+   triangles and of twenty thousand, a wall 0.9 m behind the wound): no hit tick more than 1.5 ms over the old one, and the
+   20 000-triangle floor cheaper. *Measured: see the log.*
+5. **Locks.** `BloodSettings::default()` untouched: every bloodstain golden and `the_spatter_model_is_frozen` pass; `bench_carnage`'s
+   digest `0x4366a8b64352c85a` unmoved (it does not call the preset).
 6. **Determinism.** Every recorder variant prints one digest twice; the ones with a hit and a floor move on purpose,
-   `--stroll` and `--quiet` keep theirs.
-7. **Look**, measured off the top-down capture against Refs 1 and 7 (`## Reference set`): at least 60 components,
-   p90 / p10 at least 2, the blood's darkest fifth redder than `(110, 40, 40)`, a fan along the throw direction.
+   `--stroll`, `--quiet` and `--guard` keep theirs.
+7. **Look**, against Refs 1 and 7 (`## Reference set`), in the log's critique: a fan of separate stains of varied size along the throw,
+   none a sheet; the albedo the canvas writes for a saturated texel (`(113, 33, 42)` venous, `(138, 24, 41)` arterial at 2 mm, from
+   `spectral::srgb`) against the references' darkest fifth `(107, 15, 33)`, `(136, 29, 20)`. The *lit* frame's colour is the scene's
+   and is not a target here.
 
 ## Deviations
 
-- **A changed default, marked a design default.** `GoreDials::default().blood.droplets_per_m2` `2400 -> GORE_DROPLETS_PER_M2`.
-  It moves every default-dials recorder digest whose clip has a hit; it changes how many droplets a wall, a body part
-  and a cloth are cast at (the first `SPRAY_CAST` / `WALL_CAST` of the wound's own stream: the droplets that were
-  already there are the same droplets). A caller who authored `droplets_per_m2` keeps it.
-- **Not read off the paper.** The count is tuned, not derived: the paper gives stain counts per 25 cm bin in a figure
-  this host could not extract. Recorded under `## Pending index`.
-- **Not done: the size/speed inversion.** The model still makes the smallest droplets the fastest and lands them
-  farthest (the paper's drag makes small drops fall short); fixing it moves four frozen goldens and is the owner's
-  (iteration 4's note). With more droplets the fan is wider than the paper's near field at the small end.
-- **Not done: sub-texel coverage.** A stain under the floor's texel is stamped at 1.5 texels, saturated.
+- **A new public field.** `GoreDials::floor_mist` (default `9`) changes what every default `GorePlugin` floor takes and breaks a
+  struct literal that names every field. Marked a design default; pre-1.0, so the next release is a MINOR.
+- **Not read off the paper.** The count is tuned, not derived: the paper gives stain counts per 25 cm bin in a figure this host
+  could not extract. Recorded under `## Pending index`.
+- **Not done: the size/speed inversion.** The model still makes the smallest droplets the fastest and lands them farthest (the
+  paper's drag makes small drops fall short); fixing it moves four frozen goldens and is the owner's (iteration 4's note). The
+  mist, drawn from the same stream, spreads out to the same 0.6 to 5 m field.
+- **Not done: the mist on a wall, a skin or a cloth.** A wall in Ref 1 carries 220 stains; the preset's carries nine (a bullet) to a
+  few dozen. Stamping 90 droplets on a wall costs 0.2 to 0.4 ms each at 512 texels, so it needs the large stamp to get cheaper
+  first (the rasteriser's per-sample `exp` and `atan2`), or a budget of detailed stamps a throw. The next item.
+- **Not done: sub-texel colour.** A speck of a tenth of a texel adds a tenth of full coverage, which the flesh shader draws as a
+  thin film (pink at the edge, darker in the middle); the *lit* frame is paler than the albedo (`(122, 55, 60)` against the
+  texel's `(113, 33, 42)`), the scene's ambient and specular.
+- **A found flaw, not fixed: a heavy wound facing a wall costs 28 ms** (`hit_tick_cost`, `floor2_wall_big`, the same before and
+  after this item): 48 spined stamps of 0.2 to 0.6 ms each on a 512 wall. A hit that spikes the frame; logged for the next pass.
 
 ## Pending index
 
