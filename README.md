@@ -1,646 +1,92 @@
 # bevy_carnage
 
-> ⚠️ **Vibe Coded** — written by an AI agent working from a human's direction. It is used in a shipping game and covered by tests, but it has had no line-by-line human audit. Read it before you trust it.
+> ⚠️ **Vibe Coded.** Written by AI agents working from a human's direction, covered by tests rather than a line-by-line human review. Read the code before you rely on it for something you care about.
 
-**Runtime gore for Bevy characters, deterministic to the bit.** Add a plugin, dress a loaded character with one component, and send a `GoreHit` per injury. A wound peels through skin, fat and muscle to bone, bleeds and runs along the pose of an animated body, pools on the floor and dries; a body that takes enough comes apart into watertight-capped chunks. A violence setting the player controls is honoured, and every canvas is owned by the CPU, so the state of a whole fight can be hashed and replayed.
+Wounds that peel to the bone, bleed, pool and dry, and bodies that break into chunks, for Bevy characters, deterministic to the bit.
+
+[![crates.io](https://img.shields.io/crates/v/bevy_carnage.svg)](https://crates.io/crates/bevy_carnage) [![docs.rs](https://img.shields.io/docsrs/bevy_carnage)](https://docs.rs/bevy_carnage) [![CI](https://github.com/bevy-coven/bevy_carnage/actions/workflows/ci.yml/badge.svg)](https://github.com/bevy-coven/bevy_carnage/actions/workflows/ci.yml) [![Bevy 0.20](https://img.shields.io/badge/bevy-0.20-purple.svg)](https://bevyengine.org) [![licence](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue.svg)](#who-and-licence)
 
 | | |
 |---|---|
 | ![A textured blocked-out body takes a blow, a burn, a slash and shots to the chest; the wounds bleed and pool on the floor and the body comes apart](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/preset.gif) | ![A smooth mannequin walks in place with its left arm raised; a shot opens the raised forearm, a slash the thigh, shots the chest, and each wound keeps bleeding from the limb it is on](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned.gif) |
-| `examples/preset.rs` — a blow, a burn, a slash and shots to the bone | `examples/skinned.rs` — the same on a skinned, animated body, the wounds riding the limbs |
+| `examples/preset.rs`: a blow, a burn, a slash and shots to the bone | `examples/skinned.rs`: the same on a skinned, animated body, the wounds riding the limbs |
 
-Underneath is the fracture it was built on: plane-cut a character's own meshes into watertight-capped chunks, bore bullet channels through them, and drive blood, spatter and impact feel off the wounds that result.
+**Status:** usable · Bevy 0.20
 
-![A blue blocked-out humanoid standing intact, then bursting into tumbling rounded chunks whose cut faces are raw red while their outer surfaces stay blue](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/explode.gif)
+**Why:** a fracture computed at the moment of impact costs a frame and a static pre-fracture cannot know where the shot landed, so this crate bakes each asset once into a hierarchy and a bond graph, and every blow is a cheap query against it, which is the shape PhysX Blast and Unreal's Chaos arrived at too ([why](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/why.md)).
 
-That is `examples/explode.rs` at its own 0.4× playback. The subject is intact, then it *is* its own fragments — the "break" is one despawn and a spawn, because the fracture was computed long before. **The red is not a colour choice, it is the whole idea:** every fragment comes back as two meshes, the subject's own surface and the faces this cut just created, so the inside can take a different material. Render both with the skin material and the same fragments stop looking broken and start looking disassembled.
-
-> **This repository is the source of truth.** Since 2026-10-19 the crate is developed here, on Bevy 0.20, work is pushed here, and releases to crates.io are cut from here. [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) still carries a copy at `crates/bevy_carnage/`, but it is **frozen at `0.5.64`, on Bevy 0.19**, and is never mirrored over this repository again, so a fix sent there does not reach this crate. `CLAUDE.md` records the two earlier arrangements (pinned by rev from the game, then vendored into the monorepo and mirrored out); neither is live.
-
-## The family — one crate, seven kernels
-
-This crate is the whole gore stack. **Depend on it alone**: every kernel below is a module of it, reached by the path in the last column, and there is nothing else to add — no second dependency line, no version pin to keep aligned with this one. Each was a published crate of its own until 0.5.0 (the links are the archived repositories, kept for their history); a game never needed seven, so they came home.
-
-| module | what it is | reach it as |
-|---|---|---|
-| the umbrella | plane cuts with watertight caps, bores, energy-driven fracture, wounds, decals, impact feel, the flesh material and the preset | `bevy_carnage` |
-| [`bloodstain`](docs/bloodstain.md) | blood as a material: Carreau–Yasuda rheology, Comiskey spatter, stain morphology, drying, spectral colour by thickness and oxygenation, and the three injury kernels (bruise, burn, wick) — engine-free, `[f32; 3]` in every signature | `bevy_carnage::bloodstain` (also `::blood`) |
-| [`wetmap`](docs/wetmap.md) | texture-space blood that runs, spreads and dries — CPU-authoritative, so a canvas can be hashed | `bevy_carnage::wetmap` |
-| [`viscera`](docs/viscera.md) | XPBD strands with a tearing mesentery: guts that spill, coil, tether and tear | `bevy_carnage::viscera` |
-| [`cross_section`](docs/cross_section.md) | anatomical bands on a cut face from a sourced per-region thickness table, via `UV_1` | `bevy_carnage::cross_section` |
-| [`flaymap`](docs/flaymap.md) | texture-space flaying: skin, fat, muscle, cortex peel under hits, with a once-per-canvas bone handoff | `bevy_carnage::flaymap` |
-| [`laceration`](docs/laceration.md) | a cut that gapes on a time curve, scaled by skin tension and Langer-line orientation | `bevy_carnage::laceration` |
-| [`fracture_modes`](docs/fracture_modes.md) | Sellán's fracture modes on a cell graph: a fixed-schedule bake, impact projection, gluing partition | `bevy_carnage::fracture_modes` |
-
-Every module is deterministic where it can be — fixed schedules, no clocks, frozen digests over its CPU state. `bloodstain` has no engine in it at all, and `tests/leaf.rs` keeps it that way now that it is a module rather than a crate boundary. Fourteen of the family's examples run in a browser at [ladvien.github.io/foundation_vs_slop](https://ladvien.github.io/foundation_vs_slop/), built from the monorepo's frozen `0.5.64` copy on Bevy 0.19.
-
-## Features
-
-- **One bake, every granularity.** A bake keeps the whole hierarchy it cut through, so the same cached asset answers "break this into three" and "break this into forty" without cutting twice.
-- **Localised damage.** A bond graph records which fragments actually share a face. Shoot a shoulder and the arm comes off while the body stays standing — the joints are found by geometry, not authored.
-- **Five region queries** — projectile, slash, swept blade, blast, directional pull — each a pure function of the bake plus some geometry.
-- **Bullet holes that go through, and gore that comes out the far side.** A segment plus a radius subtracts a convex prism from the proxy, in closed form and as plane cuts only, so the channel is real geometry with a red interior, the pieces around it stay bonded, and every shard is still a convex-hull collider. The material the channel removed comes back as `Ejecta` — a spawnable convex chunk with the wall's raw interior and a patch of skin at each end — so the hole and the gore are the *same subtraction*, and the bore conserves volume. Dials for radius, barrel sides, raggedness, exit flare, and how many pieces the plug breaks into — because one convex prism ejected whole reads as a dowel, which is exactly what an apple corer leaves.
-- **Progressive destruction.** Hit it again and it comes apart further. Island detection is stateless; you own the damage state.
-- **Two meshes per fragment** — the subject's own skin and the newly-cut faces, separately, so the inside can take a different material.
-- **Solver-ready colliders.** Every fragment is one convex cell. `Collider::convex_hull(frag.cell.points())` and you are done — no decomposition at spawn, no trimesh.
-- **Shape and look dials** — off-centre cuts, size spread, weak-axis bias, crumpled cut faces, rounding — so the output reads as torn rather than as shattered ice.
-- **Reproducible.** Two runs of the same build on the same asset produce bit-identical fragments, and a test enforces it.
-- **Wounds, as values.** `Wound { at, normal, area, severity, kind }` — subject-local, derived only from baked geometry. A severed bond *is* a wound (its centroid, normal and area, with no arithmetic); a bore's channel wall is one too, because `face_is_cut` already answers `true` for it. So a bullet hole bleeds through exactly the same code a bisection does, with no second path.
-- **A spatter model with a citation, not a preset.** Comiskey, Yarin & Attinger (*Phys. Rev. Fluids* 3, 063901, 2018) show blood disintegrating by *percolation*, which makes droplet size and initial speed **inversely** correlated — many small ones fast, few large ones slow, bracketed by their measured 40 m/s forward and 8 m/s back spatter. One draw sets size and its inverse sets speed, on the CPU and in the shader both, and a test asserts the correlation (Pearson `r < -0.9`) rather than a comment claiming it. Landing points are solved in closed form, so **where blood lands exists with the render feature off** — which matters when a pool's position feeds simulation.
-- **A pulsatile bleed schedule in integer ticks.** One state machine over `tick - opened_at`: integer modulo for the heartbeat, so a pulse train cannot drift or depend on frame rate, and a monotone taper to *exactly* zero at the clot. `pulse_wound` scales the wound's severity, so the first arterial jet and the last seep are the same model at two numbers.
-- **Impact feel as numbers you apply.** Trauma, hit-stop ticks and a tick-indexed shake offset eased along the wound normal — grounded in Pichlmair & Johansen's game-feel survey, which says in as many words that shake should *not* be random. The crate never writes `Time<Virtual>` and never touches a camera: it returns values and you own both.
-- **GPU blood behind a feature.** `bevy_hanabi` is optional and gated on `vfx`, so the default build resolves no particle system (the render crate itself is always present — the wetmap and flaymap author `Image`s, though never a shader). It is admitted on the terms that keep the boundary meaningful, and one of them is sharp: Hanabi 0.19 has **no GPU→CPU readback at all**, so a particle cannot reach a golden even by mistake. **`vfx` cannot be enabled on Bevy 0.20 yet:** `bevy_hanabi`'s newest release, `0.19.0`, is a Bevy 0.19 crate, so the six examples that need `vfx` are skipped until it publishes for Bevy 0.20.
-- **No physics dependency, no RNG dependency, no game logic.** `bevy`, optional `serde`, `isomesh` for validation, and optional `bevy_hanabi` behind `vfx`. `hash_f32` is the only source of randomness in the crate, and it is frozen by a test.
-
-## Install
+## Quick start
 
 ```toml
 [dependencies]
 bevy_carnage = "0.7"
 ```
 
-Requires **Bevy 0.20** and a Rust toolchain with **edition 2024**. That one line brings the whole family: `bevy_carnage::blood` (the material), `::wetmap`, `::viscera`, `::cross_section`, `::flaymap`, `::laceration` and `::fracture_modes` are the seven sibling crates re-exported whole, so nothing has to be named twice and no two versions of a leaf can meet in one graph.
-
-`0.7` is on crates.io. The release before it, `0.5.18`, is a Bevy 0.19 crate; a Bevy 0.19 project stays on `"0.5"`. To follow the repository instead of a release: `bevy_carnage = { git = "https://github.com/bevy-coven/bevy_carnage" }`.
-
-| feature | default | what it does |
-|---|---|---|
-| `serde` | ✅ | `Serialize`/`Deserialize` on the settings and hierarchy types, so a game can author dials in RON |
-| `flesh` | ✅ | The flesh material and the drop-in preset — `bevy_carnage::flesh` and `::preset`. Pulls `bevy_image` and embeds a shader. Off, the deterministic half compiles without either, which is what a headless server wants |
-| `strict-order` | — | Turns on the vertex-soup sort's runtime tie check in release. On automatically under `debug_assertions`; this is for a harness that builds in release and still wants it |
-| `vfx` | — | GPU blood (`bevy_hanabi`) and stain decals. **Cannot be enabled on Bevy 0.20 yet**: `bevy_hanabi` has no release for it, so the six examples that need it are skipped by their `required-features`. The deterministic half — wounds, spatter, stains, bleed schedule, feel — is entirely outside it |
-
-## Quick start — the two-line inclusion
-
-**0.4.0 adds a preset.** One plugin, a `Gore` on every surface that can be hurt (or one `GoreScene` on a loaded character), and a `GoreHit` per injury; everything below in this README is what the preset composes, and every one of its surfaces wears the flesh material. **Putting it on a real glTF character:** [`docs/preset.md`](docs/preset.md) is the checklist: the fixed step, `UV_0`, `uv_per_metre`, `gravity_uv`, the scale, the hit ray, and who owns the pieces.
-
 ```rust
 use bevy::prelude::*;
-use bevy_carnage::cross_section::Region;
 use bevy_carnage::preset::{Gore, GoreHit, GorePlugin, GoreScene};
 
 fn wire(app: &mut App) {
     app.add_plugins(GorePlugin);
 }
 
-fn dress(mut commands: Commands, torso: Entity, shirt: Entity, floor: Entity) {
-    // Each mesh's atlas density is measured when it is dressed; state it only to override.
-    commands.entity(torso).insert(Gore::skin(Region::Torso));
-    commands.entity(shirt).insert(Gore::cloth());
-    commands.entity(floor).insert(Gore::floor().with_uv_per_metre(0.3));
+// Dress a loaded character: every mesh under it is dressed by its node's name (`Head`, `Arm_L`).
+fn dress(mut commands: Commands, character: Entity, floor: Entity) {
+    commands.entity(character).insert(GoreScene::humanoid());
+    commands.entity(floor).insert(Gore::floor());
 }
 
-// Or dress a whole loaded character at once: put this on the entity its glTF scene is spawned under, and
-// every mesh that appears below it, now or as the scene streams in, is dressed by the words in its node's
-// name (`Head`, `Arm_L`, `shirt`). Rules you add win over `humanoid`'s own.
-fn dress_scene(mut commands: Commands, character: Entity) {
-    commands.entity(character).insert(GoreScene::humanoid().with("tabard", Gore::cloth()));
-}
-
-// `target` is a dressed mesh, or any ancestor of dressed meshes — the character your physics found.
-// An ancestor is cast at every skin under it, as drawn, and the nearest is hurt.
-fn on_raycast(mut hits: MessageWriter<GoreHit>, target: Entity, from: Vec3, dir: Vec3) {
-    hits.write(GoreHit::impact(target, from, dir, 0.03, 12.0));   // a crater 3 cm wide, 12 mm deep
-    hits.write(GoreHit::blunt(target, from, dir, 0.04));           // a bruise that ages
-    hits.write(GoreHit::burn(target, from, dir, 0.03, 150.0, 1.0)); // a hot iron, one second
+// One message per injury, along your hit ray.
+fn on_hit(mut hits: MessageWriter<GoreHit>, target: Entity, from: Vec3, dir: Vec3) {
+    hits.write(GoreHit::impact(target, from, dir, 0.03, 12.0)); // a crater 3 cm wide, 12 mm deep
     hits.write(GoreHit::slash(target, from, dir, Vec3::X, 0.06, 8.0)); // a cut that gapes
 }
 ```
 
-What a hit does, in order: the flaymap peels to the depth asked; the wound's spatter lands on every `Gore::floor` (closed form, flown at a quarter of the paper's launch speed, `preset::GORE_SPATTER_SPEED_SCALE`, so it lands in the 4 m Comiskey, Yarin & Attinger measured) and is cast at every other dressed surface; a bleed opens and pulses onto the wetmap until it clots, dripping a pool under the wound; a torso opened to muscle spills `bevy_viscera` strands; the first hit to show cortex forwards `BoneExposed` and — for a body that is a baked `FractureSubject`, or a runtime body carrying `GoreBreakable` — parts it along the fracture modes and throws the islands. A blow starts a `bloodstain::bruise` under intact skin that ages in time-lapse; a burn runs `bloodstain::burn` and reddens, blisters or chars to the necrosis depth; blood on cloth wicks along `bloodstain::wick`'s Lucas–Washburn front. `GoreDials` carries the numbers; `GoreClock` is the fixed tick every leaf is measured against.
+Putting it on a real glTF character has a checklist: [`docs/preset.md`](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/preset.md). The full quick start, and baking a fracture by hand, are in [the guide](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/quick-start.md).
 
-**The flesh material** is what makes it read as tissue rather than as painted plastic: `bevy_carnage::flesh::FleshMaterial` is an `ExtendedMaterial<StandardMaterial, _>` with subsurface scattering pre-integrated per tissue from Jensen's dipole (`doi:10.1145/383259.383319`) after Penner's 2011 lookup, a wet clear coat driven by the wetmap's wetness byte, the blood film composited over the base from `bloodstain::spectral` so a fabric keeps its hue under a stain, and a dermis map for what lies under intact skin. Forward path, WebGL2-safe, one sampler; both of its tables are CPU-baked and frozen by a golden. `examples/flesh.rs` shows it alone and `examples/carnage_web.rs` — the flagship, which used to be a thousand lines of hand-wiring — is now the preset and nothing else.
-
-**A skinned, animated character needs no extra step.** Put `Gore` on the skinned mesh as on any other. Hits, sprays and drips are cast at the pose the joints put it in, which is the pose on screen; a wound is a triangle and a place in it, so it bleeds from where that spot of skin is now; and the blood runs downhill in the world. A skin whose joints have no transform yet drops a hit with one warning rather than casting it at the bind pose. [`docs/preset.md`](docs/preset.md#skinned-characters) has the list, and `examples/skinned.rs` is the proof.
-
-**A hit costs what its blood costs, not the world it lands in.** Twelve pellets from a shotgun in one tick take 3.1 ms on a character of 97 000 triangles, and one hit among 240 dressed surfaces 1.4 ms, on one Apple M5 in release. [`docs/preset.md`](docs/preset.md#what-it-costs) has the table and how to measure your own scene.
-
-**The preset obeys the player's violence setting.** Insert a `GorePolicy` (`GorePolicy::for_tier(GoreTier::Blood)`) and the next hit follows it, so a settings menu is one resource: at `Stylised` a hit is still announced as `Wounded`, at the same point, and nothing bleeds, so the game puts a spark where the blood would have been; `Blood` keeps the blood and refuses the guts and the breaking; the world's share of the blood, the guts and the breaking are each a switch of their own. Reduction is substitution, never deletion.
-
-![The same scripted scene three times: at the stylised tier a yellow spark marks each shot and nothing bleeds; at the blood tier the wounds bleed and pool on the floor and the body stays whole; at blood and gore the body comes apart](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/tiers.gif)
-
-That is `capture_preset -- --tier 0|1|2`; `T` cycles it live in `examples/preset.rs`, and [`docs/preset.md`](docs/preset.md#the-players-settings) has the table.
-
-## Quick start — the bake by hand
-
-Mark what should break, then read the bake back when it dies. The launch is yours, and so is the solver.
-
-```rust
-use bevy::prelude::*;
-use bevy_carnage::{CarnagePlugin, CarnageSystems, DetachedPart, FractureCache, FractureSubject};
-
-#[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
-enum GameState { #[default] Playing, Paused }
-
-fn wire(app: &mut App) {
-    app.add_plugins(CarnagePlugin)
-        // The crate configures no run condition — when the bake runs is yours.
-        .configure_sets(Update, CarnageSystems.run_if(in_state(GameState::Playing)));
-}
-
-// Mark what should break, and what should come off intact.
-fn spawn_enemy(mut commands: Commands, assets: Res<AssetServer>) {
-    let scene: Handle<WorldAsset> = assets.load("enemy.glb#Scene0");
-    let enemy = commands.spawn((FractureSubject(scene.clone()), WorldAssetRoot(scene))).id();
-    // ...once the scene streams in, tag whatever should detach intact:
-    commands.entity(enemy).insert(DetachedPart);
-}
-
-// At the moment of death, read the bake at whatever granularity this death deserves.
-fn on_death(cache: Res<FractureCache>, subject: &FractureSubject) {
-    for frag in cache.leaves(subject.0.id()) {          // finest
-        let _ = (&frag.outer_mesh, &frag.cap_mesh, frag.center_local, frag.half_extents);
-    }
-    for frag in cache.frontier_of(subject.0.id(), 3) {  // the same bake, as three big chunks
-        let _ = frag.id;
-    }
-}
-```
-
-You do not need an `App` to use the fracture itself. `fracture_mesh` is the whole pipeline with no assets and no ECS — meshes in, meshes out:
-
-```rust
-use bevy::math::{Mat4, Vec3};
-use bevy::shape::Cuboid;
-use bevy::mesh::Mesh;
-use bevy_carnage::{CutSettings, ProxyCell, fracture_mesh};
-
-let body = Mesh::from(Cuboid::new(1.0, 2.0, 1.0));
-
-// **The proxy is yours.** This crate cuts a convex decomposition and carries your triangles along
-// as a payload — it never cuts the triangle soup. One cell per connected shell; a consumer already
-// running V-HACD or CoACD for colliders has these, and a blocked-out subject can use `from_box`.
-let proxy = vec![ProxyCell::from_box(Vec3::ZERO, Vec3::new(0.5, 1.0, 0.5))];
-
-let cut = CutSettings::new(
-    12,          // finest fragment count
-    0.15,        // stop cutting below this fraction of the subject's size
-    0xC0FFEE,    // seed — same seed, same pieces, every run
-);
-// Tier A — the convex cells — exists for every node the instant this returns. The drawn meshes are
-// built for the nodes you ask for, which is why the accessors take `&mut`.
-let mut baked = fracture_mesh(&[(&body, Mat4::IDENTITY)], &proxy, &cut);
-
-assert_eq!(baked.frontier_of(3).len(), 3);   // one bake, read back as three pieces
-let pieces = baked.leaves();                 // ...or as all of them
-assert!(pieces.len() > 1);
-assert!(pieces.iter().all(|p| p.outer.is_some() || p.cap.is_some()));
-```
-
-## Demos
-
-**[docs/DEMOS.md](docs/DEMOS.md) — the examples, with recordings**, what each is for, and how to regenerate the clips. The two 0.4.0 clips:
-
-| | |
-|---|---|
-| ![flesh](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/flesh.gif) | ![preset](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/preset.gif) |
-| `capture_flesh` — the material: a banded limb, a skin sphere, a sheet, under a walking light | `capture_preset` — the preset: a blow, a burn, a slash, and shots to the bone |
-
-![A smooth mannequin walks in place with its left arm raised and waving; a shot opens a wound on the raised forearm, a slash opens a thigh, shots open the chest, and each wound keeps bleeding from the limb it is on while blood pools under the feet](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned.gif)
-
-That is `examples/skinned.rs` — **the preset on a skinned, animated body**, made in code with no asset. A game's character is a mesh whose asset is its bind pose, arms at its sides, and a skeleton that carries it somewhere else each frame; before 0.5.19 the preset cast every hit at the asset, and a shot at the raised forearm above did nothing. Now the hit lands where the arm is *drawn*, the wound rides the limb it opened on, and its blood runs downhill in the world rather than along the atlas. Every key aims at where that part of the body is this frame; `capture_skinned` records it.
-
-![A mannequin walks in place with its left arm raised; a heavy shot to the chest breaks it mid-stride into pieces that keep the pose, the raised arm up and the legs mid-step, before they fall and settle among its guts](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_break.gif)
-
-That is `capture_skinned --break`, and **a body that breaks breaks where its skeleton is.** The fracture is baked from a mesh asset, which is the bind pose; before 0.5.28 the pieces of a character caught mid-stride appeared with its arms at its sides. Each piece is now carried by the bone of the vertex nearest it, to where that bone is on the tick the body breaks and turned as it is. The one thing asked of the game is that a skinned body's fracture is baked in the mesh's own space.
-
-![The mannequin walks in a pale sleeveless shirt; two shots to the chest punch a ragged hole in the shirt through which the wound is seen, and blood soaks outward through the cotton along a frayed, pinkish front](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_shirt.gif)
-
-That is `capture_skinned --shirt`: **a shot through clothing holes it.** The shirt is a seventh skinned mesh named `Shirt`, which `GoreScene` dresses as cloth. Before 0.5.29 the shot wounded the skin under it unseen and the shirt took a flat red patch; now the impact opens a hole where its ray crossed the shirt, cut from the colour, the shadows and the depth prepass alike, and the blood wicks into the weave around it.
-
-![The mannequin walks in front of a plaster wall; a shot through the raised forearm and two through the chest throw a cone of fine spatter onto the wall behind it, each drop its own small stain](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_through.gif)
-
-That is `capture_skinned --through`: **a shot that goes through.** Whether a bullet leaves a body is the game's ballistics, so the game says so, with `GoreHit::through()`. The preset goes through everything of the body on the shot's line, opens an exit wherever it comes out, wider than the way in, bleeds from every wound, and throws each exit's forward spatter along the shot. The wall is `Gore::wall()`, a hard upright surface on which every droplet is its own stain, sized, stretched and pointed by the way it struck.
-
-![The mannequin stands with its right forearm held across its chest; one shot goes through the forearm and on into the chest, and as the arm is lowered the chest wound it hid is seen bleeding, the wall behind spattered by the chest's exit](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_guard.gif)
-
-That is `capture_skinned --guard`: **a shot through a forearm goes on into the chest.** The body stands with its right forearm across its chest, and one shot through it goes in and out of the forearm and then in and out of the chest. When the arm comes down the wound it was hiding is there, the forearm's forward spatter round it, and the chest's exit has spattered the wall. Until 0.5.62 the shot stopped at the far side of the forearm and the chest took a sheet of blood with no wound under it.
-
-![Slowed four times: one shot through the forearm held across the mannequin's chest throws a fan of thin red streaks from both wounds, which slow and shorten as they fly, and a soft red mist hangs where the shot went in](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_spray.gif)
-
-That is the same shot at a quarter speed, `capture_skinned --guard --slow 4`: **the spray is streaks.** Every droplet is drawn along its velocity, as long as a ninetieth of a second of its flight, so it leaves the wound as a streak and shortens as drag slows it; at full speed it is out of a body-sized view within two frames. The stains on the wall behind are already there in the first frame: the preset paints a stain the tick its wound opens, ahead of the spray that carries it (see the known limits in [`docs/preset.md`](docs/preset.md)).
-
-![The mannequin walks across a tiled floor through a spill of blood and out the other side, leaving a line of bloody boot prints, left and right, each paler and more broken than the last](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_stroll.gif)
-
-That is `capture_skinned --stroll`, on a floor of 30 cm tiles whose UVs repeat as a level's do (`Gore::projected`): **a foot that stepped in blood tracks it.** When a foot lands is the game's animation, so the game says so, with the `GoreStep` it raises for a footstep's sound. A sole in wet blood picks some up and leaves a sole-shaped dent; a sole carrying blood prints a boot's outline on the floor and sheds 30 % of what it carries, so the prints fade from a whole sole to a scatter. Dried blood is not picked up.
-
-The seven kernels have a clip each, on their own pages under `docs/`, and every one was cut from a headless recorder in this crate's `examples/` — `capture_gore` for the four cut-face kernels, `capture_family` for the blood pair, `capture_entrails` for the strands — so the clip you see is a script two runs must reproduce digest-for-digest:
-
-| | | |
-|---|---|---|
-| [![cross-section](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/cross_section.gif)](docs/cross_section.md) | [![fracture modes](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/fracture_modes.gif)](docs/fracture_modes.md) | [![flaymap](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/flaymap.gif)](docs/flaymap.md) |
-| [![laceration](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/laceration.gif)](docs/laceration.md) | [![spectral blood](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/spectral.gif)](docs/bloodstain.md) | [![wetmap](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/wetmap.gif)](docs/wetmap.md) |
-| [![viscera](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/viscera.gif)](docs/viscera.md) | | |
-
-![A blue blocked-out humanoid standing; a projectile takes off its arm, another its head, a slash takes the other arm, a blade through the waist takes both legs and a blast finishes the torso](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/sever.gif)
-
-That is `examples/sever.rs`, on a fixed script. The subject **stays standing** between blows and what comes off depends on where you hit it. Run it and you aim it yourself:
+## Try it
 
 ```sh
-cargo run --release --example carnage          # needs a GPU
-cargo run --release --example sever            # needs a GPU
-cargo run --release --example explode          # needs a GPU
-cargo run --release --example bullet_holes     # needs a GPU
-cargo run --release --example ribbons          # needs a GPU — a blood strand per flying chunk
-cargo run --release --example entrails         # needs a GPU — torso chunks pull their guts out
-cargo run --release --example fracture_cube    # terminal only — no window, no GPU
-cargo run --release --example skinned          # needs a GPU — the preset on an animated, skinned character
+cargo run --release --example preset
 ```
 
-```text
-  arrows / WASD   move the aim marker
-  1 … 5           projectile · slash · swept blade · blast · pull
-  G               granularity — cycle which frontier of the bake is standing
-  T               soften — cycle how hard the drawn fragments are rounded
-  R               reset
-```
+The left GIF above, with keys to aim it yourself; `T` cycles the violence setting.
 
-![A blue blocked-out humanoid standing still while five shots punch through it one at a time, each leaving a small dark-red hole in the blue skin and throwing a handful of rounded red chunks out the far side that arc down, land and spread into overlapping dark pools on the floor, then the camera orbits a third of a turn to show the wider exit wounds and the spatter together](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/holes.gif)
+![The preset mid-scene: the body has come apart on the floor into chunks with raw red cut faces, lying in a pool of blood beside a standing sheet](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/media/preset.png)
 
-That is `examples/bullet_holes.rs`, on a fixed script. Each shot is a `Bore` — a segment, a radius and three look dials — subtracted from the proxy before any cut, so the hole has a wall rather than being painted on a surface, and the plug it removed is thrown out the exit side as a chunk of gore that lands and becomes a flat stain. The subject keeps standing because the shards around a channel share their radial faces bit-for-bit and the bond graph reads them as one island. Run it and you aim it yourself, with `[`/`]` for calibre, `J` for raggedness, `F` for exit flare and `K` for how many pieces the plug breaks into.
+*A frame of `preset` after the last shot: the chunks, their cut faces, and the pool.*
 
-![A blue blocked-out humanoid; a shot punches a channel through its chest which mists blood from the hole, then four blows in turn take an arm, the head, the other arm and both legs, each cut throwing a red spray outward along the face it opened while dark stains pile up on the floor beneath; the severed pieces keep pulsing blood at a heartbeat's rate as they lie there, the pulses weaken, and by the end the floor is soaked and the bleeding has stopped](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/carnage.gif)
+## What you can do
 
-That is `examples/carnage.rs`, on a fixed script — and it is the one clip that shows the whole crate at once. **A bullet hole and a severance are geometrically different openings, and they bleed through the same code**: frame 18 is a bore, the rest are severances, and nothing downstream can tell them apart beyond a `WoundKind` mixed into a seed. The spray leaves each cut along that cut's own normal, the floor stains are solved on the CPU and would exist with the render feature off, and every severed piece keeps pulsing at its own heartbeat until it clots. Run it and you aim it yourself, with `1`–`5` for the five blows and `6` to shoot a channel through.
+- **Hurt a character with one message**: `GoreHit::impact`, `blunt`, `burn` and `slash` peel skin, fat and muscle to bone, bruise and burn under the skin, and cut wounds that gape: [quick start](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/quick-start.md).
+- **Make wounds bleed where they are**: a pulsing bleed runs downhill on the pose on screen, pools on the floor and dries, on skinned, animated bodies too: [`docs/preset.md`](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/preset.md).
+- **Break a body into its own pieces**: bake once, then shoot a shoulder and the arm comes off, with watertight cut faces and convex colliders: [the API](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/api.md).
+- **Bore bullet channels that come out the far side**: the hole and the gore it throws are the same subtraction: [features](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/features.md).
+- **Honour the player's violence setting**: `GorePolicy` swaps blood for sparks, or keeps blood and refuses the breaking, by substitution and never deletion: [`docs/preset.md`](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/preset.md#the-players-settings).
+- **Replay a fight exactly**: every canvas is owned by the CPU and hashed, so two runs of a build print the same digest: [determinism](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/determinism.md).
+- **Reach the seven kernels underneath**: blood rheology, wetmaps, viscera, cross-sections, flaying, laceration and fracture modes, all modules of this one crate: [the family](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/family.md).
 
-Its recorder, `capture_carnage`, prints one line that two runs must agree on — `carnage: frames=… wounds=… stains=… digest=…` — which is the determinism check for the whole layer: the bake, the bond graph, wound extraction and its canonical sort, the wound seed, the droplet draws, the ballistic solve and the pulse schedule. A digest that moves means something read a clock, an `Entity`, or an unsorted iteration order.
+## Part of the Coven
 
-## Why: break the asset once, not the frame
+`bevy_carnage` is one of the [Bevy Coven](https://github.com/bevy-coven) crates. Grimoire, the Coven's editor, uses it for destructible props and its damage dials: [use it in Grimoire](https://bevy-coven.github.io/crates/bevy_carnage.html#use-it-in-grimoire).
 
-The tempting version of this feature computes a fracture at the moment of impact. The shipped version, in more or less every game that has one, does not — it **pre-fractures the asset and swaps it in at runtime**, which is exactly what Müller, Chentanez & Kim document as the practical norm (ACM TOG 2013). Sellán et al.'s *Breaking Good* (ACM TOG 2022) is the most physically honest option available, and its fragments are precomputed **offline** through tetrahedralization and a conic solve in a Python/libigl toolchain — not something a minimal-dependency Rust crate can embed.
+## Bevy compatibility
 
-**But a static pre-fracture cannot answer where it was hit**, and Müller says so plainly: *"When a gamer shoots at a glass window, she expects the spider-web-shaped fracture pattern to be centered around the location where the bullet hit the glass. Anything else clearly destroys the illusion."* So the bake is not a fragment *set*. It is a hierarchy plus an adjacency graph, and every blow is a query against it. That is the shape PhysX Blast and Unreal's Chaos arrived at independently.
-
-**The cut runs on a convex proxy, never on the triangle soup.** Müller's load-bearing observation is that `plane ∩ convex polyhedron = convex polygon`, which makes every cut face convex by construction and a centroid fan over it provably valid. There is no boundary-loop recovery in this crate because there is no input that needs one. The render triangles ride along as a payload, assigned to whichever cell bounds them and split only where they straddle a plane.
-
-The cost of that choice is the proxy itself: **you supply it.** See "What it deliberately does not do".
-
-## The API
-
-### Baking, in the ECS
-
-| item | kind | what it is for |
-|---|---|---|
-| `CarnagePlugin` | `Plugin` | Registers the cache, the settings, and the bake |
-| `CarnageSystems` | `SystemSet` | On `Update`. Gate and order against this, not the system |
-| `FractureSubject(Handle<WorldAsset>)` | `Component` | What to break. The cache key *and* the seed source |
-| `FractureProxy(Vec<ProxyCell>)` | `Component` | Your convex decomposition, subject-local. Required |
-| `DetachedPart` | `Component` | A subtree pruned out and baked as one intact chunk — a carried weapon, a hat |
-| `FractureSettings` | `Resource` | Twelve bake dials. `init_resource`d, so yours wins if inserted first |
-| `bake_fractures` / `materialise_fragments` | fn | The two systems, chained. Public so they can be named in an ordering constraint |
-
-### Reading a bake back
-
-| item | what it is for |
+| `bevy_carnage` | Bevy |
 |---|---|
-| `FractureCache::leaves(source)` | The finest granularity — every fragment that was never cut further |
-| `FractureCache::frontier_of(source, n)` | The same bake as roughly `n` pieces. **The granularity dial** |
-| `FractureCache::at_depth(source, d)` | Every branch cut to the same level |
-| `FractureCache::tree(source)` | The hierarchy itself: `FragmentTree`, `TreeNode`, `FragmentId` |
-| `FractureCache::bonds(source)` | The `BondGraph` for the finest frontier |
-| `FractureCache::detached_chunk(source)` / `is_baked(source)` | The pruned part; whether the bake has happened |
-| `FractureCache::solids(source)` | Tier A for **every** node — the convex cells, present the instant the bake finishes |
-| `FractureCache::request(source, ids)` / `ready(source, ids)` | Ask for a frontier's drawn meshes a frame ahead; check they arrived |
-| `Fragment` | `id`, two mesh handles, the convex `cell`, `center_local`, `half_extents` |
+| 0.6 – 0.7 | 0.20 |
+| 0.5 | 0.19 |
 
-### Where the blow landed
+## Learn more
 
-Each query returns a `Reach` — a severity in `[0, 1]` per bond — and **you** pick the threshold at which one gives way.
+- [docs.rs/bevy_carnage](https://docs.rs/bevy_carnage): the API, with this page as its front page.
+- [The book page](https://bevy-coven.github.io/crates/bevy_carnage.html), and [the gallery](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/gallery.md) and [`docs/DEMOS.md`](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/DEMOS.md) for every recorded example.
+- [`docs/guide/`](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/README.md): everything the old README carried, from the API to what each release changed.
+- [`examples/`](https://github.com/bevy-coven/bevy_carnage/tree/main/examples) and [`CHANGELOG.md`](https://github.com/bevy-coven/bevy_carnage/blob/main/CHANGELOG.md).
 
-| item | models |
-|---|---|
-| `spread(graph, at, min, max)` | a projectile — nearest fragment, then outward **along the bonds** |
-| `capsule(graph, a, b, min, max)` | a swung edge — falloff from the segment a blade travelled |
-| `swept_triangle(graph, a, b, c)` | a swept blade — every bond the swing passed *through*, no falloff |
-| `radial(graph, at, min, max)` | a blast — falloff from a point in open space |
-| `directional(graph, at, dir, min, max)` | a pull — weighted by how squarely each face meets it |
-| `Reach::above(threshold)` | the bonds that give way. Scale severity by material first if you like |
-| `BondSet` | your accumulated damage. `sever_all`, `is_broken`, `severed` |
-| `BondGraph::islands(members, broken)` | what is still connected. Stateless — call it after every blow |
-| `BondGraph::of(members, capacity)` | build a graph for a frontier other than the finest |
+## Who and licence
 
-### Geometry, with no ECS
-
-| item | what it is for |
-|---|---|
-| `fracture_mesh(parts, proxy, &CutSettings)` | The whole pipeline. Meshes in, `Fracture` out |
-| `Fracture` | `solids()` + `tree` + `bonds`, with `leaves()`, `frontier_of()`, `at_depth()` (all `&mut`: Tier B is built on request) |
-| `CutSettings` | The geometry dials for one bake, without the ECS sizing policy |
-| `ProxyCell` | One convex cell. `from_box`, `points()` (→ your collider), `volume()` (→ mass) |
-| `audit_proxy` / `audit_render` / `SolidAudit` / `SurfaceReport` | Measure what the fracture produced |
-| `hash_f32` | The frozen integer hash the fracture seeds from |
-
-### Skinned meshes
-
-Everything the preset casts a ray at — a hit, a droplet, a drip — lands on the body *as it is drawn*. `bevy_carnage::skin` is the CPU half of what `bevy_pbr`'s vertex shader does, so a game can ask the same question of an animated body.
-
-| item | what it is for |
-|---|---|
-| `skin::Pose::of(&SkinnedMesh, &SkinnedMeshInverseBindposes, world)` | The joint matrices (`joint_global · inverse_bindpose`) at this instant. `None` while a joint has no transform yet or the lists disagree |
-| `skin::Rig::of(&Mesh)` | A mesh's per-vertex joint indices and weights, borrowed. `None` when it is not skinned |
-| `skin::posed_mesh(&Mesh, &Pose)` | The mesh as the pose draws it, world space, with `UV_0` and indices: cast it with `GlobalTransform::IDENTITY` |
-| `skin::posed_vertex(&Mesh, &Pose, i)` | One vertex under the pose |
-| `preset::SkinAnchor` | A spot on a skinned mesh as a triangle and a place in it, so it can be posed again each tick. Held by `WoundSite::skin` |
-| `preset::RunDirection` | Which way blood runs on a skinned part right now, in UV space: downhill in the world at its wounds |
-
-**Breaking a skinned body at its joints.** `fracture_mesh` cuts a convex proxy, and a body cut per bone comes out as islands, because a bone meets the next at a joint and not over a polygon. `fracture_skeleton` is the other way in: say which joints make one piece and where two pieces meet, and it cuts the body's meshes once, one piece per group, and declares the bonds, so the region queries and `BondGraph::islands` of the cell fracture work on a skeleton. It reads a **rigidly** skinned body only and refuses anything else by name, naming the part and the triangle or vertex, rather than cutting a piece that would jump at the break.
-
-| item | what it is for |
-|---|---|
-| `fracture_skeleton(&[&Mesh], &[Mat4], &[JointGroup], &[JointLink])` | One piece per group, in the meshes' own bind space and not recentred, so a piece drawn with its joint's `joint_global · inverse_bind` lands where the body drew it. `Err(SkeletalRefusal)` when the body cannot be cut exactly |
-| `JointGroup { joints, anchor }` / `JointLink { a, b, joint }` | The joints that make one piece and the one that carries it; two pieces and the joint whose bind position is where they are bonded |
-| `SkeletalFracture { pieces, bonds }` / `SkeletalPiece { id, anchor, meshes, center }` | The pieces, and a `BondGraph` built by `BondGraph::declared` over `FragmentId(0)..FragmentId(n)` |
-| `SkeletalRefusal` | `NotSkinned`, `NotIndexed`, `NotTriangleList` (a strip or a line mesh is not read as a list), `BadIndex`, `UngroupedJoint`, `SplitVertex` (a vertex weighted across two groups: the body is soft-skinned), `SplitTriangle`, `BadLink`, `MissingBind` |
-
-### The carnage layer
-
-All of it pure functions over a `Wound`, all of it available with `vfx` off. Nothing here reads a clock, spawns anything, or writes a `Transform`.
-
-| item | what it is for |
-|---|---|
-| `Wound` / `WoundKind` | The one value everything downstream reads: `at`, `normal`, `area`, `severity`, and which of the two openings it was |
-| `wounds_from_reach(graph, reach, threshold)` | The wounds a blow opened, sorted by `BondId` so the order is a function of the graph |
-| `wounds_from_bonds(graph, broken)` | The wounds a set of already-severed bonds represents |
-| `cap_faces(cell)` / `largest_cap(cell)` | Every raw-interior face of a convex cell, and the widest one — "the wound on this chunk" |
-| `wound_of_channel(cell, exit, direction)` / `wound_from_ejecta(chunk)` | A bore's channel, as a wound. Its area is the channel *wall*, not the entry disc |
-| `Wound::to_world(&GlobalTransform)` → `Wounded` | Subject-local to world. A normal goes through the affine's linear part, never `transform_point` |
-| `Wounded` | The crate's one message. `CarnagePlugin` registers it; you write it |
-| `droplet(w, i, s)` / `droplets` / `droplet_count` | The spray. Indexed, so any subset recomputes without the rest |
-| `landing(from, &droplet, gravity, plane_y)` | Closed-form ballistic landing. `None` when it never crosses — no invented answer |
-| `stains(w, s, plane_y)` / `Stain` / `stain_radius` | Where blood lands and how wide it reads. **Core, not cosmetic** |
-| `Bleed` | `Component`. `opened_at` and `area`; everything else is derived from `tick - opened_at` |
-| `pulses_on` / `flow` / `clotted` / `pulse_wound` / `pulse_period` | The heartbeat, the taper, and the clot — integer ticks throughout |
-| `trauma_for` / `hitstop_ticks` / `shake_offset` | Impact feel, as numbers. **You** apply them |
-| `CarnageSettings` | Eighteen carnage dials, `deny_unknown_fields` with a serde default per field |
-| `BLOOD_DENSITY` / `BLOOD_SURFACE_TENSION` / `FORWARD_SPATTER_SPEED` / `BACK_SPATTER_SPEED` | The measured constants, each with its citation |
-
-Behind `vfx` only: `CarnageVfxPlugin`, `CarnageVfxSystems`, `CarnageEffects` (its four wound bursts in `Bursts`, `blood` and `substitute`), `EffectTtl`, the five effect builders (the four wound bursts take a `Palette`), `DROPLET_STREAK_S`, `puff_image`, and `SplatTextures` / `spawn_stain` / `splat_image` / `build_splats` for stain decals. A camera rendering a stain **must** carry `DepthPrepass`.
-
-### The dials
-
-`FractureSettings` sizes the bake per asset; `CutSettings` is what a single cut actually needs.
-
-| dial | default | effect |
-|---|---|---|
-| `pieces_base` / `ref_extent` / `min_pieces` / `max_pieces` | 14 / 0.5 / 6 / 40 | Fragment count, scaled by the mesh's own size |
-| `min_fraction` | 0.18 | Stop cutting a piece below this fraction of the subject's size |
-| `max_depth` | 12 | Cuts from a proxy cell to the finest fragment — the hierarchy's memory bound |
-| `plane_jitter` | 0.35 | How far a cut plane slides off centre. `0.0` halves every piece and reads as uniform shards |
-| `size_spread` | 0.5 | How much the largest-first cut order may be nudged, widening the size distribution |
-| `weak_axis` | 0.75 | How hard to cut across a piece's *narrow* dimension — where a real thing comes apart |
-| `cap_relief` | 0.30 | How much the drawn cut face is crumpled |
-| `soften` | 0.5 | How much the drawn fragment is rounded. **Tier B only** — the collider never changes |
-
-The last four are look dials, and the last two touch only the *drawn* mesh: the proxy cell stays exactly planar and convex, so colliders and every watertightness guarantee are untouched. `fracture_cube` prints the proof — cell volume identical at every `soften`, drawn area falling away.
-
-## What it deliberately does not do
-
-**It does not compute a convex decomposition.** You supply the proxy cells; the crate cuts them. A consumer already running V-HACD or CoACD for colliders has a decomposition, and forcing a second, different one would be the fracture disagreeing with the physics about what the object is. `ProxyCell::from_box` covers a blocked-out subject. Boring is not an exception to this: a `Bore` subtracts a prism *you* described from a cell *you* supplied, by plane splits with a closed-form decomposition, so what comes back is still a set of cells whose union is the shape you handed in — and a concave cell is still refused at the door.
-
-**It does not move anything.** No rigid bodies, no velocities, no physics dependency. The bake hands you a mesh and a convex cell per piece; spawning them, building a collider and throwing them is your game's decision and your solver's job. `examples/explode.rs` integrates its own ballistics in thirty lines to make the point.
-
-**It does not know what died.** No health, no factions, no damage types. It hands back a *reach* — geometry — and your game decides what an area is worth and what threshold means "this gives way".
-
-**It does not own your schedule.** The plugin adds one system to `Update` in one public set. Whether that runs while a menu is open is yours to configure.
-
-**It does not bond cells that merely touch.** Two cells are neighbours only when they share a *coplanar* face. V-HACD and CoACD produce cells that abut without their boundary polygons agreeing, so each root's subtree comes out as its own island unless your decomposition shares faces. Closing that with a proximity heuristic would silently weld a head to a torso.
-
-**`fracture_mesh` fractures the bind pose.** Geometry is read from `Mesh3d` as authored, so a skinned character breaks from its rest pose, not its death pose. The preset carries each piece by the bone of the vertex nearest it, to where that bone is on the tick the body breaks (`0.5.28`), and `fracture_skeleton` (`0.7.0`) cuts a rigidly skinned body along its joints instead; a death-pose snapshot of a soft-skinned body is the proper upgrade, and per the fracture literature the gap is not visible when the chunks are flung fast.
-
-## Determinism
-
-Two runs of the same build, on the same asset, must produce bit-identical fragments. Two things make that true, and both were learned the hard way:
-
-**The seed comes from the asset PATH, never its `AssetId`.** An `AssetId` is a slot index in the asset arena, handed out by async load order — so the same file gets a different id run to run, hashes to a different seed, and the mesh is partitioned along completely different planes. Measured, before the fix: 23 of 23 fragments differed, in half-extents as well as centres.
-
-**The vertex soup is assembled in a canonical order.** `Children` order for a glTF scene is whatever order async instantiation happened to add nodes in. Fragment centroids are float sums over the merged soup, float addition is not associative, and so an unsorted soup moves every centroid by a few ULPs — same fragment count, positions off in the last bits. Sub-meshes are sorted by `(mesh asset path, world-matrix bits)` before a single vertex is appended, and the key is checked at runtime for uniqueness under `debug_assertions` or `strict-order`.
-
-`hash_f32` is a hand-rolled integer hash with its output frozen in a test, for the same reason: there is no RNG dependency here, because a stream that may change between minor versions cannot underwrite any of the above.
-
-**The preset's recorders check every canvas a skin owns.** `capture_preset` and `capture_skinned` end on one line, and two runs of a build must print the same one: `digest=` folds the wetmaps (and a holed cloth) as the clip ends, `flay=` every flaymap's depth buffer (the craters) and `dermis=` every `DermisCanvas` (the bruises and burns under the skin, `DermisCanvas::digest`), those two at every frame of the clip, because a body that breaks is despawned and nothing of its skin is left to fold at the end. Each is a sorted fold of per-canvas FNV-1a digests over the CPU buffers, never the uploaded images. Until `flay=` and `dermis=` existed a bruise or a crater could have come out differently from run to run and `digest=` would not have noticed; `capture_skinned --blows` shares the default's `digest=` and has its own `dermis=`.
-
-Note what this does *not* claim. Fragment geometry is `f32` arithmetic, so cross-architecture bit-identity is not promised — only same-build, same-machine reproducibility, which is what a replay or a regression golden actually needs.
-
-## Status
-
-**`0.7.0` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in that one release, and the `0.5.18` before it is a Bevy 0.19 crate.
-
-### What `0.6.0` and `0.7.0` changed: Bevy 0.20, and a body that breaks at its joints
-
-- **`0.6.0`, Bevy 0.20** (`AG-138`). The crate requires Bevy 0.20, and the standalone repository is the source of truth from here. The two shaders are WESL now (`flesh.wesl`, `flesh_prepass.wesl`), and `Cuboid` and `Sphere` live in `bevy::shape`. `vfx` is off by default and cannot be enabled until `bevy_hanabi` publishes for Bevy 0.20. `cargo test` at `0.6.0` passed except `preset::tests::a_wound_stains_the_floor_beneath_it`, which fails the same way on `0.5.64` under Bevy 0.19.
-- **`0.7.0`, a skinned body breaks where its skeleton is** (`AG-139`). `fracture_skeleton` cuts a rigidly skinned body's meshes into one piece per group of joints, once, and declares a bond at each joint where two pieces meet (`BondGraph::declared`), so the region queries and `BondGraph::islands` that work on a cell fracture work on a skeleton. A triangle spanning two groups is refused (`SkeletalRefusal::SplitTriangle`). The API is under "Skinned meshes" in *The API*.
-- **Also in `0.7.0` as published** (`CHANGELOG.md`, `## [0.7.0]`). `fracture_skeleton` refuses by name what it cannot cut exactly (#7): a part that is not a triangle list (`NotTriangleList`), an index past the vertex buffer (`BadIndex`) and a vertex weighted across two groups (`SplitVertex`), which it used to cut as a list, report as "the body is not rigid" and draw at one anchor so the piece jumped at the break. `tools/qa.sh` finishes a round on a default build (#5). `GoreDials::default()` throws a wound's spray at game scale (`preset::GORE_SPATTER_SPEED_SCALE`, `0.25`), so a three-metre floor under a default `GorePlugin` takes it; `preset::tests::a_wound_stains_the_floor_beneath_it`, red since `0.5.64`, is green.
-
-### What `0.5.19` to `0.5.64` changed: the preset meets a real character
-
-Forty-six releases with one theme, the things a game finds out the first time it puts the preset on an animated glTF character. None is on crates.io yet; each has a ticket in `BACKLOG.md` (`AG-092` to `AG-137`) with what it was measured against, and the checklist is [`docs/preset.md`](docs/preset.md).
-
-- **`0.5.19`, skinned characters.** A hit lands on a body as it is drawn, not as its asset was authored. `bevy_carnage::skin` poses a skinned mesh the way `bevy_pbr`'s vertex shader does, a wound is a triangle and a place in it so it rides the limb, and blood runs downhill in the world however the atlas is laid out. `docs/skinned.gif`.
-- **`0.5.20`, a cheaper spray.** A droplet is tested against a surface's bounding box before the mesh. In a scene of forty characters, 240 surfaces, one hit went from 9.9 to 1.4 ms and twelve from 129 to 27 ms.
-- **`0.5.21`, the player's violence setting.** The preset reads `GorePolicy`: at `Stylised` a hit is announced as `Wounded` and nothing is painted, so the game puts its own effect there. `docs/tiers.gif`.
-- **`0.5.22`, hit the character.** `GoreHit::entity` may be any ancestor of the dressed meshes, which is all a physics raycast finds. The preset casts the ray at each skin under it, as drawn, and hurts the nearest.
-- **`0.5.23`, a pool no longer clips to white.** A wet film took a gloss that turned a flat pool in a light's mirror angle into a white sticker. A smear no longer smooths what it lies on.
-- **`0.5.24`, one component dresses a character.** `GoreScene` on the entity a glTF scene is spawned under dresses every mesh that appears below it, by the words in its node's name; `GoreScene::humanoid()` knows the common ones.
-- **`0.5.25`, memory is a number and a dial.** A dressed skin costs 1.3 MiB at the shipped 128 and a character of six, 7.7 MiB; `Gore::with_canvas` gives one surface its own edge, and the canvases report their bytes.
-- **`0.5.26`, the one-line trap says so.** Bevy's fixed step is 64 Hz and the preset's is 60, so a game that missed the line in the checklist ran every bleed 6.7 per cent fast and was told nothing. The preset now logs the rate it found, once, on its first tick.
-- **`0.5.27`, `humanoid()` meets a real character.** On a character from the game this crate is developed in it dressed 19 of 22 meshes as skin, a belt and a chest rig among them, so a shot at the chest wounded the rig. It now sorts the body, the wardrobe and the gear by the words a character kit uses, and leaves what it does not know alone.
-- **`0.5.28`, a body breaks where its skeleton is.** A fracture is baked from a mesh asset, which is the bind pose, so a character caught mid-stride burst with its arms at its sides. Each piece is now carried by the bone of the vertex nearest it, to where that bone is when the body breaks. A contact point and a normal, which is what physics reports, make a hit too: `GoreHit::impact_at`.
-- **`0.5.29`, a shirt.** A shot at a character in clothes wounded the skin under them, where nobody could see it, and stained the cloth with a hard-edged patch that ran down it in a straight column. An impact now opens a hole in every cloth it crosses before the skin, ragged and ringed grey as a bullet wipe, cut from the shadows and the depth prepass too, so the wound shows through it; and blood soaks into a weave along a frayed front, pinker at its edge and matte, and runs only once the fabric is saturated. `docs/skinned_shirt.gif`.
-- **`0.5.30`, a shot that goes through.** Every impact stopped in the body, so nothing behind a victim was ever touched. `GoreHit::through()` opens an exit wound where the ray leaves the part, wider than the entry, bleeding, announced as a second `Wounded`, and throws its forward spatter along the shot. `Gore::wall()` is a new surface for it to land on, where each droplet is its own physical stain: sized by its drop's size and speed, drawn out by the angle it struck at, its spines downrange. Cloth behind the body is holed too. `docs/skinned_through.gif`.
-- **`0.5.31`, a blade cuts the shirt.** A slash left the cloth over it whole. It now cuts a slit along the blade, as long as the cut, its direction read in the garment's own UVs, and the laceration shows through it. `docs/skinned_shirt.gif`, from frame 200.
-- **`0.5.32`, the spray stops at what it reaches.** Every surface took every droplet aimed at it, so a wall behind a shirt was spattered through the shirt and a droplet a sheet caught landed on the floor as well. Each droplet now stains only the nearest thing on its line; a hole in a cloth, one already there or one the same shot just opened, lets it through. A shirt now catches its wound's spray from inside, round the hole. The other clips are unchanged frame for frame.
-- **`0.5.33`, a laceration is a spindle.** Every slash opened one width from end to end with square ends onto a clean, dry trough, and on a limb it read as a ribbon laid on the skin. The gape now closes to a point at both ends (`laceration::GAPE_TAPER`), the floor shallows with it, and the bed is wet with its own blood, a film on the walls pooling on the floor (`BED_BLOOD`, as vertex colour the atlas material already multiplies by). `the_tear_is_frozen` is re-blessed. `docs/laceration.gif` is now a slash down a round, skin-textured thigh that bleeds in rivulets.
-- **`0.5.34`, a slash bleeds along its cut.** A slash bled, sprayed and was announced as a disc its own half-length in radius, 23 times the skin a 14 cm cut opens, so a cut on a thigh painted one sheet the leg's width from the cut to the foot. Its wound is now the cut it opened, `SLASH_OPEN_M` (6 mm) wide: a smear along it, and pulses that bead at `SLASH_WELLS` fixed places over the lower lip. On the mannequin's 128-texel limbs that is a patch round the cut with short runs below it. `docs/skinned.gif`, from frame 66.
-- **`0.5.35`, a wound bleeds in runs.** A hole pulsed one ellipse at its centre, so its blood ran from it as one smooth column the wound's own width. Every wound now pulses at `BLEED_WELLS` (3) beads where its blood would spill, each narrow and drawn out downhill: a hole's fanned over the downhill arc of its rim, a cut's on its lower lip. The skinned mannequin's skins are 256 texels a side, where a cut's runs come apart; at the shipped 128 they blurred into one patch. `docs/skinned.gif`.
-- **`0.5.36`, a film's edge is a line.** The flesh material read the wet map with one bilinear tap, so every rim of blood was the canvas's texel staircase, soft and fringed, and a run ended in a stepped square. It now reads the map as a cubic B-spline in four taps and draws the rim crisp at 4 % of the film depth over one pixel: runs end in round drops and pools in smooth lines however close the camera. Shader only, so every digest holds; WebGL2 checked again. Every GIF drawn with the flesh material is re-cut.
-- **`0.5.37`, a broken body lies in its own blood.** A body that burst into pieces left its floor as clean as it was, with the heap of chunks and guts on bare grey. Every piece the preset spawns now carries its cut face as a wound (`CutFaceBleed`), opened when the body broke, and each pulse pours onto the floor beside the face (`CUT_FACE_POUR`), so the heap lies in a pool that widens while the faces bleed. A game that spawns its own pieces keeps the pours with `CutFaceBleed::of`. `docs/preset.gif`, `docs/skinned_break.gif`, `docs/tiers.gif`.
-- **`0.5.38`, a cut face is wet with its own blood.** A broken body's pieces showed their cut faces bare, and a band of fat read as a wedge of cheese in the heap. The flesh material in `FleshMode::Cap` now lays a film of blood over the tissue the strip draws, at full depth where the muscle is and a quarter of it over the fat at the rim, with its clear coat (`FleshParams::cut`, `FleshParams::with_cut_film`, off by default); the preset's pieces wear `CUT_FACE_FILM_MM` (1 mm). Shader only; every digest holds; WebGL2 checked again. `docs/preset.gif`, `docs/skinned_break.gif`, `docs/tiers.gif`.
-- **`0.5.39`, a wetmap's stains have smooth edges on a plain `StandardMaterial`.** A canvas's two images were its texels, so a game that hands them to Bevy's own material saw every stain as a soft staircase as soon as the camera came close. `WetCanvas::new_detailed` keeps the canvas, its passes and its digest, and draws the images up to `MAX_DETAIL` (4) times finer: on each flush the 32-texel tiles that changed are redrawn, the coverage read as a cubic B-spline and the edge drawn crisp at `DETAIL_EDGE`, in the film's own colour up to the rim. It costs `detail²` the image bytes and a redraw per flush (1.7 ms for six drying stains at 128 and detail 4, measured); `new` is unchanged. `docs/wetmap.gif` is drawn at detail 4.
-- **`0.5.40`, a run of blood leans the way gravity does.** A wetmap's drip fell along whichever texture axis gravity mostly pointed down, so on a limb whose atlas lies at an angle to the ground every run was a straight streak along that axis: on the mannequin's raised arm, blood ran on along the nearly level upper arm toward the shoulder, and the chest's runs were parallel stripes straight down the atlas while the torso swayed. A parcel now also steps one texel across on gravity's own share of the lines it falls through, `|minor| / |major|`, on the lines Bresenham would pick, and every texel of a line steps alike, so the drip still conserves every byte. The arm's blood gathers round the elbow and the chest's runs lean with the torso. Gravity along a texture axis is the drip as it was, to the byte, so every unskinned clip is unchanged. `docs/skinned.gif`, `docs/skinned_shirt.gif`, `docs/skinned_through.gif`, `docs/skinned_break.gif`.
-- **`0.5.41`, spilled guts look like bowel.** Every strand was drawn in the red of the blood it fell in, so a burst body's guts read as red plastic tubing lying in a red pool. `viscera::gut_image()` is a texture for the tube `tube_mesh` sweeps, laid out on its own `UV_0`: a salmon-pink serosa, the mesentery's fat along the side the strand was tethered by, faint vessels round the wall from it, the end that left the wound bloodied and smears dragged along the rest. The preset's guts wear it at `viscera::GUT_ROUGHNESS`, through one material shared by every spill, where each spill used to make its own. The examples that draw guts use it too. `docs/preset.gif`, `docs/tiers.gif`, `docs/skinned_break.gif`, `docs/viscera.gif`.
-- **`0.5.42`, a crater is a wound, not a ring of fat.** A flaymap crater showed the tissue it had bared dry: a pink graze, a wide ring of cream-yellow fat and a red centre where the blood was, which read as a fried egg. The flesh material's film of blood (`FleshParams::with_cut_film`, 0.5.38's, for cut faces) now lies over a canvas's peeled tissue too, by its depth below the skin: none on the graze, so the abrasion keeps the dermis's pink, partial over the fat, which reddens, and its full depth in the muscle, which is dark with blood and shines. The preset's skins wear it at `CUT_FACE_FILM_MM`; a cut face is as it was. Shader only; every digest holds; WebGL2 checked again. `docs/flaymap.gif`, `docs/flesh.gif`, and every clip with a wounded skin.
-- **`0.5.43`, a burn has zones.** A contact burn painted the dermis one colour per degree, fading to its edge, so a third-degree iron burn on the mannequin's forearm read as a grey-brown smudge, the same as a bruise. A burn now shows Jackson's three zones (1953) as far in as its degree reached: a charred eschar at the centre, a pale ring of stasis, and a red flare of hyperaemia that fades into the skin past the contact, out to `BURN_FLARE` (1.7) times its radius; a second-degree burn is a pale blister in a red ring and a first-degree one is red all over (`preset::burn_zone`). Its margin wanders off round by up to `BURN_WOBBLE` (15 %), shaped by where it was burnt, so it does not read as a target. Dermis only; every recorder digest holds. `docs/skinned.gif`, `docs/preset.gif`, `docs/tiers.gif`.
-- **`0.5.44`, a bruise is a blotch.** A blow left a flat brown dot: the bruise model is a radial reduction whose pool is uniform inside its diameter, and the preset painted it as that disc, one tone with a hard rim, showing six times as much as it changed. A bruise's outline now wanders off round by up to `BRUISE_WOBBLE` (25 %) and its optical density is mottled by `BRUISE_MOTTLE` (40 %) either way, as a pool thicker or thinner in places would be, both shaped by where it is; it is shown exactly as dark as the model makes it. The colour is still the model's. Reading it once per shell rather than once per texel takes the spectral colour of a repaint from 3.8 to 0.27 ms on a 256 canvas (measured). Dermis only; every recorder digest holds. `docs/skinned.gif`, `docs/preset.gif`, `docs/tiers.gif`.
-- **`0.5.45`, a shotgun in a crowd costs less.** Twelve hits a tick on one of forty dressed characters spent `take_hits` mostly drawing stains and casting droplets at surfaces something nearer would catch. Each droplet is now cast at surfaces in the order its ray enters their boxes, and the search stops once a landing is nearer than the next box: 239 mesh casts a shot become 167. `bloodstain::stain::rasterise` stops computing three things that cannot change a byte: a satellite's place per texel, the angle and spines of a texel past any spine's reach, and a spine's falloff where it is below half an ulp of the rim. Interleaved on an M4 Pro: 25–30 ms of `take_hits` became 15–16 ms at forty characters, 7.9–8.9 became 6.3–7.3 at ten, and one character is about 6 % cheaper. Every recorder's frames are byte-identical. What remains in a crowd is the canvases' own tick, `docs/preset.md`.
-- **`0.5.46`, the canvases tick in parallel.** With forty characters dressed and 49 of their canvases bloody, the wetmaps' own tick was the dearest system on every tick, hit or not: 2.8 ms on an M4 Pro. A canvas's tick reads and writes only itself, so `tick_canvases` runs them across Bevy's compute pool: 0.86 ms at forty characters, 0.45 at ten where it was 1.04, and the bytes are identical in any order. A game whose Bevy has `multi_threaded` off, as on the web, loops as before. On that host in two quiet runs, not interleaved, a twelve-hit tick's `take_hits` at forty characters measured 12.9 ms on `0.5.44` and 6.5 on `0.5.45`.
-- **`0.5.47`, blood has a surface.** Every film of blood the flesh material drew was flat however deep, one colour to its rim: a pool read as a red decal, the runs on a chest as paint, and a pool at a light's mirror angle lit up whole as a white sticker. The film's depth, already a smooth B-spline in the shader, now lifts the shading normal and the coat's (by screen-space derivatives, so no tangents are needed): a pool's edge curves down and catches the light, a run stands up off the skin, and the mirror breaks into a glint. Blood in a peeled crater lies level, as blood filling a hollow does, cloth stays flat, the relief fades where a texel is under a pixel, and wet films are at roughness 0.3. Shader only; every digest holds; WebGL2 checked again. `docs/preset.gif`, `docs/skinned*.gif`, `docs/tiers.gif`, `docs/flesh.gif`.
-- **`0.5.48`, a character can be healed.** A game that respawned a character, pooled an enemy or restarted a round had to despawn the body and dress it again, every canvas and image built anew, or live with its wounds. `GoreReset::new(entity)` heals it in place, the root or any dressed surface under it: its canvases are cleared and uploaded clean, its bleeding, bruises and soaks stop, a slashed skin draws its own mesh again and its wound bed goes, and the bone handoff is armed again. Nothing is reallocated. A floor, a sheet or a wall is wiped by sending its own entity; thrown pieces and guts are the game's to despawn. `capture_skinned --reset-at 240` prints the hitless run's digest and draws its frames, byte for byte, from frame 241. The live examples' `R` uses it. Every recorder digest holds. See [`docs/preset.md`](docs/preset.md#healing-respawning-and-pooling).
-- **`0.5.49`, a slash's bed rides the limb.** The wound bed under a laceration is a mesh of its own, and on a skinned skin it had no joints, so it was drawn in the bind pose: on the mannequin's thigh, once the leg stepped, it stood off the body as a pale fin across the cut and past the leg's edge. Each bed vertex now takes the joint indices and weights of the torn skin's vertex nearest it, the bed gets `SkinnedMeshBounds` when its skin's mesh has them, and `LacerationPlugin` spawns it with the skin's `SkinnedMesh` and its `NoFrustumCulling` or `DynamicSkinnedMeshBounds`. A bed on a mesh that is not skinned is unchanged, and so is every recorder digest. `docs/skinned.gif`, `docs/skinned_shirt.gif`, `docs/skinned_break.gif`, `docs/skinned_through.gif`.
-- **`0.5.50`, a slash lies on the skin and opens into it.** A slash's path was a straight line through the hit, in the plane of the skin there, so a cut across a curved limb left it: on the mannequin's thigh the cut's ends, and the wound bed built along it, stood off the leg as a pale plank across it, past the blood toward the silhouette. The path is now walked out from the hit both ways on the skin, eight steps of the blade's half-length, each brought back onto the surface by a short ray down the last point's normal, and a cut ends where the blade runs off what it can reach. And the bed's walls were lit as open skin, so a narrow cut's far wall was brighter than the blood around it and the slit read as a ridge: each bed vertex's colour now carries the light that reaches it down the trough, the cosine-weighted share of its view through the mouth of a V that wide and that deep, `(1 + sin α)/2` at a lip and `sin² α` at the floor. The skinned clips' digests move, because their blood runs over the torn mesh, now `ac9ee874ea09f208`, `--shirt` `9bc536185df82588` and `--through` `0e4493510865f8b6`; every other recorder's holds. `docs/skinned.gif`, `docs/skinned_shirt.gif`, `docs/skinned_break.gif`, `docs/skinned_through.gif`, `docs/laceration.gif`.
-- **`0.5.51`, a hit reads in the air.** The preset put blood on every surface and nothing in the air at the moment of a hit. `CarnageVfxPlugin` already turned every announced wound into a burst, but no preset example added it, its gunshot mist was a few hard 1 cm dots flying at the measured 40 m/s, out of frame within two, and it read no `GorePolicy`, so a game that turned blood off still sprayed blood. The mist is now what Stokes' law has the fine fraction of a spray do: it stops within a few centimetres of the wound and hangs, three soft puffs a spray droplet (`MIST_PER_DROPLET`) that grow to three times their size and clear in a quarter to half a second, in the colour the film model gives blood that thin; and where `GorePolicy::draws_blood` is false the same bursts are thrown in `substitute_srgb`, a yellow flash where the red puff would be (`CarnageEffects::substitute`, `Palette`). Add `CarnageVfxPlugin` beside `GorePlugin` to get it ([`docs/preset.md`](docs/preset.md#blood-in-the-air)); the preset's recorders and demos do, under `vfx`. Particles are output only: every digest holds. `docs/preset.gif`, `docs/tiers.gif`, `docs/carnage.gif` and the four `docs/skinned*.gif`.
-- **`0.5.52`, a crater is a hollow.** The flesh material lit a flaymap crater as if it were open skin, so a wound pooled with blood was one red from its rim to its middle however deep it went, and at a distance read as paint. Each texel below the skin now looks out over the flaymap's own depth, eight ways out to 15 texels, for the highest wall it sees, and every light term on it is multiplied by `1 − mean(sin h)`: the share of the room it sees between the walls, the crossed-strings result a laceration's bed is lit by since 0.5.50. The depth is the canvas's `R` channel over the layer span (`FleshParams::cut.y`), and the canvas's size on the body comes from screen-space derivatives. A bone-deep crater's middle goes to a dark maroon under a red rim; a shallow one barely changes, as it should. Shader only: every digest holds, WebGL2 checked again. `docs/flaymap.gif`, `docs/flesh.gif`, `docs/preset.gif`, `docs/tiers.gif` and the four `docs/skinned*.gif`.
-- **`0.5.53`, a graze is raw.** Round every flaymap crater, the skin it only grazed was drawn bare: the dermis's pale pink, mottled with cream wherever the fat came through, so each wound wore a pale halo. A fresh abrasion is raw and moist from the first moment, because the papillary dermis bleeds and weeps at once. The flesh material now lays 4 % of the cut film over a crater's graze (`GRAZE_FILM`), ramped in over the first 6 % of the layer span, about the skin's own depth, so the margin reads red to orange-red beside the crater and fades through pink into the skin. 8 % with no ramp was tried first and drew a hard red disc. Shader only: every digest holds, WebGL2 checked again. `docs/flaymap.gif`, `docs/flesh.gif`, `docs/preset.gif`, `docs/tiers.gif` and the four `docs/skinned*.gif`.
-- **`0.5.54`, the flesh material fits a scene with a sky.** The material sampled fifteen textures in its fragment stage, `StandardMaterial`'s, the view's and its own five, and a camera's `EnvironmentMapLight`, which nearly every 3D game has, adds two cubemaps: past the sixteen WebGL2 and wgpu's default limits allow, so on the web its pipeline failed to build ("Too many bindings of type SampledTextures … count was 17", measured on `carnage_web`). The subsurface and blood tables are now one image (`flesh::luts`), each lookup held to its own table's texel centres and the blood rows decoded from sRGB in the shader; the tables' bytes and `the_flesh_tables_are_frozen` are unchanged, and the clips move by at most three code values. With the room that freed, the preset's clips are lit by one: a small procedural studio, a softbox above the camera, a ceiling panel, dark walls, prefiltered on the CPU into the two cubemaps so it holds on WebGL2 (`examples/common/studio.rs`), in place of a uniform ambient. Runs of blood on the skin now carry the softbox's reflection where they read as paint. `docs/preset.gif`, `docs/tiers.gif` and the four `docs/skinned*.gif`.
-- **`0.5.55`, every bruise on a limb ages.** `Bruising` held one bruise per mesh, so a second blow to the same shin started a new one and the first stopped ageing where it was, frozen at whatever hour it had reached (a documented limit). It now holds `sites`, one `BruiseSite` per blow up to `MAX_BRUISES` (8), the oldest retiring past that, and each steps the model on its own clock. Drawing two was the other half: painted one over the other at every step, the fresh bruise's faint margin was blended into the older one's core and left a pale serrated seam between them, seen at 2.5× on the mannequin's shin. The dermis canvas now keeps what it holds without its bruises, burns and anything else painted once, and `DermisCanvas::draw_bruises` redraws them over it, multiplying the ratios each lays over the skin, so an overlap is darker than either. `capture_skinned --blows` adds the second blow, and `docs/skinned_bruises.gif` is the shin from frame 170. Every digest holds; on the frames measured, the clips' single bruises moved by at most one code value.
-- **`0.5.56`, a foot that steps in blood tracks it.** Blood pooled on the floor and a character stood in it and walked away clean. `GoreStep` is the footstep a game already raises for its sound — which foot, where the sole meets the ground, which way the toe points, and a `Sole` — and the preset does the rest on whichever floor is under it: the sole lifts `TREAD_LIFT` (30 %) of the wet blood under its outline, leaving a lighter dent, and its `Tread`, public on the foot, grows by the coverage it stood in; then it prints what it carried and sheds `TREAD_SHED` (30 %) of it, so prints out of a pool fade geometrically. Dried blood is neither picked up nor counted. A print is a boot's outline, a squared heel, a narrow waist and a forefoot widest at the ball, inked where it pressed hardest and where its tread, fixed to the shoe, holds blood, so a fading print goes paler and speckled and keeps its shape. It needs about 6 mm a texel: on the demos' 3 m slab at the shipped 256 a print read as two drops, a heel and a ball. `capture_skinned --stroll` walks the mannequin through a spill on a floor at 512 (`docs/skinned_stroll.gif`). A clip that sends no steps is unchanged: the default skinned clip and tier 1 print the digests they did.
-- **`0.5.57`, a level's floor takes blood.** A floor or a wall had to carry a `UV_0` covering it once inside `[0, 1]`, and a level's never does: it repeats its texture, UVs running to 20 so a 15 cm tile shows across 20 m, and the wetmap clamps every UV outside the unit square to the canvas's edge, so every drop on such a floor landed on its border. `Gore::projected()` dresses it on a copy of its mesh whose `UV_0` is the mesh seen square-on from the side it mostly faces — from above for a floor, from the front for a wall with `+v` down it — scaled into `[0, 1]` without stretching, and whose `UV_1` is the tiling it had; the surface's own textures read `UV_1`, so the tiles stay as they were, and the density is the projection's. A mesh that already has a `UV_1`, which may be a lightmap's, is refused with a warning, and a floor or wall whose `UV_0` tiles and is not projected is warned about once. `capture_skinned --stroll` now walks across 30 cm ceramic tiles (`docs/skinned_stroll.gif`); projected from above, the plain slab's canvas is laid exactly as its own UVs laid it, so its digest did not move.
-- **`0.5.58`, a canvas ticks its blood, not the floor between.** A wetmap ticked the one rectangle round all its blood while any of it was wet, and copied the whole canvas into its snapshot twice a tick. On a level's floor, which 0.5.57 made possible, a pool in each of two opposite corners of a 1024 canvas ticked every texel between them: 25.5 ms a tick, for the thirty seconds the blood stays wet. Each 32-texel tile now keeps the rectangle round its own blood; the passes run over the union of those grown by the two texels a tick can move blood, as disjoint runs along the rows, and the snapshot over that grown by one more. Measured on `big` in release, interleaved with 0.5.57: two corners 25.5 to 0.46 ms a tick, one blob 0.34 to 0.23, a trail of twelve 1.59 to 0.29, and a whole `FixedUpdate` at forty characters taking twelve hits 15.2 to 14.6. Covering whole tiles and the ring round them, tried first, made one blob three times dearer and was dropped. The bytes are the same: every recorder printed its digest unchanged, and `the_live_tiles_change_nothing_but_the_cost` holds tick for tick against passes over every texel.
-- **`0.5.59`, a shotgun on one character costs a third of what it did.** Timed stage by stage, two thirds of a twelve-pellet tick on one character was the flaymap redrawing itself: the preset shades a skin's flaymap after every hit, and `FlayCanvas::shade` redrew every texel of the canvas each time, 2.3 ms of a 3.5 ms `take_hits`. It now redraws the texels peeled since the last shade, and the normals one texel round them; the first shade and a change of palette redraw all of them. Measured on `big` with `hit_cost_by_scene_size`, interleaved with 0.5.58: twelve hits on one character 3.69 to 1.29 ms a tick, on ten characters 4.02 to 1.66, on forty 14.6 to 12.1. Every frame of the skinned, tier-2, gore and flesh clips is byte-identical to 0.5.58's.
-- **`0.5.60`, a cast tests the triangles it can reach.** Every ray the preset cast walked every triangle of the mesh it was cast at: a shotgun's spray at forty characters tested 368,000 triangles a tick, and one hit on a 16,128-triangle part walked it twice. A rigid surface's mesh now carries a bounding-volume hierarchy over its triangles (`crate::bvh`), built the first tick the surface is dressed and kept by asset while the mesh is as it was; each surface's box also carries its world-space box for a test without a transform. A cast through the index lands exactly where walking every triangle does, every field to the bit and ties to the earlier triangle, so every frame of the skinned, stroll, break and tier clips is unchanged. Measured on `big`, interleaved with 0.5.59: one hit on a character of 16,128-triangle parts 1.53 to 0.59 ms a tick, twelve on it 4.65 to 3.48, one on the mannequin-sized parts 0.50 to 0.31, twelve on forty characters 12.1 to 9.3, the rest of which is the stains the droplets leave, not the casts. A skinned surface's pose is a new mesh each batch and still walks its triangles.
-- **`0.5.61`, a skinned crowd costs what a rigid one does.** The crowd numbers were of rigid parts, and a game's crowd is skinned: the same forty characters with every part skinned took twelve hits in 23.2 ms a tick. Each batch posed every skinned surface in the world, a blend of up to four joint matrices per vertex, only to box it for the spray, and every cast at a pose walked all its triangles. Now a skinned surface is boxed by its joints, without being posed: each joint carries the box of the vertices it moves, and a blend of them lies inside the box round all of them, padded for weights that do not add to one and stretched to the origin for a vertex with none. It is posed only when a ray reaches that box, the pose reuses the last blend where the joints and weights repeat, and the hierarchy built over its bind pose is refitted to the pose rather than walked. Forty skinned characters 23.2 to 10.5 ms a tick on `big`, against 9.4 for forty rigid; one skinned character 1.94 to 1.41 ms, its worst tick 6.5 to 2.6. Every frame of the skinned and tier clips is byte-identical. `skin::Pose::joint` reads one joint's matrix.
-- **`0.5.62`, a shot that goes through goes through everything on its line.** A shot through a forearm held across the chest went in and out of the forearm and stopped: the chest took its forward spatter and no wound, and a character made as one mesh was exited where the ray last left the mesh, its back, with nothing opened on the way. `GoreHit::through()` now walks every crossing of the body the hit was sent at — every skin under the entity it names, or that one mesh — nearest first, and counts the shot in and out of each mesh by the winding of the triangles it crosses, read against the mesh's first crossing, so a mesh wound inside out is read the right way round. Where the count leaves zero is a way in and where it returns there a way out: a forearm and a chest are four wounds, a shoulder where the arm's mesh overlaps the torso's is one way in and one way out. A way back in is as wide as an exit, the projectile being the one that came out; every wound is its own `Wounded`, in order along the shot; every cloth the shot crosses is holed at every crossing, where only the nearest before the skin and the last behind it were; and a tier that draws no blood announces the exits too, where it announced only the way in. **A skin takes each droplet that reaches it as its own stain**, as a wall does: it took a blob at least 2 cm across for each, standing for many, and the forearm's forward spatter landed on the chest 4 cm behind it as a sheet of blood a hand wide. `capture_skinned --guard` (`docs/skinned_guard.gif`) is the shot; every committed clip's digest is unchanged, and every frame of them but a few inside `--through`'s mist, by at most 6 code values, within the run-to-run difference recorded for it.
-- **`0.5.63`, a drop lies flat.** Seen close, a wall's spatter was red beads stuck on: the flesh material lifts a film of blood by its depth so a pool's edge catches the light as a meniscus does, and a drop a few texels across, lifted the same way, was all edge — a dome. A drop that struck a wall has spread to a tenth of a millimetre deep. The shader now reads the wet map four texels around a fragment, and a film whose surround holds under a quarter of the fragment's own blood is drawn with 0.15 of the relief, rising to all of it at 0.6; measured against the fragment's blood rather than as an amount, so a wide thin film keeps its relief, and a pool, a run and a print look as they did. Four taps more per wet fragment; WebGL2 still draws it. `docs/small_films.png` is the same wall before and after. Every digest is unchanged; old against new, the `--through` clip's frames differ by 0.04 code values a pixel on average and the others by less.
-- **`0.5.64`, a drop in flight is a streak.** A hit's spray drew every droplet as a red disc 14 to 47 mm across, and in the two frames a spray is in a body-sized view it read as polka dots hanging round the wound. A droplet is now drawn along its velocity, its width plus `vfx::DROPLET_STREAK_S` (1/90 s) of its flight: at the 8 to 40 m/s it leaves the wound at, a streak 9 to 44 cm long that shortens as drag slows it, and the width is 5 to 19 mm. The arterial jet and the seep take the same rule; the mist is unchanged; a tier that draws no blood throws streaking sparks. A sixtieth drew the fastest as needles half a metre long. `capture_skinned --slow N` runs the clock at `1/N` speed, and `docs/skinned_spray.gif` is a hit at a quarter speed. No digest moves: the particles are output.
-
-**API:** new, `skin` (`Pose`, `Rig`, `posed_mesh`), `preset::GoreScene`, `Gore::canvas` and `Gore::with_canvas`, `GoreHit::impact_at` and `at_surface`, `heap_bytes` and `image_bytes` on `WetCanvas`, `FlayCanvas` and `DermisCanvas`, `preset::ClothHoles` and its `slit`, `SLIT_WIDTH`, `WetCanvas::wick_uv`, `GoreDials::cloth_holds`, `FleshMode::Floor`, `GoreHit::through` and its field, `Gore::wall` and `GoreKind::Wall`, `EXIT_SCALE`, `FORWARD_MIST`, `laceration::GAPE_TAPER` and `BED_BLOOD`, `preset::SLASH_OPEN_M`, `BLEED_WELLS` (`SLASH_WELLS` in `0.5.34`) and `CutLine`, `preset::CutFaceBleed` and `CUT_FACE_POUR`, `flesh::FleshParams::with_cut_film` and `preset::CUT_FACE_FILM_MM`, `WetCanvas::new_detailed` and `detail`, `wetmap::MAX_DETAIL` and `DETAIL_EDGE`, `viscera::gut_image` and `GUT_ROUGHNESS`, `preset::burn_zone`, `BURN_FLARE` and `BURN_WOBBLE`, `preset::BRUISE_WOBBLE` and `BRUISE_MOTTLE`, `preset::GoreReset`, and `clear` on `WetCanvas`, `FlayCanvas`, `DermisCanvas` and `ClothHoles`; behind `vfx`, `Bursts`, `Palette`, `puff_image` and `CarnageEffects::substitute` and `puff`; `flesh::luts`, `LUTS_WIDTH` and `LUTS_HEIGHT`; `preset::BruiseSite`, `MAX_BRUISES` and `DermisCanvas::draw_bruises`; `preset::GoreStep`, `Sole`, `Tread`, `TREAD_SHED`, `TREAD_LIFT` and `STEP_REACH_M`, `wetmap::Print`, `PRINT_CORE`, `WetCanvas::lift_uv` and `print_uv`; `Gore::projected` and its field; `skin::Pose::joint`. Changed, `FleshMode::Cloth` keeps wet blood matte, so a surface where blood should stand and shine is `FleshMode::Floor`; `GoreDials` and `GoreHit` have a field more, so build a hit with its constructors; `GoreKind` has a variant more, so a `match` on it needs an arm for `Wall`; `Gore` has a field more, so build it with `Gore::skin`, `cloth`, `floor` or `wall` rather than as a struct literal; `GoreScene::humanoid()` leaves a mesh it does not recognise alone where `0.5.24` dressed it as torso skin; a skinned body's fracture must be baked in the mesh's own space (`Mat4::IDENTITY`), which is what lets it break where its skeleton is; a laceration's bed mesh carries `ATTRIBUTE_COLOR`, which a custom bed material that ignores vertex colours never sees; `WoundSite` has a field more, `cut`, and a slash's `Wounded::area` is the cut's, not a disc's; `FleshParams` has a field more, `cut`, so build it with `for_layers`; a `WetCanvas` ticked under a gravity between its texture's axes runs along that gravity rather than the nearer axis, so its digest moves; `DermisCanvas::paint_radial`'s painter takes the texel's direction from the centre as a second argument, `|r_mm, dir|`; and the wound bed of a laceration on a skinned mesh carries `ATTRIBUTE_JOINT_INDEX` and `ATTRIBUTE_JOINT_WEIGHT` and is spawned with its skin's `SkinnedMesh`, so a custom bed material must be one that can be skinned; a slash's `Laceration::path` is walked on the skin, up to seventeen points, where it was three on a straight line; a laceration bed's vertex colour carries the light that reaches it down the trough; and behind `vfx`, `CarnageEffects` keeps its four wound bursts in `blood` (and `substitute`) rather than as its own fields, `spatter_burst`, `mist_puff`, `arterial_spurt` and `wound_seep` take a `Palette`, a mist instance needs `CarnageEffects::puff` as its `EffectMaterial`, and the burst a wound throws follows `GorePolicy`; and `FleshParams::for_layers` sets `cut.y` to the layer span, which a hand-built `FleshParams` must set for its craters to darken; and the flesh tables are one image, so `FleshExtension::luts` replaces `sss_lut` and `blood_lut` and `FleshTables::luts` replaces `sss` and `blood`; `Bruising` holds `sites`, a `Vec<BruiseSite>`, where it held one bruise's `uv`, `bruise` and `carry`; `GoreHit::through` goes on through every part of the body on the shot's line, so a game that sent a hit of its own for the part behind the first now opens that part twice. Nothing was removed.
-
-### What `0.5.18` changed: the preset measures the atlas
-
-`Gore::uv_per_metre` converts every wound's size from metres into the canvas's UV, and an unstated one was `1.0`, as if every atlas spanned a metre. A game that skipped the checklist got every wound at the wrong size. It is now `Option<f32>`. `None`, the default, has the preset measure the mesh when it dresses it: the square root of its UV area over its world area, at its world scale, read from the `Transform` chain so a scene spawned this frame measures right. The result is stored back in the component. A stated density is kept, and is still the way to override an average that is wrong where the wounds land. **API:** `Gore::uv_per_metre` is `Option<f32>`; `with_uv_per_metre` is unchanged.
-
-### What `0.5.17` changed: a broken body hands over its pieces
-
-`GoreFractured` carried only the body and the blow point, so a game with its own physics had nothing to build the pieces from. It now carries every piece as a `GorePiece`: its skin and cut-face meshes, its world transform at the break, its half extents for a collider, the velocity the preset would launch it at, and whether it was thrown, fell with the body or stayed standing. It also carries the materials for both sides. The message is written once per body whether or not the preset spawns the pieces. With `GoreDials::spawn_fragments` off, the body is left to the game, and a runtime `GoreBreakable` no longer re-reports its break each time another part reaches bone. Settled pieces are no longer written every tick. **API:** `GoreFractured` gains `pieces`, `skin` and `cap` and is no longer `Copy`; `GorePiece` and `PieceFate` are new.
-
-### What `0.5.16` changed: every wound bleeds, from where it is
-
-Under the preset, a second hit on a body part replaced the first wound, which stopped bleeding mid-pulse. Each pulse also re-cast the hit's world ray, so a body that had moved since bled from where it used to stand, or not at all. A part's open wounds are now the `Wounds` component. Each wound is found once, as a UV on the wetmap and a point on the mesh, and it pulses there and drips from where that point is now, however the body moves. A hit inside an open wound reopens it. A wound leaves once its bleed has clotted, and `GoreDials::open_wounds` (16) bounds a burst of fire. **API:** `WoundSite` holds `uv` and `at_local` where it held the ray. `Soaking::landings` holds UVs. `WetCanvas::paint_world` and `paint_world_with` return `Option<Vec2>`, the UV they painted, where they returned `bool`. The preset clip now grazes the chest before the shots, and `preset.gif` is re-recorded.
-
-### What `0.5.15` changed: a textured character keeps its skin
-
-Under the preset, a skin's own texture was replaced by the flaymap's flat colour. A glTF exporter writes a textured material with a white colour factor, so a textured character was dressed white, and when it broke its pieces were white as well. Now a dressed skin keeps its texture, colour factor, vertex colours, occlusion, emissive and normal maps, and its wounds are drawn over it. A broken body's pieces wear the material of the part that was hit, however deep in the scene that part sits. **API:** `FleshTables::material` takes `Option<&FlayCanvas>` where it took the canvas's roughness image, and binds the canvas itself; `FleshExtension::set_flay` is gone. Two limits remain, listed in [`docs/preset.md`](docs/preset.md): a skin's own roughness map is replaced by the flaymap's, and a skin with its own normal map keeps it, so its craters lose their slope. The preset demo's body is now textured, and `preset.gif` is re-recorded.
-
-### What `0.5.14` changed: a slash cuts one character, and the preset has a checklist
-
-Under the preset, a slash rewrote the hit entity's own mesh handle, and a loaded scene shares that handle between every instance of a character, so one slash opened the same gape on all of them. The slashed entity now draws a copy of its mesh, tangents included, and only it is torn. [`docs/preset.md`](docs/preset.md) is new. It lists what the preset assumes of a real character (the fixed step, `UV_0`, `uv_per_metre`, `gravity_uv`, the scale, the hit ray, who owns the pieces), with a units table and the known limits.
-
-### What `0.5.13` changed: a wetmap costs what its blood covers
-
-`WetCanvas::tick` ran its four passes over every texel, every tick, so a body dressed by the preset paid about 0.44 ms per 128² canvas per tick even with no blood on it: 17.7 ms a tick for 40 parts, on an x86_64 host. A canvas now runs its passes over the rectangle its blood is in, grown by the two texels one tick can move it, and skips a tick entirely while it is still, meaning all its blood has set or it has none. `WetCanvas::is_still` reports that state. Idle canvases now cost effectively nothing, and freshly shot ones about 1/38 of what they did. Every result is bit-identical: no digest, image or frame moved.
-
-### What `0.5.12` changed: blood runs down, and wounds bleed
-
-`Gore::with_gravity_uv` is new, and `Gore::gravity_uv`'s documentation now says which way blood runs on Bevy's own meshes. The default, `(0, 1)`, is down on a glTF atlas. A `Cuboid`'s front face runs the other way, so on Bevy primitives a bleed climbed until the preset demo stated `(0, −1)`. A `Sphere`'s UV poles sit on its Z axis, so the flesh demo's sphere is now turned pole-up and its wound is a round crater instead of a slit. The flaymap demo's torso is dressed the way a game dresses skin, flaymap and wetmap under `FleshMaterial`, so a crater fills with blood that runs down the chest instead of reading as a fried egg. The affected GIFs are re-recorded.
-
-### What `0.5.11` changed: a cut through the body reads as meat
-
-Cut faces on the trunk read as cheese, cream with a red streak, for three reasons, and all three are fixed. Where two proxy hulls meet, as an arm's against the torso's flank, their flush faces counted as skin, so a cut beside a joint was measured from a seam inside the body. The bake now marks those faces as joints, and `ProxyCell::skin_planes` leaves them out. The trunk has no bone, so a deep point was pinned just short of the cortex, inside the cortex's own strip texel. Texture filtering then blended bone into every deep trunk cut; it now samples the middle of the muscle band. And 0.5.9's full mip chain averaged across the bands as well as along the cut, so a strip now carries four mip levels, enough to stop the grain sparkling without blending skin, fat, muscle and bone into one colour. No geometry, collider or digest moved. The GIFs are re-recorded.
-
-### What `0.5.10` changed: the preset gives a skin the tangents its wounds need
-
-0.5.9's crater normal map is tangent-space, and Bevy leaves a normal map out entirely on a mesh with no `ATTRIBUTE_TANGENT`. Bevy's primitives and many exported meshes have none, so under the preset a wound shaded flat. Now `GorePlugin` generates tangents for every `Gore::skin` mesh that lacks them, once, on the mesh asset; a mesh that cannot have them (no normals, no UV0, unindexed) warns once and shades flat. A skin whose mesh is still loading is dressed on the tick it arrives, instead of being dressed before it can have tangents. Every demo GIF is re-recorded from this build.
-
-### What `0.5.9` changed: a flayed wound looks like one
-
-A flaymap texel is millimetres across (7.8 mm on a 128 canvas) and the tissue grain under it is finer: fascicles under a millimetre, fat lobules two. `FlayCanvas::shade` point-sampled that grain, so every texel landed on a different feature, and a crater came out as a disc of red and yellow dots, banded in concentric rings like a target. Now a texel holds the tissue averaged over its grain (`cross_section::texel_mean`, new and public), the band edges are torn by up to ±3 mm of value noise, and **`FlayCanvas::normal`** is a third image, the crater's slope, for `normal_map_texture`. Give the mesh tangents (`Mesh::generate_tangents`) and the walls take the light. `preset` wires it in unless your skin material has a normal map of its own. The depth buffer, the digest and the depth channel are untouched, so no flaymap golden moved.
-
-The cut-face strips now carry a mip chain built on the CPU, so a cap seen from a distance holds its band colours instead of sparkling. The muscle band's connective-tissue net is a third of its old area, because averaged it had turned the red rose-tan, and the dermis and fat albedos are retuned (the dermis had read white, the fat yolk-yellow). `the_strips_are_frozen` is re-blessed for that, with the reason beside it. A flay canvas uploads three images now instead of two, 192 KB at 128.
-
-### What `0.5.8` changed: the examples, not the library
-
-No line under `src/` changed since 0.5.7. The examples that ship with the crate were reworked by a visual pass, and they are the first thing a reader runs. A blow now carries what it frees along its own direction: a shot out of the back, a slash along its swing, a blast outward. Before, every piece left radially from the impact, so a chest shot threw the head straight up out of frame. A reset in `carnage` also clears the blood still in the air, and every cut face shares one interior material, as reflective as water, so a face at the sun's mirror angle no longer reads as a pink tile. The cameras and HUDs were reframed: the web demos scale their UI to the canvas, the preset scene sweeps across the front instead of orbiting round the unlit side, `gore_tier`'s screen and floor blood are drawn as the crate's own stain silhouettes, and `wetmap_paint`'s bursts land where the camera can see them. Two recorder digests moved with the throws, `capture_carnage`'s and `capture_entrails'`, and `docs/DEMOS.md` quotes the new `capture_carnage` one.
-
-### What `0.5.7` changed: names
-
-Seventeen warnings still began with the name of a crate this one absorbed in 0.5.0 (`bevy_laceration: …`, `bevy_viscera: …`), which sent a reader looking for a dependency that does not exist. They name the module now (`laceration: …`, `viscera: …`), and so does the documentation. No behaviour changed; a log filter matching the old prefixes needs the new ones.
-
-### What `0.5.6` changed: stains stay on the floor
-
-A stain or pool decal painted any surface up to a metre above its plane, fading with height — Bevy's `depth_fade_factor` is in metres, and it was 1.0. A body standing in its own blood was streaked up its feet and washed pale up its shins, and chunks lying in a pool turned into translucent pink ghosts. A stain now paints within 4 cm of where it lies, enough for a floor that is not quite where it was placed and the sole of a foot, at the cost of 5 % of a stain's opacity on the floor itself.
-
-### What `0.5.5` changed: the blood a gib drags
-
-- **A ribbon reads as blood, not thread.** `vfx::gib_ribbon` drew each strand 12 mm wide at its head and tapered it to nothing, so most of a strand was thinner than a finger and read as fishing line from a few metres. It is 20 mm now, a dragged stream, and holds that width over its first half.
-- **No warning when a chunk goes first.** The ribbon systems queued plain commands, so a consumer that despawned its chunks from a system the crate cannot be ordered against, a reset or a cull, logged "Entity despawned" per ribbon. They use the `try_` forms now, and a ribbon for a chunk that no longer exists is simply not attached.
-
-### What `0.5.4` changed: a fix for `0.5.3`'s laceration
-
-`0.5.3`'s laceration removed every triangle a cut entered, which is right on a mesh fine enough for the wound to open across but deletes a whole face of a low-poly one: a slash across a blockout's leg made the leg look severed. Those triangles are now removed only when all three vertices are within the wound's influence radius, so their vertices can be moved onto the lip the bed meets. A coarser mesh keeps its skin, and its wound stays closed as in `0.5.2`. Fine meshes open exactly as in `0.5.3`, and the frozen tear digest did not move.
-
-### What `0.5.3` changed: four things that looked wrong
-
-A visual pass rendered every example and recorder and looked at them frame by frame. These are the crate-side fixes; `BACKLOG.md`'s phase 6 has the measurements and the before-and-after frames.
-
-- **A body with no footing comes down.** `preset` kept the biggest island standing whatever was left under it, so a body cut off at the legs hung at standing height. It now stands only while it holds a piece the subject stood on; otherwise it slumps into a heap.
-- **Spilled gut drapes.** `viscera::spill` laid every strand ruler-straight, so the first frames after a blow were a fan of rigid red rods. Strands are laid with the new `Strand::curved`: off the wound, turning toward the floor, meandering, every segment still at rest length.
-- **The GPU spray is blood.** Each droplet was a square quad, coloured with the gamma-encoded triple the crate's materials take, while Hanabi blends in linear space, so the spray drew as pink square confetti. Drops are round, and both effects take `spectral::linear_srgb`.
-- **A slash opens as a trough.** `laceration::tear` removed only triangles wholly inside the gape, so a cut at an angle to the mesh opened as pits bridged by skin, and a gape narrower than a cell did not open at all. The bed also stopped short of the lips. Now every triangle the cut passes through is clipped, the mouth lands on one lip curve, and the bed rises to it and runs past both ends. `the_tear_is_frozen` is re-blessed for it.
-
-`bench_carnage`'s digest over every fragment, wound, stain and droplet is unchanged, and so is its bake time.
-
-### What `0.5.2` changed: the bake again, and the hitch it causes
-
-Same output as `0.5.0` and `0.5.1`, byte for byte, by the same digest. Placing the subject's skin onto its fragments used to recompute every cell's face planes for each triangle it tested. Each cell's planes are now computed once. On `bench_carnage` the bake drops from 50.2 to 41.4 ms for sixteen bodies, and the worst per-body spike from 3.8 to 3.0 ms on an M4 Pro. Since `0.5.0` the bake is 25 % cheaper and its worst frame hitch 28 % shorter.
-
-### What `0.5.1` changed: the same carnage, cheaper to bake
-
-No public item moved, and every byte the crate emits is what `0.5.0` emitted for the same input. `bench_carnage`'s digest over every fragment, wound, stain and droplet is unchanged, and the bench refuses to report a time when it is not. The bake is 8.7 % cheaper on that script (55.1 → 50.3 ms for sixteen bodies, worst per-body spike 4.1 → 3.8 ms on an M4 Pro), because the attribute weld that builds each fragment's mesh now resolves a corner it has already emitted with one lookup instead of a 27-cell probe. Also in this release: `bevy` 0.19.1 and `serde` 1.0.229 in the lockfiles, and the example run commands, demo counts and web canvas fixes in `BACKLOG.md`'s phase 6.
-
-### What `0.5.0` changed: the seven crates are modules
-
-`bloodstain`, `bevy_wetmap`, `bevy_viscera`, `bevy_cross_section`, `bevy_flaymap`, `bevy_laceration` and `bevy_fracture_modes` are no longer crates. Each is a module of this one under the name it was always re-exported by (`bevy_carnage::wetmap`, …), so a consumer that reached them through this crate — which is how the README always told you to — changes nothing. A consumer that depended on a leaf directly replaces that line with this crate and prefixes the path. The six `bevy_*` registry entries are yanked. `bloodstain` stays on crates.io for anyone who needs the blood model without Bevy, since it is engine-free and `no_std` and this crate is not; it is frozen, and development continues here as `bevy_carnage::bloodstain`. The seven repositories are archived; nothing there will move again. (The README published with 0.5.0 said all seven registry entries were yanked. `bloodstain` never was.)
-
-### What `0.2.0` broke, and why it was a de-duplication rather than a rename
-
-**The whole blood model moved out to `bloodstain`** (a crate then; the module of that name now) — the Comiskey percolation spatter, the pools, the bleed schedule, `hash_f32` and `WoundKind`. None of it needed Bevy and all of it was reusable, so it is now an engine-free `no_std` crate with **no math library in its public API** (`[f32; 3]` everywhere), which is the property that lets anything depend on it.
-
-This crate **re-exports every moved name**, so `use bevy_carnage::{Droplet, Stain, Pool, Bleed, hash_f32}` resolves exactly as it did at `0.1.1`, and `bevy_carnage::blood` reaches the rest. Four things do break:
-
-| what changed | from | to |
-|---|---|---|
-| The blood dials moved under one field | `settings.droplets_per_m2` | `settings.blood.droplets_per_m2` — one dial, one owner |
-| A wound announces its forensic class | `Wounded { .. }` | `Wounded { .., class: PatternClass }`, and `Wound::to_world(&xf, class)` |
-| Cessation is a material comparison, not a timer | `bleed::clotted(..)` | `flows(driving_stress(..), yield_stress(..))` — the same predicate that arrests a rivulet on a wall |
-| Stains are derived, not chosen from four textures | `SPLAT_VARIANTS`, `splat_image(variant)` | `StainMasks` + `bloodstain::stain::rasterise` from the stain's own `StainShape` |
-
-The last one is the one worth the break. Four baked splats picked by `seed % 4` contain a repeat among any four consecutive stains with probability `1 − 4!/4⁴ = 90.6 %`, so a floor read as tiled by the fourth stain; a derived stain repeats only when the impact does.
-
-`Bleed` is now a plain value (its crate has no ECS); the component is `Bleeding`, a newtype that derefs to it.
-
-### New in `0.2.0`
-
-| area | state |
-|---|---|
-| **Fracture that knows how it was loaded** | `FaultPolicy::Morphology` — torsional spiral, bending butterfly, axial transverse, comminution, and greenstick as an *outcome* (`Fracture::bent`). Closes the limitation Sellán et al. name in `10.1145/3549540` §6 |
-| **Fragment count from the energy** | `grady_mott_target` — Grady's characteristic size, with the delivered energy as a hard ceiling. A pistol wedges; a rifle comminutes |
-| **Tissue class** | Cortical splits along its own grain and splinters; trabecular compacts and is clamped to three pieces at any energy |
-| **The framework surface** | `GoreTier` mapped to ESRB/PEGI descriptors, a WCAG 2.1 SC 2.3.1 flash gate that cannot be configured upward, an aim-exclusion cone, a decal budget, and hit-stop coalescing |
-| Cutting, capping, colliders | Stable. Every fragment audits as a closed convex solid, swept across seeds and shape dials |
-| Hierarchy, bond graph, region queries | Landed and tested |
-| Look dials (`plane_jitter`, `size_spread`, `weak_axis`, `cap_relief`, `soften`) | Defaults tuned by eye on a blockout, not measured against real assets |
-| Skinned meshes | Bind pose only — see above |
-| Cross-architecture reproducibility | Not claimed |
-
-**Every frozen golden survived the move unchanged**, which is the evidence that it was a move: `hash_f32_is_frozen`, `the_spatter_model_is_frozen`, `the_stain_placement_is_frozen` and `the_pool_model_is_frozen` all pass in their new crate with the same bits, and `fracture_output_is_bit_identical_across_runs` passes here with `FaultPolicy::WeakAxis` still what `CutSettings::new` selects.
-
-The API is **not** stable before 1.0. Cargo's caret range on a `0.x` admits `0.2.z` only, so the next breaking change arrives as `0.3` and never by surprise.
-
-**Ten of this crate's examples also build for the browser.** They are published at
-[ladvien.github.io/foundation_vs_slop](https://ladvien.github.io/foundation_vs_slop/) from the monorepo's frozen `0.5.64` copy, on Bevy 0.19, so the clips there are older than this repository. Wasm builds never enable `vfx` — `bevy_hanabi`'s wasm support is WebGPU-compute-only — so every new visual in them is CPU-side.
-
-Known limitations are listed under "What it deliberately does not do" rather than hidden; `BACKLOG.md` carries the reasoning behind each decision, including the predictions that turned out wrong.
-
-## Contributing
-
-Work is done **in this repository**, which is the source of truth: open issues and pull requests here. [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) carries a frozen Bevy 0.19 copy (`0.5.64`) that is never mirrored over this one, so a change sent there does not reach this crate.
-
-Before opening a PR:
-
-```sh
-cargo test                  # unit + tests/leaf.rs + doctests
-cargo build --release       # NOT redundant with `cargo test` — see below
-cargo build --examples
-cargo clippy --all-targets  # 12 warnings pre-exist; add none. See BACKLOG.md's definition of done
-```
-
-**`cargo build --release` is load-bearing.** `cargo test` compiles dev-dependencies, and the dev-dependency here is the *full* `bevy` umbrella. Cargo unifies features, so under `cargo test` this crate silently gets every `bevy` feature there is and a missing entry in its own `[dependencies]` cannot fail. That is not hypothetical — `WorldAsset` was reached for while only `bevy_scene` was declared, and every test passed on a crate that did not build.
-
-Two house rules worth knowing before you write code:
-
-- **One path per feature.** No fallbacks, no legacy shims, no stub placeholders. Where the primary path cannot produce a usable result, it fails loudly. `seed_from_path` refusing to bake an unpathed handle *is* the rule.
-- **This crate never learns what died.** No health, no factions, no damage, no physics. `tests/leaf.rs` enforces the dependency half of that; the naming half is on you.
-
-Anything that changes emitted geometry regenerates the clips in `docs/` — see [docs/DEMOS.md](docs/DEMOS.md#regenerating-these).
-
-## References
-
-- Müller, Chentanez & Kim, "Real-Time Dynamic Fracture with Volumetric Approximate Convex Decompositions", ACM TOG 32(4), 2013. DOI [10.1145/2461912.2461934](https://doi.org/10.1145/2461912.2461934)
-- Sellán, Luong, Mattos Da Silva, Ramakrishnan, Yang & Jacobson, "Breaking Good: Fracture Modes for Realtime Destruction", ACM TOG 41(4), 2022. DOI [10.1145/3549540](https://doi.org/10.1145/3549540)
-- Huang & Kanai, "DeepFracture: A Generative Approach for Predicting Brittle Fractures", 2023. arXiv [2310.13344](https://arxiv.org/abs/2310.13344) — Mott's fragment-size distribution
-- Schvartzman & Otaduy, "Fracture Animation Based on High-Dimensional Voronoi Diagrams", I3D 2014.
-- Sutherland & Hodgman, "Reentrant Polygon Clipping", CACM 17(1), 1974.
-- [NVIDIA Blast](https://nvidia-omniverse.github.io/PhysX/blast/) — the chunk-hierarchy / support-graph / damage-shader vocabulary this crate's runtime half borrows.
-
-## License
+Maintained by [@Ladvien](https://github.com/Ladvien). This repository is the source of truth: issues and pull requests belong at [github.com/bevy-coven/bevy_carnage/issues](https://github.com/bevy-coven/bevy_carnage/issues), and [how to contribute](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/contributing.md) follows the org's [CONTRIBUTING.md](https://github.com/bevy-coven/.github/blob/main/CONTRIBUTING.md).
 
 MIT OR Apache-2.0, at your option.

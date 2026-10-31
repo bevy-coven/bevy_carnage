@@ -1324,3 +1324,8 @@ mod tests {
         w.to_world(xf, PatternClass::Impact).normal
     }
 }
+
+// The guide's full quick start was the README's until 2026-10-31; its blocks stay compiled.
+#[cfg(doctest)]
+#[doc = include_str!("../docs/guide/quick-start.md")]
+struct GuideQuickStartDoctests;
