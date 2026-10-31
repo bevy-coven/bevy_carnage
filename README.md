@@ -19,7 +19,7 @@ Wounds that peel to the bone, bleed, pool and dry, and bodies that break into ch
 
 ```toml
 [dependencies]
-bevy_carnage = "0.7"
+bevy_carnage = "0.8"
 ```
 
 ```rust

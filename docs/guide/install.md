@@ -4,7 +4,7 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ```toml
 [dependencies]
-bevy_carnage = "0.7"
+bevy_carnage = "0.8"
 ```
 
 Requires **Bevy 0.20** and a Rust toolchain with **edition 2024**. That one line brings the whole family: `bevy_carnage::blood` (the material), `::wetmap`, `::viscera`, `::cross_section`, `::flaymap`, `::laceration` and `::fracture_modes` are the seven sibling crates re-exported whole, so nothing has to be named twice and no two versions of a leaf can meet in one graph.

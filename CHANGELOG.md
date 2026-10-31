@@ -6,6 +6,8 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-31
+
 ### Changed
 
 - **A floor takes what a wound throws as drops, not as blobs** (iteration 6, `docs/research/floor-spatter.md`). A

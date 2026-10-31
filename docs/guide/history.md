@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.7.0` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in that one release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.8.0` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.8.0` changed: a floor takes a wound's spray as drops
+
+- **A floor stains a droplet as its own stain, and a shot throws a fan.** Each droplet a floor takes is `hard_stain`'s (size and slant from how it lands), as a wall's and a skin's have been since `0.5.62`, found by a cast through the mesh's index; `GoreDials::floor_mist` (`9`) throws that many more fine droplets at the floors for each one it throws at everything, cast at the same surfaces and stamped only on a floor, so a wall, a skin and a cloth take what they took. A stain under four texels across is a `WetCanvas::paint_speck`, which lays its own area. **Breaking**: `GoreDials` has a new public field. A floor shows the spray as drops from about 6 mm a texel (`floor_canvas` 512 for a three-metre slab). `capture_skinned --floor N` and `preset::tests::hit_tick_cost` measure it. See `CHANGELOG.md`, `## [0.8.0]`, and `docs/research/floor-spatter.md`.
 
 ### What `0.6.0` and `0.7.0` changed: Bevy 0.20, and a body that breaks at its joints
 
