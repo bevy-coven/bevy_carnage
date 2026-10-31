@@ -6,12 +6,12 @@
 
 | | |
 |---|---|
-| ![A textured blocked-out body takes a blow, a burn, a slash and shots to the chest; the wounds bleed and pool on the floor and the body comes apart](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/preset.gif) | ![A smooth mannequin walks in place with its left arm raised; a shot opens the raised forearm, a slash the thigh, shots the chest, and each wound keeps bleeding from the limb it is on](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/skinned.gif) |
+| ![A textured blocked-out body takes a blow, a burn, a slash and shots to the chest; the wounds bleed and pool on the floor and the body comes apart](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/preset.gif) | ![A smooth mannequin walks in place with its left arm raised; a shot opens the raised forearm, a slash the thigh, shots the chest, and each wound keeps bleeding from the limb it is on](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned.gif) |
 | `examples/preset.rs` — a blow, a burn, a slash and shots to the bone | `examples/skinned.rs` — the same on a skinned, animated body, the wounds riding the limbs |
 
 Underneath is the fracture it was built on: plane-cut a character's own meshes into watertight-capped chunks, bore bullet channels through them, and drive blood, spatter and impact feel off the wounds that result.
 
-![A blue blocked-out humanoid standing intact, then bursting into tumbling rounded chunks whose cut faces are raw red while their outer surfaces stay blue](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/explode.gif)
+![A blue blocked-out humanoid standing intact, then bursting into tumbling rounded chunks whose cut faces are raw red while their outer surfaces stay blue](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/explode.gif)
 
 That is `examples/explode.rs` at its own 0.4× playback. The subject is intact, then it *is* its own fragments — the "break" is one despawn and a spawn, because the fracture was computed long before. **The red is not a colour choice, it is the whole idea:** every fragment comes back as two meshes, the subject's own surface and the faces this cut just created, so the inside can take a different material. Render both with the skin material and the same fragments stop looking broken and start looking disassembled.
 
@@ -61,7 +61,7 @@ bevy_carnage = "0.7"
 
 Requires **Bevy 0.20** and a Rust toolchain with **edition 2024**. That one line brings the whole family: `bevy_carnage::blood` (the material), `::wetmap`, `::viscera`, `::cross_section`, `::flaymap`, `::laceration` and `::fracture_modes` are the seven sibling crates re-exported whole, so nothing has to be named twice and no two versions of a leaf can meet in one graph.
 
-`0.7` is on crates.io. The release before it, `0.5.18`, is a Bevy 0.19 crate; a Bevy 0.19 project stays on `"0.5"`. To follow the repository instead of a release: `bevy_carnage = { git = "https://github.com/Ladvien/bevy_carnage" }`.
+`0.7` is on crates.io. The release before it, `0.5.18`, is a Bevy 0.19 crate; a Bevy 0.19 project stays on `"0.5"`. To follow the repository instead of a release: `bevy_carnage = { git = "https://github.com/bevy-coven/bevy_carnage" }`.
 
 | feature | default | what it does |
 |---|---|---|
@@ -117,7 +117,7 @@ What a hit does, in order: the flaymap peels to the depth asked; the wound's spa
 
 **The preset obeys the player's violence setting.** Insert a `GorePolicy` (`GorePolicy::for_tier(GoreTier::Blood)`) and the next hit follows it, so a settings menu is one resource: at `Stylised` a hit is still announced as `Wounded`, at the same point, and nothing bleeds, so the game puts a spark where the blood would have been; `Blood` keeps the blood and refuses the guts and the breaking; the world's share of the blood, the guts and the breaking are each a switch of their own. Reduction is substitution, never deletion.
 
-![The same scripted scene three times: at the stylised tier a yellow spark marks each shot and nothing bleeds; at the blood tier the wounds bleed and pool on the floor and the body stays whole; at blood and gore the body comes apart](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/tiers.gif)
+![The same scripted scene three times: at the stylised tier a yellow spark marks each shot and nothing bleeds; at the blood tier the wounds bleed and pool on the floor and the body stays whole; at blood and gore the body comes apart](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/tiers.gif)
 
 That is `capture_preset -- --tier 0|1|2`; `T` cycles it live in `examples/preset.rs`, and [`docs/preset.md`](docs/preset.md#the-players-settings) has the table.
 
@@ -193,34 +193,34 @@ assert!(pieces.iter().all(|p| p.outer.is_some() || p.cap.is_some()));
 
 | | |
 |---|---|
-| ![flesh](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/flesh.gif) | ![preset](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/preset.gif) |
+| ![flesh](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/flesh.gif) | ![preset](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/preset.gif) |
 | `capture_flesh` — the material: a banded limb, a skin sphere, a sheet, under a walking light | `capture_preset` — the preset: a blow, a burn, a slash, and shots to the bone |
 
-![A smooth mannequin walks in place with its left arm raised and waving; a shot opens a wound on the raised forearm, a slash opens a thigh, shots open the chest, and each wound keeps bleeding from the limb it is on while blood pools under the feet](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/skinned.gif)
+![A smooth mannequin walks in place with its left arm raised and waving; a shot opens a wound on the raised forearm, a slash opens a thigh, shots open the chest, and each wound keeps bleeding from the limb it is on while blood pools under the feet](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned.gif)
 
 That is `examples/skinned.rs` — **the preset on a skinned, animated body**, made in code with no asset. A game's character is a mesh whose asset is its bind pose, arms at its sides, and a skeleton that carries it somewhere else each frame; before 0.5.19 the preset cast every hit at the asset, and a shot at the raised forearm above did nothing. Now the hit lands where the arm is *drawn*, the wound rides the limb it opened on, and its blood runs downhill in the world rather than along the atlas. Every key aims at where that part of the body is this frame; `capture_skinned` records it.
 
-![A mannequin walks in place with its left arm raised; a heavy shot to the chest breaks it mid-stride into pieces that keep the pose, the raised arm up and the legs mid-step, before they fall and settle among its guts](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/skinned_break.gif)
+![A mannequin walks in place with its left arm raised; a heavy shot to the chest breaks it mid-stride into pieces that keep the pose, the raised arm up and the legs mid-step, before they fall and settle among its guts](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_break.gif)
 
 That is `capture_skinned --break`, and **a body that breaks breaks where its skeleton is.** The fracture is baked from a mesh asset, which is the bind pose; before 0.5.28 the pieces of a character caught mid-stride appeared with its arms at its sides. Each piece is now carried by the bone of the vertex nearest it, to where that bone is on the tick the body breaks and turned as it is. The one thing asked of the game is that a skinned body's fracture is baked in the mesh's own space.
 
-![The mannequin walks in a pale sleeveless shirt; two shots to the chest punch a ragged hole in the shirt through which the wound is seen, and blood soaks outward through the cotton along a frayed, pinkish front](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/skinned_shirt.gif)
+![The mannequin walks in a pale sleeveless shirt; two shots to the chest punch a ragged hole in the shirt through which the wound is seen, and blood soaks outward through the cotton along a frayed, pinkish front](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_shirt.gif)
 
 That is `capture_skinned --shirt`: **a shot through clothing holes it.** The shirt is a seventh skinned mesh named `Shirt`, which `GoreScene` dresses as cloth. Before 0.5.29 the shot wounded the skin under it unseen and the shirt took a flat red patch; now the impact opens a hole where its ray crossed the shirt, cut from the colour, the shadows and the depth prepass alike, and the blood wicks into the weave around it.
 
-![The mannequin walks in front of a plaster wall; a shot through the raised forearm and two through the chest throw a cone of fine spatter onto the wall behind it, each drop its own small stain](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/skinned_through.gif)
+![The mannequin walks in front of a plaster wall; a shot through the raised forearm and two through the chest throw a cone of fine spatter onto the wall behind it, each drop its own small stain](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_through.gif)
 
 That is `capture_skinned --through`: **a shot that goes through.** Whether a bullet leaves a body is the game's ballistics, so the game says so, with `GoreHit::through()`. The preset goes through everything of the body on the shot's line, opens an exit wherever it comes out, wider than the way in, bleeds from every wound, and throws each exit's forward spatter along the shot. The wall is `Gore::wall()`, a hard upright surface on which every droplet is its own stain, sized, stretched and pointed by the way it struck.
 
-![The mannequin stands with its right forearm held across its chest; one shot goes through the forearm and on into the chest, and as the arm is lowered the chest wound it hid is seen bleeding, the wall behind spattered by the chest's exit](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/skinned_guard.gif)
+![The mannequin stands with its right forearm held across its chest; one shot goes through the forearm and on into the chest, and as the arm is lowered the chest wound it hid is seen bleeding, the wall behind spattered by the chest's exit](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_guard.gif)
 
 That is `capture_skinned --guard`: **a shot through a forearm goes on into the chest.** The body stands with its right forearm across its chest, and one shot through it goes in and out of the forearm and then in and out of the chest. When the arm comes down the wound it was hiding is there, the forearm's forward spatter round it, and the chest's exit has spattered the wall. Until 0.5.62 the shot stopped at the far side of the forearm and the chest took a sheet of blood with no wound under it.
 
-![Slowed four times: one shot through the forearm held across the mannequin's chest throws a fan of thin red streaks from both wounds, which slow and shorten as they fly, and a soft red mist hangs where the shot went in](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/skinned_spray.gif)
+![Slowed four times: one shot through the forearm held across the mannequin's chest throws a fan of thin red streaks from both wounds, which slow and shorten as they fly, and a soft red mist hangs where the shot went in](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_spray.gif)
 
 That is the same shot at a quarter speed, `capture_skinned --guard --slow 4`: **the spray is streaks.** Every droplet is drawn along its velocity, as long as a ninetieth of a second of its flight, so it leaves the wound as a streak and shortens as drag slows it; at full speed it is out of a body-sized view within two frames. The stains on the wall behind are already there in the first frame: the preset paints a stain the tick its wound opens, ahead of the spray that carries it (see the known limits in [`docs/preset.md`](docs/preset.md)).
 
-![The mannequin walks across a tiled floor through a spill of blood and out the other side, leaving a line of bloody boot prints, left and right, each paler and more broken than the last](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/skinned_stroll.gif)
+![The mannequin walks across a tiled floor through a spill of blood and out the other side, leaving a line of bloody boot prints, left and right, each paler and more broken than the last](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_stroll.gif)
 
 That is `capture_skinned --stroll`, on a floor of 30 cm tiles whose UVs repeat as a level's do (`Gore::projected`): **a foot that stepped in blood tracks it.** When a foot lands is the game's animation, so the game says so, with the `GoreStep` it raises for a footstep's sound. A sole in wet blood picks some up and leaves a sole-shaped dent; a sole carrying blood prints a boot's outline on the floor and sheds 30 % of what it carries, so the prints fade from a whole sole to a scatter. Dried blood is not picked up.
 
@@ -228,11 +228,11 @@ The seven kernels have a clip each, on their own pages under `docs/`, and every 
 
 | | | |
 |---|---|---|
-| [![cross-section](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/cross_section.gif)](docs/cross_section.md) | [![fracture modes](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/fracture_modes.gif)](docs/fracture_modes.md) | [![flaymap](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/flaymap.gif)](docs/flaymap.md) |
-| [![laceration](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/laceration.gif)](docs/laceration.md) | [![spectral blood](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/spectral.gif)](docs/bloodstain.md) | [![wetmap](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/wetmap.gif)](docs/wetmap.md) |
-| [![viscera](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/viscera.gif)](docs/viscera.md) | | |
+| [![cross-section](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/cross_section.gif)](docs/cross_section.md) | [![fracture modes](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/fracture_modes.gif)](docs/fracture_modes.md) | [![flaymap](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/flaymap.gif)](docs/flaymap.md) |
+| [![laceration](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/laceration.gif)](docs/laceration.md) | [![spectral blood](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/spectral.gif)](docs/bloodstain.md) | [![wetmap](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/wetmap.gif)](docs/wetmap.md) |
+| [![viscera](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/viscera.gif)](docs/viscera.md) | | |
 
-![A blue blocked-out humanoid standing; a projectile takes off its arm, another its head, a slash takes the other arm, a blade through the waist takes both legs and a blast finishes the torso](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/sever.gif)
+![A blue blocked-out humanoid standing; a projectile takes off its arm, another its head, a slash takes the other arm, a blade through the waist takes both legs and a blast finishes the torso](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/sever.gif)
 
 That is `examples/sever.rs`, on a fixed script. The subject **stays standing** between blows and what comes off depends on where you hit it. Run it and you aim it yourself:
 
@@ -255,11 +255,11 @@ cargo run --release --example skinned          # needs a GPU — the preset on a
   R               reset
 ```
 
-![A blue blocked-out humanoid standing still while five shots punch through it one at a time, each leaving a small dark-red hole in the blue skin and throwing a handful of rounded red chunks out the far side that arc down, land and spread into overlapping dark pools on the floor, then the camera orbits a third of a turn to show the wider exit wounds and the spatter together](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/holes.gif)
+![A blue blocked-out humanoid standing still while five shots punch through it one at a time, each leaving a small dark-red hole in the blue skin and throwing a handful of rounded red chunks out the far side that arc down, land and spread into overlapping dark pools on the floor, then the camera orbits a third of a turn to show the wider exit wounds and the spatter together](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/holes.gif)
 
 That is `examples/bullet_holes.rs`, on a fixed script. Each shot is a `Bore` — a segment, a radius and three look dials — subtracted from the proxy before any cut, so the hole has a wall rather than being painted on a surface, and the plug it removed is thrown out the exit side as a chunk of gore that lands and becomes a flat stain. The subject keeps standing because the shards around a channel share their radial faces bit-for-bit and the bond graph reads them as one island. Run it and you aim it yourself, with `[`/`]` for calibre, `J` for raggedness, `F` for exit flare and `K` for how many pieces the plug breaks into.
 
-![A blue blocked-out humanoid; a shot punches a channel through its chest which mists blood from the hole, then four blows in turn take an arm, the head, the other arm and both legs, each cut throwing a red spray outward along the face it opened while dark stains pile up on the floor beneath; the severed pieces keep pulsing blood at a heartbeat's rate as they lie there, the pulses weaken, and by the end the floor is soaked and the bleeding has stopped](https://raw.githubusercontent.com/Ladvien/bevy_carnage/main/docs/carnage.gif)
+![A blue blocked-out humanoid; a shot punches a channel through its chest which mists blood from the hole, then four blows in turn take an arm, the head, the other arm and both legs, each cut throwing a red spray outward along the face it opened while dark stains pile up on the floor beneath; the severed pieces keep pulsing blood at a heartbeat's rate as they lie there, the pulses weaken, and by the end the floor is soaked and the bleeding has stopped](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/carnage.gif)
 
 That is `examples/carnage.rs`, on a fixed script — and it is the one clip that shows the whole crate at once. **A bullet hole and a severance are geometrically different openings, and they bleed through the same code**: frame 18 is a bore, the rest are severances, and nothing downstream can tell them apart beyond a `WoundKind` mixed into a seed. The spray leaves each cut along that cut's own normal, the floor stains are solved on the CPU and would exist with the render feature off, and every severed piece keeps pulsing at its own heartbeat until it clots. Run it and you aim it yourself, with `1`–`5` for the five blows and `6` to shoot a channel through.
 
@@ -423,7 +423,7 @@ Note what this does *not* claim. Fragment geometry is `f32` arithmetic, so cross
 
 ## Status
 
-**`0.7.0` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_emerge`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in that one release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.7.0` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in that one release, and the `0.5.18` before it is a Bevy 0.19 crate.
 
 ### What `0.6.0` and `0.7.0` changed: Bevy 0.20, and a body that breaks at its joints
 

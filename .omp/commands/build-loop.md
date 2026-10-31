@@ -3,7 +3,7 @@ description: One iteration of the bevy_carnage improvement loop (gore that looks
 argument-hint: "[optional focus, e.g. 'arterial spray only' or 'issue #3 only']"
 ---
 
-One run of this command is one iteration of a long-running loop on bevy_carnage, a Bevy 0.20 crate of deterministic runtime gore: it plane-cuts a character's own meshes into watertight-capped chunks and breaks a skinned body where its skeleton is, bores bullet channels, peels craters (`flaymap`), opens lacerations, spills viscera, and drives blood off the wounds that result: spatter by bloodstain-pattern physics (`bloodstain`), runs, pools and drying on CPU-owned canvases (`wetmap`), and the `flesh` material and `preset` (`GorePlugin`, `Gore`, `GoreHit`) that put all of it on a loaded glTF character in two lines. Games consume it for violence a player reads at a glance: Sanctuary (decision 0241 made this repository the source of truth) and bevy_emerge's family integration F12, destructible props and damage dials (`gh issue view 108 --repo Ladvien/bevy_emerge`). Do ONE improvement per iteration, the single most valuable one from a game developer's point of view, finish it completely, then stop.
+One run of this command is one iteration of a long-running loop on bevy_carnage, a Bevy 0.20 crate of deterministic runtime gore: it plane-cuts a character's own meshes into watertight-capped chunks and breaks a skinned body where its skeleton is, bores bullet channels, peels craters (`flaymap`), opens lacerations, spills viscera, and drives blood off the wounds that result: spatter by bloodstain-pattern physics (`bloodstain`), runs, pools and drying on CPU-owned canvases (`wetmap`), and the `flesh` material and `preset` (`GorePlugin`, `Gore`, `GoreHit`) that put all of it on a loaded glTF character in two lines. Games consume it for violence a player reads at a glance: Sanctuary (decision 0241 made this repository the source of truth) and bevy_grimoire's family integration F12, destructible props and damage dials (`gh issue view 108 --repo bevy-coven/bevy_grimoire`). Do ONE improvement per iteration, the single most valuable one from a game developer's point of view, finish it completely, then stop.
 
 This crate must be reproducible AND convincing AND cheap on the caller's frame. A digest that changes between two runs of the same build, a frozen golden that moves, blood that reads as red paint, plastic or a decal sticker, and a hit that spikes the frame are all failures, however good one screenshot looks. **The owner's direction (2026-10-30): this loop learns its look from horror films.** The judgement on anything visible is a practical-effects artist's on a horror set (Rob Bottin on *The Thing*, Tom Savini, the KNB EFX shop, the *Evil Dead* and *Terrifier* effects crews): does the blood have the right red for its age, the right body as it beads and runs, does a wound have an edge, a depth and a wet sheen, does a pool spread and crust as one does, does debris read as meat and bone. Under that eye sits a forensic scientist's: the spatter is the ballistics `bloodstain` models and the drying is the rheology it cites. The look is replicated **procedurally** (shaders, particles, canvases, meshes, parameters), never by shipping someone's photograph.
 
@@ -188,7 +188,7 @@ each line with a measurement, not an impression:
 Before you pick an item, list the repository's open issues and triage them:
 
 ```sh
-gh issue list --repo Ladvien/bevy_carnage --state open --limit 100 \
+gh issue list --repo bevy-coven/bevy_carnage --state open --limit 100 \
   --json number,title,labels,createdAt --jq '.[] | "#\(.number) \(.title)"'
 ```
 
@@ -203,7 +203,7 @@ Then, in this order:
    others.
 2. **An issue labelled `consumer` is the pass's item next, ahead of the series and your own candidates.**
    A project built on this crate needs it and is waiting. The `consumer:<name>` label says which project;
-   `consumer:bevy_emerge` is the owner's editor. Its own work resumes when the issue is closed as completed
+   `consumer:bevy_grimoire` is the owner's editor. Its own work resumes when the issue is closed as completed
    and it moves its git pin to a `main` commit containing the fix. Take the oldest one you can work this pass.
    - **Build the general form.** The requester is the example, never a name in this crate's API, a path or a
      default: this crate serves other projects too. Where an issue asks for something shaped to one project,
@@ -272,7 +272,7 @@ State in one sentence why your pick beats the runner-up. If it is too big, carve
 self-contained slice. Record the ranked candidate list in the log, not only the winner.
 
 **A pass never ends idle** (owner, 2026-10-29: "If they're not addressing bugs or enhancing features, they need to evolve their own code base to support Bevy Emerge better or add new features. Research these things in home still, implement them. They shouldn't stay idle."). An empty issue list or a stale backlog is this step's input, never a reason to ship nothing, and a candidate is not "speculation" once it is researched. When the ranked list above gives no workable item, take the first of these that applies:
-1. **What the crate's consumers hand-roll.** Read how Sanctuary uses this crate (`gh repo clone Ladvien/sanctuary /tmp/cN/sanctuary -- --depth 1`, then `rg -l bevy_carnage`; removed afterwards) and bevy_emerge's family issues (`gh issue list -R Ladvien/bevy_emerge --label family --state all`, and F12, `gh issue view 108 --repo Ladvien/bevy_emerge`, destructible props and damage dials). Find a formula, a wrapper or a query either writes by hand around this crate (marking a prop breakable, authoring the violence dials as RON, mapping a hit to `GoreHit`, a policy toggle at runtime), and build its general form here, never named for either. Prove it with a test here.
+1. **What the crate's consumers hand-roll.** Read how Sanctuary uses this crate (`gh repo clone Ladvien/sanctuary /tmp/cN/sanctuary -- --depth 1`, then `rg -l bevy_carnage`; removed afterwards) and bevy_grimoire's family issues (`gh issue list -R bevy-coven/bevy_grimoire --label family --state all`, and F12, `gh issue view 108 --repo bevy-coven/bevy_grimoire`, destructible props and damage dials). Find a formula, a wrapper or a query either writes by hand around this crate (marking a prop breakable, authoring the violence dials as RON, mapping a hit to `GoreHit`, a policy toggle at runtime), and build its general form here, never named for either. Prove it with a test here.
 2. **A feature a shipping game in this domain expects and this crate lacks**, found by research: home-still first (`distill_search`; for a paper the corpus lacks, `paper_search`, `paper_download`, `scribe_convert`, then `distill_index`), then shipped-game practice, then section 5 before any code.
 3. **Depth on the weakest existing feature**: measure it against its research note's validation targets and improve the worst gap.
 
