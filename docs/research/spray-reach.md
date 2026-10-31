@@ -68,10 +68,26 @@ floor is closed form, and the closed form is where the unscaled launch speed ove
 
 ## Model adopted
 
-No new model. `GoreDials::default()` states the preset's game scale: its `blood.spatter_speed_scale` is
-`0.25` (`GORE_SPATTER_SPEED_SCALE`), the number every demo already authors by hand. `BloodSettings::default()`
-keeps `1.0`: its constants are the paper's measurements and `the_spatter_model_is_frozen` pins them; the
-preset is the one module that owns a look.
+Two lines of behaviour, no new physics.
+
+1. `GoreDials::default()` states the preset's game scale: its `blood.spatter_speed_scale` is `0.25`
+   (`GORE_SPATTER_SPEED_SCALE`), the number every demo already authors by hand. `BloodSettings::default()`
+   keeps `1.0`: its constants are the paper's measurements and `the_spatter_model_is_frozen` pins them; the
+   preset is the one module that owns a look.
+2. **The scale compresses the flight to a floor and nothing else.** `throw_spray` casts a droplet at a wall, a
+   cloth or a body part from the paper's launch speed (`spatter_speed_scale` forced to `1.0` for the cast),
+   and lands the droplets nothing caught on a floor with the dial's scale.
+
+   *Why (measured, a first version without it was built and rejected).* With the scale applied to the casts
+   too, `capture_skinned --through` frame 195 put a wall stipple of median diameter 5.3 px (right of the body)
+   and 4.9 px (left) at `1.0` down to 3.4 px and 3.7 px, and the spread of sizes (p90 over p10 of the
+   diameters) from 6.65 and 4.55 to 3.92 and 1.52; Ref 1's is 8.1. The stamp's floor of a texel and a half
+   (`shape_on`) clamps the small end, so a slower droplet does not make a smaller stain, it makes the same
+   one, and a wall that read as a stipple of every size read as pinpricks of one. A droplet a wall catches is
+   a metre or two from the wound, where drag has taken a fraction of its speed (`v e^(-x/L)`, with
+   `L = (4/3)(rho_drop/rho_air)(d/C_d)` about 2 m for a millimetre drop at `C_d = 0.6`, an estimate this note
+   does not rest a number on); the launch speed is the nearer of the two. The floor is where the flight is
+   long and the drag-free parabola is wrong by ten, so that is where the compression belongs.
 
 ## Parameters
 
@@ -79,24 +95,32 @@ preset is the one module that owns a look.
 |---|---|---|
 | `GoreDials::blood.spatter_speed_scale` | `0.25` | **Tuned, and says so.** Chosen so that the unscaled 8 to 40 m/s lands in Comiskey et al.'s measured 0.25 to 4 m field once drag is left out; it is the number `docs/DEMOS.md:327` and `BACKLOG.md:739` record the demos setting by hand. A design default, not a measurement. |
 | `BloodSettings::spatter_speed_scale` | `1.0` (unchanged) | The paper's launch speeds. |
+| cast droplets' speed | `1.0 x` the paper's | Not a dial: the scale is a flight compression (above). |
 
 ## Validation targets
 
 1. `a_wound_stains_the_floor_beneath_it` passes **unchanged** (the loop's acceptance since iteration 0).
-2. A standard chest-height wound (`h = 0.9 m`, the test's) on a default `GoreDials`: the share of its droplets
-   that land within 4 m of it rises from `1 of 7` to most of them; the farthest falls from 43 m to under 12 m.
+2. A chest-height wound (`h = 1 m`, area 0.02 m², 48 droplets) on the default dials: at least 95 % of its
+   droplets land in 0.25 to 4 m of it and the farthest under 8 m; on `BloodSettings::default()` the median
+   is past 4 m and the farthest past 40 m (`the_default_throw_lands_inside_the_field_the_spatter_was_measured_over`).
 3. `BloodSettings::default()` is untouched: `the_spatter_model_is_frozen`, `the_stain_placement_is_frozen`
    and every other bloodstain golden pass without edit.
-4. A caller who sets `GoreDials { blood: BloodSettings { spatter_speed_scale: 1.0, .. }, .. }` gets the old
-   throw, bit for bit (a test).
-5. The recorders that dress a floor under the default dials (`capture_preset`, `capture_skinned`) print a new
-   `digest` (a floor now takes spray), twice equal; `bench_carnage` (which authors its own scale) does not move.
+4. A wall behind a body takes the same blood whether the flight scale is `0.25` or `1.0`
+   (`the_flight_scale_leaves_a_wall_as_it_was`, which fails against a build that casts at the scaled speed).
+5. The recorders that dress a floor under the default dials print a new `digest` and the same one twice;
+   a recorder whose clip takes no hit (`--stroll`, `--quiet`) keeps the digest it had; `bench_carnage`
+   (which authors its own scale) does not move.
+6. `capture_skinned --through`: the wall's pixels are the pixels they were; the floor takes the spray.
 
 ## Deviations
 
 - **A changed default, marked as a design default.** `GoreDials::default().blood.spatter_speed_scale`
   `1.0 -> 0.25`. Reason above; citation Comiskey et al. 2018. It moves every default-dials recorder digest
-  that has a floor; the log and the changelog say so.
+  whose clip has a hit and a floor; the log and the changelog say so.
+- **A changed meaning, for a caller who authored the dial.** The scale no longer shrinks the stains a wall, a
+  cloth or a body part takes. A game that set `0.25` (or `gore_tier`'s `0.12`) to tame a spray's range keeps
+  its floor exactly and gets a wall stained at the paper's speed, which is what it was before it set the dial
+  at all.
 - **Not done, and recorded:** the model's size and speed are inverted against the paper's measured *range*
   (the paper's larger, slower drops fly farther; `droplet.rs` makes the smallest the fastest and the vacuum
   lands the fastest farthest). Fixing it needs a drag integrator in `landing`, which moves four frozen
