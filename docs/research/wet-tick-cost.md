@@ -68,29 +68,59 @@ needs it only at its rim, and skips it inside and outside.
 
 ## Model adopted
 
-No model change. Three exact reductions, each proved against the thing it replaces, in the order of what they cost:
+No model change. Five exact reductions, each held to the thing it replaces, in the order they were made:
 
-1. **`rasterise`: a bucketed bound on the rim.** The circle of angles is cut into 64 buckets. For each, the spines whose window
+1. **`rasterise`: a bucketed bound on the rim.** The circle of angles is cut into 32 buckets. For each, the spines whose window
    (`arg >= -17`, the existing skip) can reach it, as a bit set, and an upper bound on `rim` there: `1 +` the sum over those spines
-   of `reach * exp(-gap^2 / 2w^2)`, `gap` the least angular distance from the spine to the bucket, padded so float error cannot
-   cross it. A sample outside the circle of the largest bound is zero without an `atan2`; one outside its bucket's bound is zero
-   without a spine; the rest walk only the spines whose bit is set, in the same ascending order, with the same arithmetic. Satellites
-   are tested on the squared distance first, with a margin the float error cannot cross. Bytes identical:
-   `rasterise_writes_the_mask_its_definition_does` already holds `rasterise` to a by-definition oracle over 3 000 shapes and is
-   widened to the ceiling of spines.
-2. **`shade`: a table of `(level, age)`.** The albedo and roughness a `(fill level, age)` pair gets is a pure function of the
-   canvas's settings, so a canvas keeps them in a small direct-mapped table and the one-slot memo stops thrashing along a rim.
-   The age's wetness byte, a `u64` division a texel, is memoised by age. Identical bytes by construction; the same pure function.
-3. **The passes' inner loops** (`spread`, `drip`, `advance`, the re-measure): row slices rather than a `get` and a bounds branch
-   per neighbour, the lean's `across` hoisted out of the texel, the cumulative absorption by age tabulated, an empty texel with
-   four empty neighbours skipped. The conservation arguments in `CLAUDE.md` (`wetmap`) do not change and the tests that defend
-   them are the proof.
+   of `reach * exp(-gap^2 / 2w^2)`, `gap` the least angular distance from the spine (or its copy a turn either way) to the bucket,
+   padded so float error cannot cross it. A texel outside the circle of the largest bound is zero without an `atan2`; one outside
+   its bucket's bound is zero without a spine; the rest walk only the spines whose bit is set, in the same ascending order, with
+   the same arithmetic. A texel outside a satellite's disc by a margin skips its square root. Bytes identical:
+   `rasterise_writes_the_mask_its_definition_does` already held `rasterise` to a by-definition oracle over 3 000 shapes; a second
+   test holds it there at the ceiling of 24 spines and 24 satellites and over 2 000 impacts `stain_shape` itself makes.
+2. **`shade`: a table on `(level, age)`.** What a `(film level, age)` pair looks like is a pure function of the canvas's settings,
+   so a canvas keeps it in a 1024-slot direct-mapped table, between ticks, and the one-slot memo that thrashed along every rim
+   goes. The wetness byte, a `u64` division a texel, is memoised by age.
+3. **`spread` and `advance`.** The flux across an edge is `round(k * (a_i - a_j))` of two bytes, one of 511 values, read from a
+   table; the substrate's soak by age is a byte table of the drying span.
+4. **Bare texels are skipped.** Most of what a tick covers holds no blood (three covered texels in four on a wall). A bare texel
+   with four bare neighbours stays `(0, 0)` through `spread`; a bare texel whose `R` byte in the metallic-roughness image is
+   already zero is already drawn bare (every write of that byte draws the whole texel) and `shade` leaves it.
+5. **What a tick covers is the blood, not the tiles it fell in.** The live tiles kept the bounding rectangle of the blood in each
+   32-texel tile, which for a spray of fine drops was most of the tile round each: 9 388 texels covered for 1 144 with blood
+   (`a_spray_is_covered_by_its_own_blood_and_not_by_its_tiles`, which fails on 0.8.0 and passes now at under 3 240). A tick now
+   re-measures the blood as a rectangle one row high for each stretch of a row that holds any (`SPAN_GAP`, within seven texels is
+   one stretch), and covers those and the tiles painted since, each grown by the reach of one tick, swept by row. The passes are
+   paid per texel covered, so this is the cost.
+6. **The check that they are what they say**: `the_passes_are_what_their_definitions_say` copies the pre-table `spread` and
+   `advance` into the test, writes `shade` by its definition (`appearance_with_fresh` asked afresh at every texel), and compares
+   `wet` and every pixel of both images to them on every tick of four scripted runs (soak at 0 and 0.9, a short drying span, a
+   spread at its ceiling); `the_live_tiles_change_nothing_but_the_cost` holds the covered tick to the whole-canvas one.
+
+## Levers measured and not taken (each moves pixels, so each is its own item)
+
+- **Where the stamp's time is.** After the exact reductions a spined stamp costs about 8 ns a sample for each spine whose window
+  holds the texel: 24 spines 200 to 260 ns a sample, 12 spines 100, none 27 (`rasterise`, fine mask of 20 and 96 texels, best of 25
+  batches); the satellites cost 15 ns. One heavy wound facing a wall is 49 stamps (`STAMPS by px`, one fresh hit): 16 of two texels
+  (0.8 ms together), 7 of three, 5 of four, 20 of five (4.6 ms, the first of them 1.5 ms cold) and one of 24 texels (0.8 ms): the cost
+  is the many small stamps, each 25 to 150 us, of which the table is 10 to 19, and not the one big one.
+- **A sample budget by stamp size** (`edge_samples` 4 to 2 past a stamp of about 14 texels): coverage of a spined stamp, 4 samples
+  against 3, 2 and 1 on a 512 canvas. Stamp of 26 texels (6 mm at 25 m/s): mean difference 0.35, 1.24 and 7.3 of 255 a texel,
+  worst 4, 13 and 66; of 16: 0.74, 2.4 and 14.7, worst 9, 17 and 95; of 8 (3 mm at 12 m/s): 2.3, 8.2 and 30. A budget of 2 on
+  stamps of 14 texels and over is invisible to a mean of 1 to 2.4 of 255 and saves three quarters of the work of the stamps it
+  touches, which in a heavy hit is one in 49: it does not move the hit by itself; below 14 texels the difference is not
+  invisible, and `tests/wetmap.rs` pins four samples at 32 texels.
+- **Spines a canvas cannot resolve** are the most expensive part of a wall stamp and cannot be seen: at 5 mm a texel a
+  stamp of five texels has spines under a texel wide. But the body is shrunk to make room for them (`extent`), so drawing none
+  makes the body 2.5 times the area: not a free saving. A stamp's mass has to be kept by re-sizing, and judged against Ref 1.
 
 ## Parameters
 
-`RIM_BUCKETS = 64` (a design default: the bound's looseness against its tables' cost, to be settled by measurement in the log).
-`BUCKET_PAD = 1e-3` rad, `WINDOW_PAD = 1e-3` relative and `RIM_PAD = 1e-4` relative: each three
-orders over float error and below anything that changes a cull, so none moves a byte; the tests are what say so. No behaviour dial.
+`RIM_BUCKETS = 32`: a design default. At 16, 32 and 64 the cost of a big stamp was the same inside the noise of a shared host
+(a fine mask of 96 texels: 2.5, 2.2 and 2.2 ms), and the table a stamp builds fell from 37 us at 64 to 10 to 19 at 32, which is
+most of what a stamp of two texels costs. `BUCKET_PAD = 1e-3` rad, `WINDOW_PAD = 1e-3` relative and `RIM_PAD = 1e-4` relative:
+each orders over float error and below anything that changes a cull, so none moves a byte; the tests are what say so.
+`SHADE_SLOTS = 1024` (8 KiB a canvas that has shaded blood). No behaviour dial.
 
 ## Validation targets
 
