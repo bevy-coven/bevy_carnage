@@ -41,6 +41,10 @@
 # build host may not have: run `build recorders terminal windowed` there, `rsync` the out-dir, and
 # run `QA_PHASES=sheets QA_KEEP_MISSING=1 tools/qa.sh <out-dir>` where `magick` is.
 #
+# **Timeouts.** Each windowed run is killed, with a `sample` of where it was stuck, when it outlives
+# its budget: 180 s, or 60 s plus a quarter of a second per frame of its script when that is longer
+# (`timeout_for`). `QA_TIMEOUT=<secs>` makes it one flat limit for every run instead.
+#
 # `QA_DRY=1` prints every command instead of running it, which is how `tests/qa_roster.rs` tests
 # this script.
 #
@@ -238,7 +242,21 @@ FEATURES=$(printf '%s' "${QA_FEATURES:-}" | tr ' ' ',')
 BUILD="cargo build --release -p bevy_carnage --examples"
 if [ -n "$FEATURES" ]; then BUILD="$BUILD --features $FEATURES"; fi
 
-TIMEOUT=${QA_TIMEOUT:-180}
+# The watchdog's budget for a windowed run, from the frame its script exits on. `QA_TIMEOUT`, when set,
+# is a flat limit for every run. Otherwise it is 180 s or, for a longer script, 60 s plus a quarter of a
+# second per frame, so a run that is slow because the host is busy (the loop's host is shared, and an
+# off-screen run is a few frames a second there) is not killed while it is still making progress. A
+# hang is still caught: `skinned`'s 1620 frames get 465 s, and a hung run never finishes at all.
+timeout_for() {
+  local scaled=$((60 + $1 / 4))
+  if [ -n "${QA_TIMEOUT:-}" ]; then
+    echo "$QA_TIMEOUT"
+  elif [ "$scaled" -gt 180 ]; then
+    echo "$scaled"
+  else
+    echo 180
+  fi
+}
 
 # `timeout` is not on a stock macOS, so this is a watchdog in plain bash. It signals the child
 # directly, which is why the binary is run directly. Exit status 124 means it timed out, as GNU
@@ -470,9 +488,11 @@ for name in $WINDOWED; do
   # `${KEYS[@]+...}`: an empty array is "unbound" under `set -u` on bash 3.2.
   script=$(script_for ${KEYS[@]+"${KEYS[@]}"})
   shots=$(printf '%s\n' "$script" | tr ' ' '\n' | grep -c ':shot$' || true)
+  last=${script##* }
+  limit=$(timeout_for "${last%%:*}")
   if [ "$DRY" -eq 1 ]; then
     if phase windowed; then
-      say "+ CARNAGE_AUTOPILOT=\"$script\" CARNAGE_AUTOPILOT_OUT=$OUT/$name timeout $TIMEOUT $BIN/$name 2>&1 | tee $OUT/$name.log   # expects $shots shots"
+      say "+ CARNAGE_AUTOPILOT=\"$script\" CARNAGE_AUTOPILOT_OUT=$OUT/$name timeout $limit $BIN/$name 2>&1 | tee $OUT/$name.log   # expects $shots shots"
     fi
     sheets_windowed "$name"
     continue
@@ -481,7 +501,7 @@ for name in $WINDOWED; do
     need_bin "$name"
     mkdir -p "$OUT/$name"
     rm -f "$OUT/$name"/f*.png
-    run_logged "$name" "$TIMEOUT" env CARNAGE_AUTOPILOT="$script" CARNAGE_AUTOPILOT_OUT="$OUT/$name" "$BIN/$name"
+    run_logged "$name" "$limit" env CARNAGE_AUTOPILOT="$script" CARNAGE_AUTOPILOT_OUT="$OUT/$name" "$BIN/$name"
     got=$(find "$OUT/$name" -maxdepth 1 -name 'f*.png' | wc -l | tr -d ' ')
     if [ "$got" -lt "$shots" ]; then
       echo "qa.sh: $name produced $got of $shots screenshots (script: $script)" >>"$MISSING"
@@ -510,7 +530,7 @@ DIGEST_RE='digest|^[a-z_]+: frames=[0-9]+ [a-z_]+=[0-9a-f]{16}'
 if [ "$DRY" -eq 1 ]; then
   say "+ grep -HE 'WARN|ERROR|panicked' $OUT/*.log | grep -v 'Skipped event Destroyed for unknown winit Window Id' > $OUT/warnings.txt"
   say "+ grep -HiE '$DIGEST_RE' $OUT/*.log > $OUT/digests.txt"
-  say "# missing.txt: any windowed example with fewer f*.png than its script's shot count, or that hit the ${TIMEOUT}s timeout; any run exiting non-zero; any example skipped for a feature this round does not build (the '# skip' lines above)"
+  say "# missing.txt: any windowed example with fewer f*.png than its script's shot count, or that hit its timeout (see timeout_for); any run exiting non-zero; any example skipped for a feature this round does not build (the '# skip' lines above)"
   exit 0
 fi
 
