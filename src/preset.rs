@@ -2290,6 +2290,21 @@ fn face_measure(mesh: &Mesh) -> Option<(f32, Vec3, Vec3)> {
 /// number every demo already authored by hand (`docs/DEMOS.md`), in `docs/research/spray-reach.md`.
 pub const GORE_SPATTER_SPEED_SCALE: f32 = 0.25;
 
+/// **How many droplets a wound throws per square metre of its opening, at game scale**: `24000`, ten times the leaf's
+/// `2400`. A bullet-sized crater (3.5 cm in radius, 3.85e-3 m²) throws about 90 droplets where `BloodSettings::default()`
+/// throws 9, and a chest wound is capped at `max_droplets_per_wound`. **It is a count and nothing else**: the
+/// droplets a wound already threw are the same droplets (`droplet(wound, i)` is a pure function of the wound and the
+/// ordinal, so ordinals `0..9` are what they were), and the first [`SPRAY_CAST`] and [`WALL_CAST`] are the ones cast at a
+/// body part, a cloth or a wall; what is new is the rest, which nothing catches and which the floors take.
+///
+/// **Why the preset states it and `BloodSettings` does not**, as with [`GORE_SPATTER_SPEED_SCALE`]: the leaf's
+/// `2400` is pinned by `the_spatter_model_is_frozen`, and nine stains on a floor for a shot is what a floor of
+/// jam read as. The paper's own unit is a floor of *individual stains* binned by distance, and the films it
+/// is read against throw a fan (`docs/research/floor-spatter.md`). **Tuned, and says so**: no paper gives a count per
+/// wound area at game scale; it is set so a crater leaves about a hundred stains on the shipped floor, where the
+/// reference photographs show 111 and 220. A design default; a caller who authored `droplets_per_m2` keeps it.
+pub const GORE_DROPLETS_PER_M2: f32 = 24_000.0;
+
 /// A rendered gut tube the preset keeps in step with its strand.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct Gut;
@@ -2302,10 +2317,11 @@ pub struct GoreDials {
     pub canvas: u32,
     /// The scale of the game's meshes, millimetres per unit. `1000` for metres.
     pub mm_per_unit: f32,
-    /// **The blood model**, at **game scale**: [`GORE_SPATTER_SPEED_SCALE`] on `spatter_speed_scale`, where
-    /// `BloodSettings::default()` is the paper's launch speeds. The scale is how far a droplet flies on to a
-    /// floor; a stain on a wall, a cloth or a body part is sized at the paper's speed whatever it is. A caller
-    /// who wants the unscaled throw states `BloodSettings { spatter_speed_scale: 1.0, ..default() }`.
+    /// **The blood model**, at **game scale**: [`GORE_SPATTER_SPEED_SCALE`] on `spatter_speed_scale` and
+    /// [`GORE_DROPLETS_PER_M2`] on `droplets_per_m2`, where `BloodSettings::default()` is the paper's launch speeds and
+    /// the leaf's own count. The scale is how far a droplet flies on to a floor; a stain on a wall, a cloth or a body part
+    /// is sized at the paper's speed whatever it is. A caller who wants the unscaled throw states
+    /// `BloodSettings { spatter_speed_scale: 1.0, droplets_per_m2: 2400.0, ..default() }`.
     pub blood: BloodSettings,
     /// Fixed ticks per second, for the bleed schedule.
     pub hz: u32,
@@ -2349,7 +2365,7 @@ impl Default for GoreDials {
         Self {
             canvas: 128,
             mm_per_unit: 1000.0,
-            blood: BloodSettings { spatter_speed_scale: GORE_SPATTER_SPEED_SCALE, ..BloodSettings::default() },
+            blood: BloodSettings { spatter_speed_scale: GORE_SPATTER_SPEED_SCALE, droplets_per_m2: GORE_DROPLETS_PER_M2, ..BloodSettings::default() },
             hz: 60,
             strands: 5,
             spawn_fragments: true,
@@ -6991,6 +7007,90 @@ mod tests {
                 let image = wet.map_or(0, WetCanvas::image_bytes) + flay.map_or(0, FlayCanvas::image_bytes) + dermis.map_or(0, DermisCanvas::image_bytes);
                 println!("{name:<12}{edge:>6}  {}  {}  {}", kib(heap), kib(image), kib(heap + 2 * image));
             }
+        }
+    }
+
+    /// **What one hit costs the tick it lands on**, in a room: a body, a floor of two triangles and one of
+    /// twenty thousand, and a wall behind. Not a test: it prints `METRIC` lines and the floor's stain count,
+    /// as `bench_carnage` prints the carnage's. A shot enters the body's front and leaves its back, so the
+    /// exit wound's forward spray reaches the wall and the droplets nothing catches reach the floor. Run it
+    /// with `cargo test --release --lib -- hit_tick_cost --ignored --nocapture`, alone on the host: the time
+    /// of one tick is the number a caller's frame pays.
+    #[test]
+    #[ignore]
+    fn hit_tick_cost() {
+        const HITS: usize = 45;
+        let components = |wet: &WetCanvas| {
+            let n = wet.size();
+            let lit = |x: u32, y: u32| wet.amount_at(x, y) > 32;
+            let mut seen = vec![false; (n * n) as usize];
+            let mut count = 0u32;
+            for y in 0..n {
+                for x in 0..n {
+                    if seen[(y * n + x) as usize] || !lit(x, y) {
+                        continue;
+                    }
+                    count += 1;
+                    let mut stack = vec![(x, y)];
+                    seen[(y * n + x) as usize] = true;
+                    while let Some((cx, cy)) = stack.pop() {
+                        for (dx, dy) in [(-1i32, 0i32), (1, 0), (0, -1), (0, 1)] {
+                            let (nx, ny) = (cx as i32 + dx, cy as i32 + dy);
+                            if nx < 0 || ny < 0 || nx >= n as i32 || ny >= n as i32 {
+                                continue;
+                            }
+                            let (nx, ny) = (nx as u32, ny as u32);
+                            if !seen[(ny * n + nx) as usize] && lit(nx, ny) {
+                                seen[(ny * n + nx) as usize] = true;
+                                stack.push((nx, ny));
+                            }
+                        }
+                    }
+                }
+            }
+            count
+        };
+        for (label, subdivisions, wall) in [("floor2", 0u32, false), ("floor20k", 99, false), ("floor2_wall", 0, true), ("floor20k_wall", 99, true)] {
+            let mut app = headless();
+            let sphere = app.world_mut().resource_mut::<Assets<Mesh>>().add(Sphere::new(0.3).mesh().uv(16, 8));
+            let plane = app.world_mut().resource_mut::<Assets<Mesh>>().add(Plane3d::new(Vec3::Y, Vec2::splat(1.5)).mesh().subdivisions(subdivisions).build());
+            let material = app.world_mut().resource_mut::<Assets<StandardMaterial>>().add(StandardMaterial::default());
+            let body = app
+                .world_mut()
+                .spawn((Mesh3d(sphere), MeshMaterial3d(material.clone()), Transform::from_xyz(0.0, 0.9, 0.0), GlobalTransform::from_xyz(0.0, 0.9, 0.0), Gore::skin(Region::Limb)))
+                .id();
+            let floor = app
+                .world_mut()
+                .spawn((Mesh3d(plane), MeshMaterial3d(material.clone()), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::floor().with_uv_per_metre(1.0 / 3.0).with_canvas(256)))
+                .id();
+            if wall {
+                let slab = app.world_mut().resource_mut::<Assets<Mesh>>().add(Plane3d::new(Vec3::Z, Vec2::new(1.5, 1.0)).mesh().build());
+                let at = Transform::from_xyz(0.0, 1.0, -1.5);
+                app.world_mut().spawn((Mesh3d(slab), MeshMaterial3d(material), at, GlobalTransform::from(at), Gore::wall().with_uv_per_metre(1.0 / 3.0).with_canvas(512)));
+            }
+            app.world_mut().run_schedule(FixedUpdate);
+            let quiet = {
+                let t = std::time::Instant::now();
+                app.world_mut().run_schedule(FixedUpdate);
+                t.elapsed().as_secs_f64() * 1e3
+            };
+            let mut ms = Vec::with_capacity(HITS);
+            for i in 0..HITS {
+                let x = ((i % 9) as f32 - 4.0) * 0.04;
+                let y = 0.9 + (((i / 9) % 5) as f32 - 2.0) * 0.03;
+                let t = std::time::Instant::now();
+                app.world_mut().write_message(GoreHit::impact(body, Vec3::new(x, y, 2.0), Vec3::NEG_Z, 0.03, 5.0));
+                app.world_mut().run_schedule(FixedUpdate);
+                ms.push(t.elapsed().as_secs_f64() * 1e3);
+            }
+            ms.sort_by(f64::total_cmp);
+            let median = ms[ms.len() / 2];
+            let worst = ms[ms.len() - 1];
+            let floor_wet = app.world().get::<WetCanvas>(floor).map(|w| (w.wetted_area(), components(w))).unwrap_or((0.0, 0));
+            println!("METRIC hit_tick_ms_median_{label}={median:.4}");
+            println!("METRIC hit_tick_ms_worst_{label}={worst:.4}");
+            println!("METRIC quiet_tick_ms_{label}={quiet:.4}");
+            println!("floor_{label}: {HITS} hits, wetted {:.3} m2 in {} stains", floor_wet.0, floor_wet.1);
         }
     }
 }
