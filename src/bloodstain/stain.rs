@@ -231,9 +231,9 @@ impl StainShape {
     }
 }
 
-/// **Angular buckets [`RimBounds`] tabulates a stain's rim in**: `64`, a bucket a tenth of a radian wide. A design default, chosen
-/// by measurement (`docs/research/wet-tick-cost.md`): the bound's looseness against the cost of building the table, which is paid
-/// once a mask. No behaviour depends on it: the mask is the same bytes at any count.
+/// **Angular buckets [`RimBounds`] tabulates a stain's rim in**: `32`, a bucket a fifth of a radian wide. A design default, chosen
+/// by measurement (`docs/research/wet-tick-cost.md`): at 16, 32 and 64 a big stamp cost the same, and the table, paid once a
+/// mask, is what a stamp of two texels is made of. No behaviour depends on it: the mask is the same bytes at any count.
 const RIM_BUCKETS: usize = 32;
 
 /// **How far past its edges a bucket is read**, radians: `1e-3`. `atan2` is good to a few parts in ten million, so a sample
