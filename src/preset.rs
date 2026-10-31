@@ -1849,6 +1849,18 @@ impl DermisCanvas {
         self.px.len()
     }
 
+    /// **FNV-1a over the canvas's bytes** — `rgba` per texel, row-major — so two runs that bruised and
+    /// burned the same skin the same way print the same number, and a bruise one texel off, or one
+    /// model step older, prints another.
+    ///
+    /// Over the *buffer*, not the image: the CPU copy is the authority and the uploaded texture is
+    /// write-only, the rule [`crate::wetmap::digest`] gives for the wet buffer. The bruises-free copy
+    /// ([`draw_bruises`](Self::draw_bruises)'s `under`) is not folded on its own: it is what `px` is
+    /// rebuilt from at every redraw, so a difference in it is a difference here.
+    pub fn digest(&self) -> u64 {
+        self.px.iter().fold(0xcbf2_9ce4_8422_2325, |h, &b| (h ^ b as u64).wrapping_mul(0x0000_0100_0000_01b3))
+    }
+
     /// Paint a radial field: `colour(r_mm, dir)` returns the linear ratio the skin is multiplied by and
     /// an alpha, for the texel `r_mm` from `uv` in the unit direction `dir` (in UV, zero at the centre),
     /// out to `radius_uv`. Alpha is taken as the max of what was there, so two injuries overlap rather
@@ -2053,9 +2065,10 @@ impl ClothHoles {
         &self.canvas
     }
 
-    /// FNV-1a over the canvas's bytes: two runs that opened the same holes print the same number.
+    /// FNV-1a over the canvas's bytes ([`DermisCanvas::digest`]): two runs that opened the same holes
+    /// print the same number.
     pub fn digest(&self) -> u64 {
-        self.canvas.px.iter().fold(0xcbf2_9ce4_8422_2325, |h, &b| (h ^ b as u64).wrapping_mul(0x0000_0100_0000_01b3))
+        self.canvas.digest()
     }
 
     /// **Mend every hole and slit**, keeping the canvas and its image. The material stays as the
@@ -5994,6 +6007,46 @@ mod tests {
         let dermis = app.world().get::<DermisCanvas>(burnt).map(|d| d.px.clone()).unwrap_or_default();
         let charred = dermis.chunks_exact(4).filter(|p| p[3] > 200 && p[0] < 40).count();
         assert!(charred > 0, "a third-degree burn chars the dermis");
+    }
+
+    /// **The dermis digest is the fold bruises and burns were missing** (issue #8). `capture_preset` and
+    /// `capture_skinned` folded the wetmaps and nothing under the skin, so a bruise that fell somewhere
+    /// else from run to run, or a burn that came out another size, printed the line it always had. A blow
+    /// and a burn each move a limb's dermis digest off a freshly dressed one's; the same blow in a second
+    /// app lands on the same number; and a blow a hand's breadth away, or an iron held longer, lands on
+    /// another, because where an injury fell and how far it went are what the line has to see.
+    #[test]
+    fn the_dermis_digest_sees_where_a_bruise_fell_and_how_a_burn_went() {
+        // One limb dressed in a fresh app, one hit sent, eight ticks (a bruise ages eight hours in them).
+        let dermis_after = |hit: &dyn Fn(Entity) -> Option<GoreHit>| -> u64 {
+            let mut app = headless();
+            app.insert_resource(GoreDials { bruise_hours_per_tick: 1.0, ..default() });
+            let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(Cuboid::new(0.4, 0.4, 0.2).mesh().build());
+            let limb = app.world_mut().spawn((Mesh3d(mesh), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::skin(Region::Limb).with_uv_per_metre(2.5))).id();
+            app.world_mut().run_schedule(FixedUpdate);
+            if let Some(hit) = hit(limb) {
+                app.world_mut().write_message(hit);
+            }
+            for _ in 0..8 {
+                app.world_mut().run_schedule(FixedUpdate);
+            }
+            app.world().get::<DermisCanvas>(limb).map_or(0, DermisCanvas::digest)
+        };
+        let blow = |x: f32| move |e: Entity| Some(GoreHit::blunt(e, Vec3::new(x, 0.0, 2.0), Vec3::NEG_Z, 0.02));
+        let iron = |seconds: f32| move |e: Entity| Some(GoreHit::burn(e, Vec3::new(0.0, 0.0, 2.0), Vec3::NEG_Z, 0.03, 150.0, seconds));
+
+        let fresh = dermis_after(&|_| None);
+        assert_ne!(fresh, 0, "the limb was never dressed");
+        let bruised = dermis_after(&blow(0.0));
+        assert_ne!(bruised, fresh, "a bruise left the dermis digest as a fresh skin's");
+        assert_eq!(dermis_after(&blow(0.0)), bruised, "the same blow in a second app printed another number");
+        assert_ne!(dermis_after(&blow(0.1)), bruised, "a bruise a hand's breadth away printed the same number");
+
+        let burnt = dermis_after(&iron(1.0));
+        assert_ne!(burnt, fresh, "a burn left the dermis digest as a fresh skin's");
+        assert_ne!(burnt, bruised, "a burn and a bruise printed the same number");
+        assert_eq!(dermis_after(&iron(1.0)), burnt, "the same iron in a second app printed another number");
+        assert_ne!(dermis_after(&iron(3.0)), burnt, "an iron held three times as long printed the same number");
     }
 
     /// What a wound throws lands on the floor under it: the closed-form stains reach a dressed floor
