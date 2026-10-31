@@ -7,6 +7,18 @@ comment block at the top of `Cargo.toml`.
 
 ### Fixed
 
+- `fracture_skeleton` refuses what it cannot cut exactly, by name (#7). A part that is not a
+  `TriangleList` (a `TriangleStrip` or a `LineList`, which Bevy's glTF loader produces for
+  `Mode::TriangleStrip` and `Mode::Lines`) or whose index count is not a multiple of three is
+  `SkeletalRefusal::NotTriangleList { part }`, where it was cut as a list with the remainder dropped without
+  a word; an index past the vertex buffer is `BadIndex { part, triangle }`, where it was reported as
+  `SplitTriangle` ("the body is not rigid"); and a vertex with weight on a joint outside its dominant joint's
+  group, or on a joint no group holds, is `SplitVertex { part, vertex }`, where the module's own "a
+  soft-skinned body is refused" was not kept and the piece jumped at the break. A group's own joints may
+  still share a vertex. Three new `SkeletalRefusal` variants: `fracture_skeleton` is in no published
+  release, so nothing a consumer holds breaks. `read_part` reads the indices with `try_indices_option`
+  rather than the accessor that `expect`s on a mesh extracted to the render world. Research:
+  `docs/research/skeleton.md`.
 - `tools/qa.sh` finishes a round on a default build (#5, `AG-140`). The six `vfx` examples (`carnage`,
   `capture_carnage`, `pooling`, `capture_pooling`, `ribbons`, `capture_ribbons`) stay on its roster but
   run only when `QA_FEATURES` names `vfx`, which also adds it to the build step; otherwise each gets one
