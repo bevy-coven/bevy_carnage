@@ -13,7 +13,7 @@
 //! a wall behind the body and every shot goes through it: an exit wound opens on the far side and its
 //! forward spatter lands on the wall and the floor behind, and runs down the wall. `--quiet` takes no
 //! hits at all. `--reset-at N` sends a `GoreReset` for the body and every dressed surface on frame
-//! `N`: once the canvases have uploaded, every frame after is the quiet run's, and so is the digest.
+//! `N`: once the canvases have uploaded, every frame after is the quiet run's, and so is the whole line.
 //! `--blows` adds a second blow to the left shin, lower down, at frame 60: two bruises on one limb,
 //! both ageing. `--stroll` takes no hits: the body walks along a tiled floor instead of in place,
 //! through a spill of blood painted on the floor ahead of it at frame 0, and every foot it puts down is
@@ -26,7 +26,9 @@
 //! frames at full speed, is seen leaving it. It prints its own digest: the same ticks fall on other
 //! frames.
 //!
-//! Writes `frame0000.png …` and prints one digest line; two runs must print the same line.
+//! Writes `frame0000.png …` and prints one digest line; two runs must print the same line. `digest=`
+//! folds the wetmaps and the holed cloth; `flay=` the craters and `dermis=` the bruises and burns,
+//! which `digest=` cannot see: `--blows` prints the default's `digest=` and its own `dermis=`.
 //!
 //! The subject is `common/mannequin.rs`: six skinned meshes on eleven joints, walking in place with
 //! its left arm raised and waving. **Every shot is aimed at where the body is drawn at that frame**,
@@ -52,6 +54,7 @@ use bevy_carnage::preset::{ClothHoles, Gore, GoreClock, GorePlugin, GoreReset, G
 use bevy_carnage::wetmap::{StainShape, WetCanvas};
 
 mod common;
+use common::digest;
 use common::mannequin::{self, Bone, Mannequin, Part};
 use common::preset_scene;
 use common::recorder::Recorder;
@@ -174,21 +177,17 @@ fn main() {
         rec.shoot();
     }
     let world = rec.world();
-    let mut digest: u64 = 0xcbf2_9ce4_8422_2325;
-    // Sorted before folding, for the reason `capture_preset` gives.
-    let mut wets = world.query::<&WetCanvas>();
-    let mut values: Vec<u64> = wets.iter(world).map(|w| w.digest()).collect();
+    // `digest=` is the wetmaps, as it has always been, and the cloth that was holed; `flay=` and
+    // `dermis=` are the craters and the bruises and burns it cannot see. `digest::fold` sorts.
+    let mut values: Vec<u64> = world.query::<&WetCanvas>().iter(world).map(|w| w.digest()).collect();
     // Only a cloth that was holed, so a clip in which nothing was holed keeps the digest it had.
     let mut holes = world.query::<&ClothHoles>();
     values.extend(holes.iter(world).filter(|h| h.is_holed()).map(ClothHoles::digest));
-    values.sort_unstable();
-    for value in values {
-        digest ^= value;
-        digest = digest.wrapping_mul(0x0000_0100_0000_01b3);
-    }
+    let digest = digest::fold(values);
+    let skin = digest::skin_fields(world);
     let tick = world.resource::<GoreClock>().0;
     let frames = rec.finish();
-    println!("skinned: frames={frames} ticks={tick} digest={digest:016x}");
+    println!("skinned: frames={frames} ticks={tick} digest={digest:016x}{skin}");
 }
 /// Whether `--break` was given: the mannequin is made breakable and takes a hit to bone at frame 200.
 fn breaking() -> bool {
