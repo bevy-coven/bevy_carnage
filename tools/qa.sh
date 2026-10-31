@@ -4,7 +4,8 @@
 #   FONT=/System/Library/Fonts/Supplemental/Arial.ttf tools/qa.sh <out-dir> [name ...]
 #
 # What it does, in order:
-#   1. builds every example (`cargo build --release -p bevy_carnage --examples`);
+#   1. builds every example (`cargo build --release -p bevy_carnage --examples`, plus
+#      `--features $QA_FEATURES` when that is set);
 #   2. runs the headless recorders, each into `<out>/<name>/frameNNNN.png`, log in `<out>/<name>.log`;
 #   3. runs the terminal examples, logs in `<out>/<name>.log` (`cross_section_strip` also writes a PNG);
 #   4. runs each windowed example under `examples/common/autopilot.rs`, which makes the example press
@@ -14,9 +15,20 @@
 #
 # **Names.** With no `name`, everything runs. With one or more, only those run — so a later round can
 # re-render just the examples a fix touched, into the same directory. `capture` is accepted as a name
-# for the pair `capture_demo` + `capture_audit`. A name that matches nothing is an error, checked
-# before anything is built. The three summary files are rebuilt from the logs in `<out>`, so after a
-# partial run they cover every log there; `missing.txt` covers only what this run executed.
+# for the pair `capture_demo` + `capture_audit`. `capture_skinned` is the default clip of the skinned
+# body, and each variant the loop measures with is its own name, run with the flags of
+# `docs/DEMOS.md`'s recipe: `capture_skinned_break`, `_shirt`, `_through`, `_guard`, `_spray`
+# (`--guard --slow 4`), `_stroll`, `_blows` (framed on the shins) and `_quiet`. A name that matches
+# nothing is an error, checked before anything is built. The three summary files are rebuilt from the
+# logs in `<out>`, so after a partial run they cover every log there; `missing.txt` covers only what
+# this run executed.
+#
+# **Features.** A round builds the crate's default features, as a consumer gets them. An example
+# whose `required-features` go beyond those (`gated_by` below: today the six `vfx` ones, which cannot
+# build on Bevy 0.20 until `bevy_hanabi` publishes for it) runs only when `QA_FEATURES` names its
+# feature, which also adds it to the build step. Otherwise the round writes one `missing.txt` line
+# naming the feature and goes on. It does not run whatever binary an earlier build left behind: cargo
+# never deletes an example it skipped, so a binary being there says nothing about this build.
 #
 # **No screen is needed for any of it.** A scripted windowed example opens no window: the autopilot
 # swaps winit for a plain loop and renders every camera into an off-screen image, at a fixed 1/60 s
@@ -29,7 +41,12 @@
 # build host may not have: run `build recorders terminal windowed` there, `rsync` the out-dir, and
 # run `QA_PHASES=sheets QA_KEEP_MISSING=1 tools/qa.sh <out-dir>` where `magick` is.
 #
-# `QA_DRY=1` prints every command instead of running it, which is how this script is tested.
+# **Timeouts.** Each windowed run is killed, with a `sample` of where it was stuck, when it outlives
+# its budget: 180 s, or 60 s plus a quarter of a second per frame of its script when that is longer
+# (`timeout_for`). `QA_TIMEOUT=<secs>` makes it one flat limit for every run instead.
+#
+# `QA_DRY=1` prints every command instead of running it, which is how `tests/qa_roster.rs` tests
+# this script.
 #
 # macOS ships bash 3.2: no associative arrays, no `mapfile`, no `${var,,}`. Hence the `case`
 # functions and the space-delimited name lists below.
@@ -70,15 +87,16 @@ die() { echo "qa.sh: $*" >&2; exit 1; }
 
 # --- the roster -----------------------------------------------------------------------------------
 
-RECORDERS="capture_demo capture_audit capture_sever capture_holes capture_carnage capture_ribbons capture_pooling capture_entrails capture_flesh capture_preset capture_gore capture_family"
+RECORDERS="capture_demo capture_audit capture_sever capture_holes capture_carnage capture_ribbons capture_pooling capture_entrails capture_flesh capture_preset capture_gore capture_family capture_skinned capture_skinned_break capture_skinned_shirt capture_skinned_through capture_skinned_guard capture_skinned_spray capture_skinned_stroll capture_skinned_blows capture_skinned_quiet"
 TERMINAL="fracture_cube canvas_digest dry_timeline flay_digest fracture_modes_bar laceration_curve rod_determinism stain_sweep cross_section_strip"
-WINDOWED="bullet_holes carnage carnage_web cross_section drying entrails explode fault_modes flaymap_peel flesh fracture_modes fragment_energy gore_tier laceration_open pattern_classes pooling preset rheology ribbons sever spill stain_morphology viscera_spill wetmap_paint"
+WINDOWED="bullet_holes carnage carnage_web cross_section drying entrails explode fault_modes flaymap_peel flesh fracture_modes fragment_energy gore_tier laceration_open pattern_classes pooling preset rheology ribbons sever skinned spill stain_morphology viscera_spill wetmap_paint"
 
-# The example a recorder name runs. `capture` is run twice with different flags; every other recorder
-# is its own example.
+# The example a recorder name runs. `capture` is run twice and `capture_skinned` once per variant,
+# with different flags; every other recorder is its own example.
 rec_example() {
   case "$1" in
     capture_demo|capture_audit) echo capture ;;
+    capture_skinned_*) echo capture_skinned ;;
     *) echo "$1" ;;
   esac
 }
@@ -88,6 +106,24 @@ rec_args() {
   case "$1" in
     capture_demo) echo "--tint demo --width 720 --height 512 --soften 0.5" ;;
     capture_audit) echo "--tint audit --width 720 --height 512 --soften 0.25" ;;
+    capture_skinned_break) echo "--break" ;;
+    capture_skinned_shirt) echo "--shirt" ;;
+    capture_skinned_through) echo "--through" ;;
+    capture_skinned_guard) echo "--guard" ;;
+    capture_skinned_spray) echo "--guard --slow 4" ;;
+    capture_skinned_stroll) echo "--stroll" ;;
+    capture_skinned_blows) echo "--blows --eye 0.32,0.42,0.8 --at 0.095,0.3,0.05" ;;
+    capture_skinned_quiet) echo "--quiet" ;;
+    *) echo ;;
+  esac
+}
+
+# The feature beyond the crate's `default` that an example needs, from its `required-features` in
+# `Cargo.toml`; nothing for one a default build makes. `tests/qa_roster.rs` holds this list to the
+# manifest: a round that ran an example its build does not make, or left out one it does, fails it.
+gated_by() {
+  case "$1" in
+    carnage|capture_carnage|pooling|capture_pooling|ribbons|capture_ribbons) echo vfx ;;
     *) echo ;;
   esac
 }
@@ -124,6 +160,7 @@ keys_for() {
     rheology) echo "Space ArrowRight*60 Space BracketRight*100 Space BracketRight*50 Space" ;;
     ribbons) echo "Digit1 KeyR Digit4 KeyR Digit2 KeyR Digit3 KeyR Digit5 KeyR" ;;
     sever) echo "Digit1 KeyR Digit2 KeyR Digit3 KeyR Digit4 KeyR Digit5 KeyR KeyG KeyT KeyR ArrowRight*17 Digit3 KeyR ArrowLeft*10 ArrowDown*47 Digit3 KeyR" ;;
+    skinned) echo "Digit1 Digit2 Digit4 Digit5 Digit6 Digit3 Digit3 Digit3 KeyR KeyC Digit3 KeyR" ;;
     spill) echo "Space Space KeyR" ;;
     stain_morphology) echo "ArrowRight ArrowUp KeyR KeyR KeyB" ;;
     viscera_spill) echo "Space KeyG*90 KeyT KeyR" ;;
@@ -196,13 +233,30 @@ else
 fi
 export CARGO_MANIFEST_DIR=$PWD
 
-# The `required-features` examples (`vfx`: carnage/pooling/ribbons and their recorders; `flesh`:
-# capture_flesh/capture_preset/preset/carnage_web/flesh) are all in the crate's `default` features, so a
-# plain `--examples` builds every one. Cargo silently skips an example whose features are unmet, so
-# `need_bin` below refuses to continue rather than let one vanish from the round.
+# Cargo silently skips an example whose `required-features` are unmet, and never deletes the binary
+# an earlier build left. So the round decides from `gated_by` and `QA_FEATURES`, not from what is in
+# `$BIN`: `skip_gated` passes over an example this build does not make, with a line saying so, and
+# `need_bin` refuses to continue when one it does make is missing, rather than let it vanish.
+# `QA_FEATURES` may be comma- or space-separated, as cargo's `--features` takes it.
+FEATURES=$(printf '%s' "${QA_FEATURES:-}" | tr ' ' ',')
 BUILD="cargo build --release -p bevy_carnage --examples"
+if [ -n "$FEATURES" ]; then BUILD="$BUILD --features $FEATURES"; fi
 
-TIMEOUT=${QA_TIMEOUT:-180}
+# The watchdog's budget for a windowed run, from the frame its script exits on. `QA_TIMEOUT`, when set,
+# is a flat limit for every run. Otherwise it is 180 s or, for a longer script, 60 s plus a quarter of a
+# second per frame, so a run that is slow because the host is busy (the loop's host is shared, and an
+# off-screen run is a few frames a second there) is not killed while it is still making progress. A
+# hang is still caught: `skinned`'s 1620 frames get 465 s, and a hung run never finishes at all.
+timeout_for() {
+  local scaled=$((60 + $1 / 4))
+  if [ -n "${QA_TIMEOUT:-}" ]; then
+    echo "$QA_TIMEOUT"
+  elif [ "$scaled" -gt 180 ]; then
+    echo "$scaled"
+  else
+    echo 180
+  fi
+}
 
 # `timeout` is not on a stock macOS, so this is a watchdog in plain bash. It signals the child
 # directly, which is why the binary is run directly. Exit status 124 means it timed out, as GNU
@@ -248,11 +302,28 @@ run_limited() {
 }
 
 need_bin() {
-  [ -x "$BIN/$1" ] || die "no built binary $BIN/$1 — the build step skipped it (required-features?)"
+  [ -x "$BIN/$1" ] || die "no built binary $BIN/$1 — the build step did not make it (a new required-features entry belongs in gated_by)"
 }
 
 MISSING=$OUT/missing.txt
 FAILED=0
+
+# skip_gated <name> <example> <phase>: succeed, and say so once, when <example> needs a feature this
+# round does not build. The line goes to `missing.txt` (in a dry run, to stdout as `# skip`) only
+# while <phase> is on, so a later `QA_PHASES=sheets QA_KEEP_MISSING=1` pass does not repeat it.
+skip_gated() {
+  local name=$1 ex=$2 ph=$3 f
+  f=$(gated_by "$ex")
+  [ -n "$f" ] || return 1
+  case ",$FEATURES," in *",$f,"*) return 1 ;; esac
+  phase "$ph" || return 0
+  if [ "$DRY" -eq 1 ]; then
+    say "# skip $name: needs the \`$f\` feature (QA_FEATURES=$f)"
+  else
+    echo "qa.sh: $name skipped: needs the \`$f\` feature, which this round did not build (QA_FEATURES=$f)" | tee -a "$MISSING"
+  fi
+  return 0
+}
 
 # run_logged <name> <timeout-secs|0> <command ...>: tee everything to <out>/<name>.log and, on a
 # non-zero exit, say so in the log and in missing.txt without aborting the round.
@@ -359,6 +430,7 @@ fi
 for name in $RECORDERS; do
   selected "$name" || continue
   ex=$(rec_example "$name")
+  if skip_gated "$name" "$ex" recorders; then continue; fi
   args=$(rec_args "$name")
   if [ "$DRY" -eq 1 ]; then
     if phase recorders; then say "+ $BIN/$ex --out $OUT/$name $args 2>&1 | tee $OUT/$name.log"; fi
@@ -378,6 +450,7 @@ done
 # 3. Terminal examples.
 for name in $TERMINAL; do
   selected "$name" || continue
+  if skip_gated "$name" "$name" terminal; then continue; fi
   if [ "$name" = cross_section_strip ]; then
     if [ "$DRY" -eq 1 ]; then
       if phase terminal; then say "+ $BIN/$name --ppm $OUT/$name.ppm 2>&1 | tee $OUT/$name.log"; fi
@@ -410,13 +483,16 @@ done
 # 4. Windowed examples, scripted and off screen.
 for name in $WINDOWED; do
   selected "$name" || continue
+  if skip_gated "$name" "$name" windowed; then continue; fi
   IFS=' ' read -r -a KEYS <<<"$(keys_for "$name")"
   # `${KEYS[@]+...}`: an empty array is "unbound" under `set -u` on bash 3.2.
   script=$(script_for ${KEYS[@]+"${KEYS[@]}"})
   shots=$(printf '%s\n' "$script" | tr ' ' '\n' | grep -c ':shot$' || true)
+  last=${script##* }
+  limit=$(timeout_for "${last%%:*}")
   if [ "$DRY" -eq 1 ]; then
     if phase windowed; then
-      say "+ CARNAGE_AUTOPILOT=\"$script\" CARNAGE_AUTOPILOT_OUT=$OUT/$name timeout $TIMEOUT $BIN/$name 2>&1 | tee $OUT/$name.log   # expects $shots shots"
+      say "+ CARNAGE_AUTOPILOT=\"$script\" CARNAGE_AUTOPILOT_OUT=$OUT/$name timeout $limit $BIN/$name 2>&1 | tee $OUT/$name.log   # expects $shots shots"
     fi
     sheets_windowed "$name"
     continue
@@ -425,7 +501,7 @@ for name in $WINDOWED; do
     need_bin "$name"
     mkdir -p "$OUT/$name"
     rm -f "$OUT/$name"/f*.png
-    run_logged "$name" "$TIMEOUT" env CARNAGE_AUTOPILOT="$script" CARNAGE_AUTOPILOT_OUT="$OUT/$name" "$BIN/$name"
+    run_logged "$name" "$limit" env CARNAGE_AUTOPILOT="$script" CARNAGE_AUTOPILOT_OUT="$OUT/$name" "$BIN/$name"
     got=$(find "$OUT/$name" -maxdepth 1 -name 'f*.png' | wc -l | tr -d ' ')
     if [ "$got" -lt "$shots" ]; then
       echo "qa.sh: $name produced $got of $shots screenshots (script: $script)" >>"$MISSING"
@@ -454,13 +530,19 @@ DIGEST_RE='digest|^[a-z_]+: frames=[0-9]+ [a-z_]+=[0-9a-f]{16}'
 if [ "$DRY" -eq 1 ]; then
   say "+ grep -HE 'WARN|ERROR|panicked' $OUT/*.log | grep -v 'Skipped event Destroyed for unknown winit Window Id' > $OUT/warnings.txt"
   say "+ grep -HiE '$DIGEST_RE' $OUT/*.log > $OUT/digests.txt"
-  say "# missing.txt: any windowed example with fewer f*.png than its script's shot count, or that hit the ${TIMEOUT}s timeout; any run exiting non-zero"
+  say "# missing.txt: any windowed example with fewer f*.png than its script's shot count, or that hit its timeout (see timeout_for); any run exiting non-zero; any example skipped for a feature this round does not build (the '# skip' lines above)"
   exit 0
 fi
 
 summarise 'WARN\|ERROR\|panicked' "$OUT/warnings.txt" 'Skipped event Destroyed for unknown winit Window Id'
-# `-i` is the one flag here that differs from the pattern style above, so spell it out.
-{ grep -HiE "$DIGEST_RE" "$OUT"/*.log || true; } >"$OUT/digests.txt"
+# `-i` is the one flag here that differs from the pattern style above, so spell it out. A round that
+# skipped everything it was named has no log to search, which is not a grep error worth printing.
+LOGS=("$OUT"/*.log)
+if [ -e "${LOGS[0]}" ]; then
+  { grep -HiE "$DIGEST_RE" "${LOGS[@]}" || true; } >"$OUT/digests.txt"
+else
+  : >"$OUT/digests.txt"
+fi
 
 echo "qa.sh: done -> $OUT"
 echo "qa.sh: $(wc -l <"$OUT/warnings.txt" | tr -d ' ') warning lines, $(wc -l <"$OUT/digests.txt" | tr -d ' ') digest lines, $(wc -l <"$MISSING" | tr -d ' ') missing/failed lines"
