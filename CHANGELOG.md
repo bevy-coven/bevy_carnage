@@ -17,6 +17,9 @@ comment block at the top of `Cargo.toml`.
   `docs/DEMOS.md`'s recipe records (`capture_skinned_break`, `_shirt`, `_through`, `_guard`, `_spray`,
   `_stroll`, `_blows`, `_quiet`), with the same flags; the autopiloted `skinned` example is on the
   windowed list with a key list taken from its own key reads.
+- `tools/qa.sh` gives each windowed run a watchdog budget that grows with its script, `max(180, 60 +
+  frames/4)` s, where it was a flat 180 s that reported a slow, busy host as a missing example
+  (`skinned` and `sever` hit it). `QA_TIMEOUT` is still one flat limit for every run.
 
 ### Added
 
