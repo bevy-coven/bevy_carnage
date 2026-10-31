@@ -134,6 +134,85 @@ fn bad_input_is_refused_by_name() {
     assert_eq!(fracture_skeleton(&[&bare], &binds(), &groups(), &[]).unwrap_err(), SkeletalRefusal::NotSkinned { part: 0 });
 }
 
+/// A mesh of `joints.len()` vertices along the X axis, skinned as given, assembled as `topology` says.
+fn skinned(topology: PrimitiveTopology, joints: Vec<[u16; 4]>, weights: Vec<[f32; 4]>, indices: Vec<u32>) -> Mesh {
+    let positions: Vec<[f32; 3]> = (0..joints.len()).map(|i| [i as f32, 0.0, 0.0]).collect();
+    let mut mesh = Mesh::new(topology, RenderAssetUsages::default());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, VertexAttributeValues::Uint16x4(joints));
+    mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, weights);
+    mesh.insert_indices(Indices::U32(indices));
+    mesh
+}
+
+/// `vertices` vertices, every one at weight one on joint 0.
+fn on_joint_0(topology: PrimitiveTopology, vertices: usize, indices: Vec<u32>) -> Mesh {
+    skinned(topology, vec![[0; 4]; vertices], vec![[1.0, 0.0, 0.0, 0.0]; vertices], indices)
+}
+
+#[test]
+fn a_strip_or_a_line_mesh_is_refused_not_read_as_a_list() {
+    let one = vec![JointGroup { joints: vec![0], anchor: 0 }];
+    // As a strip, [0, 1, 2, 3] is two triangles; read as a list it is one and a dropped index.
+    let strip = on_joint_0(PrimitiveTopology::TriangleStrip, 4, vec![0, 1, 2, 3]);
+    assert_eq!(fracture_skeleton(&[&strip], &binds(), &one, &[]).unwrap_err(), SkeletalRefusal::NotTriangleList { part: 0 });
+    // As lines, six indices are three segments; read as a list they would be two triangles nobody authored.
+    let lines = on_joint_0(PrimitiveTopology::LineList, 4, vec![0, 1, 1, 2, 2, 3]);
+    assert_eq!(fracture_skeleton(&[&lines], &binds(), &one, &[]).unwrap_err(), SkeletalRefusal::NotTriangleList { part: 0 });
+    // The second part is the offender: the refusal names it.
+    let good = on_joint_0(PrimitiveTopology::TriangleList, 3, vec![0, 1, 2]);
+    assert_eq!(fracture_skeleton(&[&good, &strip], &binds(), &one, &[]).unwrap_err(), SkeletalRefusal::NotTriangleList { part: 1 });
+}
+
+#[test]
+fn an_index_count_that_is_not_whole_triangles_is_refused_not_trimmed() {
+    let one = vec![JointGroup { joints: vec![0], anchor: 0 }];
+    let ragged = on_joint_0(PrimitiveTopology::TriangleList, 4, vec![0, 1, 2, 3]);
+    assert_eq!(fracture_skeleton(&[&ragged], &binds(), &one, &[]).unwrap_err(), SkeletalRefusal::NotTriangleList { part: 0 });
+}
+
+#[test]
+fn an_out_of_range_index_is_not_called_a_split_triangle() {
+    let one = vec![JointGroup { joints: vec![0], anchor: 0 }];
+    let past_the_end = on_joint_0(PrimitiveTopology::TriangleList, 3, vec![0, 1, 7]);
+    assert_eq!(fracture_skeleton(&[&past_the_end], &binds(), &one, &[]).unwrap_err(), SkeletalRefusal::BadIndex { part: 0, triangle: 0 });
+    // The refusal names the triangle that holds the index, not the first one.
+    let second = on_joint_0(PrimitiveTopology::TriangleList, 3, vec![0, 1, 2, 2, 1, 3]);
+    assert_eq!(fracture_skeleton(&[&second], &binds(), &one, &[]).unwrap_err(), SkeletalRefusal::BadIndex { part: 0, triangle: 1 });
+}
+
+#[test]
+fn a_vertex_weighted_across_two_groups_is_refused() {
+    // Vertex 1 is 0.6 on joint 0 and 0.4 on joint 1; its triangle's dominant joints all agree, so only
+    // the vertex check can see it. The body draws it at 0.6·M0·B0·v + 0.4·M1·B1·v, a piece at M0·B0·v.
+    let joints = vec![[0, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 0]];
+    let weights = vec![[1.0, 0.0, 0.0, 0.0], [0.6, 0.4, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]];
+    let soft = skinned(PrimitiveTopology::TriangleList, joints, weights, vec![0, 1, 2]);
+    assert_eq!(fracture_skeleton(&[&soft], &binds(), &groups(), &link()).unwrap_err(), SkeletalRefusal::SplitVertex { part: 0, vertex: 1 });
+}
+
+#[test]
+fn weight_on_a_joint_no_group_holds_is_a_split_vertex_too() {
+    // Joint 9 belongs to no group, so 0.3 of the vertex is carried by something that is in no piece.
+    let joints = vec![[0, 9, 0, 0]; 3];
+    let weights = vec![[0.7, 0.3, 0.0, 0.0]; 3];
+    let loose = skinned(PrimitiveTopology::TriangleList, joints, weights, vec![0, 1, 2]);
+    assert_eq!(fracture_skeleton(&[&loose], &binds(), &groups(), &link()).unwrap_err(), SkeletalRefusal::SplitVertex { part: 0, vertex: 0 });
+}
+
+#[test]
+fn weight_across_joints_of_one_group_is_still_cut() {
+    // The caller declared joints 0 and 1 one piece, so a 0.6 / 0.4 vertex between them is rigid.
+    let one_piece = vec![JointGroup { joints: vec![0, 1], anchor: 0 }];
+    let joints = vec![[0, 1, 0, 0]; 3];
+    let weights = vec![[0.6, 0.4, 0.0, 0.0]; 3];
+    let body = skinned(PrimitiveTopology::TriangleList, joints, weights, vec![0, 1, 2]);
+    let made = fracture_skeleton(&[&body], &binds(), &one_piece, &[]).expect("a group's own joints may share a vertex");
+    assert_eq!(made.pieces.len(), 1);
+    let mesh = made.pieces[0].meshes[0].as_ref().expect("the triangle is in the piece");
+    assert_eq!(mesh.indices().map(|i| i.len()), Some(3));
+}
+
 #[test]
 fn a_part_with_no_triangle_in_a_group_has_no_mesh_there() {
     let body = two_boxes(false);

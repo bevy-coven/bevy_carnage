@@ -141,6 +141,19 @@ impl<'a> Rig<'a> {
         }
         best.map(|(_, joint)| joint)
     }
+
+    /// **Every joint that carries `vertex`**: those with a positive, finite weight, in slot order, the
+    /// same weights [`dominant_joint`](Self::dominant_joint) reads, so the two agree on what counts as
+    /// carried. Empty for a vertex past the end. A rigid vertex is carried by one joint (or by several
+    /// that the caller says move as one).
+    pub(crate) fn carrying_joints(&self, vertex: usize) -> impl Iterator<Item = u16> + 'a {
+        let slots = self.joints.get(vertex).zip(self.weights.get(vertex));
+        slots
+            .into_iter()
+            .flat_map(|(joints, weights)| joints.iter().copied().zip(weights.iter().copied()))
+            .filter(|(_, weight)| weight.is_finite() && *weight > 0.0)
+            .map(|(joint, _)| joint)
+    }
 }
 
 /// **Where one vertex of `mesh` is under `pose`**, world space. `None` for a mesh with no rig, a vertex
