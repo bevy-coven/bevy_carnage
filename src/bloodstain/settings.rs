@@ -47,7 +47,10 @@ pub struct BloodSettings {
     /// **Expect to lower it, and here is the arithmetic.** At 1.0 a droplet leaving straight up at
     /// 40 m/s under the shipped 18 m/s² gravity rises `40² / (2·18) ≈ 44` metres. Correct for a real
     /// gunshot and absurd on a 1.8 m subject. The reference demos set **0.25**, which puts the throw
-    /// at roughly 1–3 metres.
+    /// at roughly 1–3 metres. The measured field is the same: Comiskey, Yarin & Attinger's stains lie
+    /// 0.25–4 m from the target because air drag stops a drop that a drag-free parabola would carry
+    /// 40 m. The preset's `GoreDials` therefore ships **0.25** (`crate::preset::GORE_SPATTER_SPEED_SCALE`);
+    /// this default stays the paper's own.
     #[cfg_attr(feature = "serde", serde(default = "shipped::spatter_speed_scale"))]
     pub spatter_speed_scale: f32,
     /// Half-angle of the forward spray cone, degrees, about the wound normal.
