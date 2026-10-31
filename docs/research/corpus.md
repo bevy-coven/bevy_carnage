@@ -28,6 +28,15 @@ distill, both scribes and qdrant healthy (18 073 documents embedded). `distill_s
 and Comiskey, Yarin & Attinger 2018 (`10.1103/physrevfluids.3.063901`) is indexed and quotable: its
 reference to a previous experiment's 40 m/s forward and 8 m/s back droplet speeds at 0.45 ms is in the
 chunk at lines 336 to 362 of its markdown.
+Iteration 5 (2026-10-31, 13:46 UTC) read it at limit 200 against the same window (the SIGGRAPH course-note
+bulk embed of 2024 to 2025 and the `sig2024_*` papers, then psychology, chronic-pain, forest-ecology,
+candle-flame and MCP papers up to 13:14): nothing is blood-, wound-, fracture- or gore-specific, so no
+`Research: corpus` commit. The nearest are `sig2024_Navigation-Driven_Approximate_Convex_Decomposition` and
+`sig2024_Multi-Material_Mesh-Based_Surface_Tracking_with_Implicit_Topology_Changes`: a convex decomposition
+is the caller's (`CLAUDE.md`, "Where the boundary falls") and the second tracks multi-material meshes with
+topology change, neither modelled here. `system_status`: distill, both scribes and qdrant healthy (18 073
+documents embedded). `distill_search` answered and returned Stam et al. (`10.1007_s11517-010-0647-5`); the
+time-step sentence the digest-fold note quotes is in its markdown (`markdown_read`).
 
 ## Blood rheology and haemodynamics
 
@@ -107,6 +116,8 @@ chunk at lines 336 to 362 of its markdown.
 | `10.1080/10867651.1997.10487468` | Möller & Trumbore, *Fast, minimum storage ray-triangle intersection* | `src/flaymap/uv.rs` |
 | Kihl, SIGGRAPH 2010 *Advances in Real-Time Rendering* (no DOI) | Frostbite 2's GPU damage mask | `CLAUDE.md` (`flaymap`) |
 | SIGGRAPH *Advances in Real-Time Rendering in Games* course notes, 2006-2025 (no DOI; stems `s2006-advances-materials` … `s2025-advances-materials-12`, embedded 2026-10-30) | The shipping-game technique source: the per-year material, shading and destruction notes. Which stem holds Kihl's 2010 talk is unchecked | the `## How shipping games do it` of each research note |
+| Bettner & Terrano, *1500 Archers on a 28.8: Network Programming in Age of Empires and Beyond*, GDC 2001 (no DOI; a web page, not in the corpus) | A shipping game's lessons on keeping a simulation checkable: "As much as we check-summed the world ... it seemed that there was always one more thing that slipped just under the radar" | `docs/research/digest-fold.md` |
+| Fiedler, *Deterministic Lockstep*, Gaffer On Games (no DOI; a web page, not in the corpus) | The standard a deterministic simulation is held to: "you could take a checksum of your entire physics state at the end of each frame and it would be identical" | `docs/research/digest-fold.md` |
 
 ## Game testing and visual QA
 

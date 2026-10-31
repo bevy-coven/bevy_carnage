@@ -4,7 +4,9 @@
 //! cargo run --release -p bevy_carnage --example capture_preset -- --out frames-preset
 //! ```
 //!
-//! Writes `frame0000.png …` and prints one digest line; two runs must print the same line.
+//! Writes `frame0000.png …` and prints one digest line; two runs must print the same line. `digest=`
+//! folds the wetmaps as the clip ends; `flay=` and `dermis=` fold the craters and the bruises and burns,
+//! which `digest=` cannot see, over every frame (the body breaks at frame 120 and is gone at the end).
 //!
 //! | frames | what |
 //! |---|---|
@@ -24,6 +26,7 @@ use bevy_carnage::{GorePolicy, GoreTier};
 use bevy_carnage::wetmap::WetCanvas;
 
 mod common;
+use common::digest;
 use common::preset_scene::{self, Part};
 use common::recorder::Recorder;
 
@@ -82,6 +85,7 @@ fn main() {
     // its first draw and the cache compiles it off-thread, so this needs more frames than the
     // family clip's two: measured, frame 0 was still blank at two and stable at six.
     rec.warm_up(6);
+    let mut skin = digest::SkinTrace::default();
     for frame in 0..FRAMES {
         {
             let world = rec.world();
@@ -111,21 +115,16 @@ fn main() {
             }
         }
         rec.shoot();
+        skin.sample(rec.world());
     }
     let world = rec.world();
-    let mut digest: u64 = 0xcbf2_9ce4_8422_2325;
-    // Sorted before folding: XOR-then-multiply is order-dependent and ECS query order is not a
-    // total order across two `App`s, which is exactly the comparison this line exists for.
-    let mut wets = world.query::<&WetCanvas>();
-    let mut values: Vec<u64> = wets.iter(world).map(|w| w.digest()).collect();
-    values.sort_unstable();
-    for value in values {
-        digest ^= value;
-        digest = digest.wrapping_mul(0x0000_0100_0000_01b3);
-    }
+    // `digest=` is the wetmaps as the clip ends, as it has always been; `flay=` and `dermis=` are the
+    // craters and the bruises and burns it cannot see, folded every frame because the body is gone at
+    // the end (`digest::SkinTrace`). Each is sorted before folding, for the reason `digest::fold` gives.
+    let digest = digest::fold(world.query::<&WetCanvas>().iter(world).map(|w| w.digest()).collect());
     let tick = world.resource::<GoreClock>().0;
     let frames = rec.finish();
-    println!("preset: frames={frames} ticks={tick} digest={digest:016x}");
+    println!("preset: frames={frames} ticks={tick} digest={digest:016x}{}", skin.fields());
 }
 
 fn setup(

@@ -531,3 +531,123 @@ pushed).
    examples): re-point each to the 0.20 source after checking the cited line.
 5. **The horror-film items from iteration 0** (arterial spray, pooling and drying, wound sheen, fracture debris), each needing
    `magick` installed first. `vfx` on Bevy 0.20 is still blocked on `bevy_hanabi` (newest `0.19.0`).
+
+## Iteration 5 — 2026-10-31 — the recorders' digest line folds craters, bruises and burns (AG-144, #8)
+
+**Item and why it ranked first.** #8, the only open issue (an enhancement, no `consumer` label): `capture_preset` and
+`capture_skinned` printed a digest that folded the wetmaps and a holed cloth, so a flaymap crater, a bruise or a burn
+could come out differently from run to run and both runs printed the same line; `capture_skinned --blows` printed the
+default's line (`9677d79de848daaa`). The loop's order is a bug, then `consumer` issues, then every other open
+enhancement issue before any candidate of its own, so it beat the backlog's item 1 (the floor's stain look, parked on
+`loop/iter-4-floor-stains`, not adopted: it is a visual candidate and #8 outranks it) and the horror-film items. Skipped,
+not blocked: nothing else is filed. It is the instrument every later pass's reproducibility gate reads, which is why
+it is worth a pass.
+
+**What changed** (`1d33126` research, `3b7c415` corpus, `d46c5d4` code, `6205c97` docs): `DermisCanvas::digest()`
+(FNV-1a over the bytes; `ClothHoles::digest` delegates to it). `examples/common/digest.rs` holds the sorted fold both
+recorders used inline and a `SkinTrace`. Both recorders keep `digest=` bit for bit and append `flay=` and `dermis=`.
+Test: `the_dermis_digest_sees_where_a_bruise_fell_and_how_a_burn_went` (a blow and a burn move the digest off a fresh
+skin's, the same hit in a second app repeats it, a blow a hand's breadth away and a burn of another degree move it
+again); it did not compile before (`DermisCanvas` had no `digest`; `src/preset.rs`'s only `fn digest` was
+`ClothHoles`'s). Its first run failed on an assertion of mine, not the code: an iron held three times as long at 150 °C
+prints the same dermis, because the burn's zones are a function of its *degree* (`Degree::Third` either way), so the
+test now compares a third-degree burn (1 s at 150 °C) with a second-degree one (30 s at 55 °C).
+
+**Found by running it, not by reading the issue: the proposed fold is blind where it was meant to see.** #8 says "a
+sorted FNV fold over that component across the world, the same way the wet fold is done", read once as the clip ends.
+Built that way, `capture_preset` and `capture_skinned --break` printed `flay=cbf29ce484222325 dermis=cbf29ce484222325`,
+the FNV offset basis, the fold of nothing: the body breaks (frame 120 of the preset, 200 of `--break`), is despawned,
+and no skin canvas is left at the end. A field that reads one constant whatever the craters were is the blind spot again
+under another name (Bettner & Terrano: "there was always one more thing that slipped just under the radar"). The
+fields are therefore **sampled every frame and chained** (`SkinTrace`): preset `flay=50aa35bf8f90ed3b
+dermis=056f49e5af3be51d`, `--break` `flay=4407fce2151c2e83 dermis=a4e298cf20094206`.
+
+**Assumed decision (owner may override)** (also on #8, label `assumed-decision`): options (a) one fold at the end, as the
+issue proposes: blind for the two clips whose body breaks, measured; (b) sample every frame and chain; (c) fold once at a
+per-clip frame before the break: a magic number per recorder. Picked (b): no per-clip constant, sees every canvas while
+it exists, hashes about 0.6 MB a frame (an estimate from the canvas sizes: six skins at the shipped 128, 96 KiB each; the measurement is the recorder's wall time, 17.4 and 17.1 s before, 17.0 and 17.8 s after). The price: `--reset-at N` no longer
+prints the quiet run's whole line, only its `digest=` (the fields carry the history before the reset), which the
+recorder's header now says.
+
+**Sources** (`docs/research/digest-fold.md`): physics, Stam, van Gemert, van Leeuwen & Aalders 2010
+(`doi:10.1007/s11517-010-0647-5`), read in the corpus through `markdown_read`: "a forward difference method in space ...
+For a time step of 0.1 h, a simulation of 400 h takes 1 min on a standard laptop computer" (the bruise is a function of a
+step count), and Gowrishankar et al. 2004 (`doi:10.1186/1475-925x-3-42`, the burn; its step text did not extract, so
+`DT_S` is cited from `src/bloodstain/burn.rs`). Horror-film reference: none, nothing visible moves (every frame of nine
+variants is byte-identical). Technique: Bettner & Terrano, *1500 Archers on a 28.8*, GDC 2001
+(`gamedeveloper.com/programming/1500-archers-on-a-28-8-network-programming-in-age-of-empires-and-beyond`) and Fiedler,
+*Deterministic Lockstep* (`gafferongames.com/post/deterministic_lockstep/`: "you could take a checksum of your entire
+physics state at the end of each frame and it would be identical"); no shipping game has published a determinism check
+of its *gore*, so the lockstep checksum is cited as the nearest practice, not as a gore pipeline. Both are web pages, not
+in the corpus: `docs/research/corpus.md` lists them. `catalog_recent` (limit 200) found nothing in a domain (the SIGGRAPH
+course-note bulk embed and psychology, forest-ecology and MCP papers); `system_status` and `scribe_health` healthy.
+
+**Critique and verdict** (`/tmp/c5/critique.md`, removed with `/tmp/c5`). Against the six validation targets, all
+measured: (1) the test above; (2) acceptance: default `flay=86616c58c7041083 dermis=90cb9d2114068ac2`, `--blows`
+`flay=86616c58c7041083 dermis=3168e11cd45a3ca3`, `digest=` equal; (3) every `digest=` after equals before, and every frame
+(nine variants, 360 each, `md5`) is byte-identical; (4) **the gate can fail**: the shin blow of `capture_skinned` placed
+5 mm further along moved `dermis=` (`90cb9d2114068ac2` to `5efe3f6c25b6764c`) and nothing else, a crater 9.0 to 9.1 mm deep
+moved `flay=` (`86616c58c7041083` to `64517b18644072ab`) and nothing else, `digest=` `9677d79de848daaa` in both, then
+reverted (a diff of the example shows no mutation left); (5) a breaking body is seen (above); (6) locks and cost below.
+Flaws I will not hide: the fold is permutation-blind (two skins that swapped their bruises read the same: the price of not
+keying on an `Entity`); `digest=` still reads the world once at the end, so for the two breaking clips it sees only the
+floor's and the wall's wetmaps `[INFERENCE: the body is despawned; the WetCanvas count at the end was not measured]`; the
+bruise's model state (`Bruising`), `Soaking`, `Tread` and `Wounds` are folded only as what they wrote into a canvas. Verdict:
+**digest gate GREAT** against its targets; the look of nothing changed, so no capture is graded. A frame of `--blows`
+(`--eye 0.32,0.42,0.8 --at 0.095,0.3,0.05`, frame 300) was read to confirm the recorder draws real frames: two brown
+bruises on the shin, blood pools on the floor, as before.
+
+**Numbers.**
+
+- *Reproducibility* (nine variants, each twice, all pairs equal): `digest=` before and after, equal in all nine: `preset`
+  `8a10edd6f39c51d8`, default `9677d79de848daaa`, `--break` `baa76e5ee1e0f626`, `--shirt` `2c86f87087d1e03a`, `--through`
+  `890512dd64b645ea`, `--guard` `555fc5022db246a1`, `--stroll` `8ebe761bcc8b4d83`, `--blows` `9677d79de848daaa`, `--quiet`
+  `f83a631a7426808d`. New `flay=` / `dermis=`: `preset` `50aa35bf8f90ed3b` / `056f49e5af3be51d`; default `86616c58c7041083` /
+  `90cb9d2114068ac2`; `--break` `4407fce2151c2e83` / `a4e298cf20094206`; `--shirt` `86616c58c7041083` / `90cb9d2114068ac2` (its slash
+  opens cloth and geometry, not a crater or a bruise); `--through` `066d165e0ab24b95` / `90cb9d2114068ac2`; `--guard` `0d1841c84aa56b1d` /
+  `10bd4f5f69331f9d`; `--stroll` `4ba4265c49331f9d` / `10bd4f5f69331f9d`; `--blows` `86616c58c7041083` / `3168e11cd45a3ca3`;
+  `--quiet` `4ba4265c49331f9d` / `10bd4f5f69331f9d`. The three clips with no bruise or burn share one `dermis=` and the two with
+  no crater share one `flay=`, which is what a fold of an untouched canvas should do. `--reset-at 300` prints the quiet
+  run's `digest=` (`f83a631a7426808d`); its `flay=` and `dermis=` carry the history before frame 300.
+- *Locks and mass*: 353 lib tests pass (352 and the new one), 2 ignored, so `hash_f32_is_frozen`, the spatter, stain, pool,
+  bruise, burn and wick goldens, `the_flesh_tables_are_frozen`, `the_tear_is_frozen`, `the_strips_are_frozen`,
+  `the_scripted_wound_is_frozen` and `the_measured_rows_are_the_papers` pass untouched; `tests/wetmap.rs` 13 pass (the wetmap
+  passes were not touched). No geometry was touched.
+- *Bench* (`bench_carnage`, before and after alternated three times each at host load 4 to 5): `carnage_frame_ms` median
+  0.50455 before, 0.50736 after (+0.6 %); `carnage_p99_ms` 14.137 before, 14.137 after; digest `0x4366a8b64352c85a` unchanged. At
+  load 10 to 14 the bench refused four runs in a row ("NO STABLE PLATEAU", best-3 spread 6.26 % against 5.00 %): a reading about
+  the host, not the code, which gained one method no hot path calls and an example-only module.
+- *Gate*, in the loop's order, on `d46c5d4`: `cargo build` rc 0, 183 s; `cargo build --release` rc 0, 254 s;
+  `cargo test --no-fail-fast` rc 0, 2423 s (lib 353 passed; `cross_section_plugin` 2, `expressive_range` 3, `fault_modes` 7,
+  `laceration_plugin` 4, `leaf` 3, `origin` 3, `qa_roster` 4, `readme` 4, `skeleton` 13, `tear` 9, `viscera` 19, `wetmap` 13; doctests 8
+  passed, 5 ignored); `cargo build --examples` rc 0, 40 s. After the DEMOS edit `readme`, `leaf` and `qa_roster` re-run green.
+  Not run: rustfmt (the repository is not rustfmt-clean, iteration 2's lesson), `tools/qa.sh` (no sheets without ImageMagick),
+  clippy (no standing gate).
+
+**Not released.** The package changed (`src/preset.rs` ships), but `v0.7.0` is under two hours old and loops release at most once
+every six hours, so the change rides in the next release; it is in `CHANGELOG.md` under `## [Unreleased]`. It adds a public
+method and nothing breaks, so the next bump is a PATCH.
+
+**Owner's file.** #8 asks the loop's checklist to compare all three fields. `.omp/commands/build-loop.md` is the owner's to edit
+(a never-edit file for the loop); the request is on #8 in one comment. This loop's own gate compares `digest=`, `flay=` and `dermis=` from here.
+
+### Ranked backlog for iteration 6
+
+1. **`digest=` itself, for a body that breaks.** The same blind spot, in the field that was supposed to be sound: in the two clips whose
+   body breaks, the body's `WetCanvas`es are gone at the end `[INFERENCE, measure the count first]`, so blood on the body is in no
+   digest for them. Add a per-frame wet trace beside `flay=` and `dermis=` (a new field, `wet=`, so no documented `digest=` moves), and
+   audit what else the preset owns that no line folds (`Bruising`'s step counts, `Soaking`, `Tread`, `Wounds`).
+2. **The floor's stain look and the droplet count**, carried from iteration 5's list: parked on `loop/iter-4-floor-stains` (`bffcbe8`).
+   The count is the gap (9 droplets for a bullet-sized crater against hundreds of stains per 4 m strip in Comiskey et al.); judge the
+   top-down frame against Refs 1 and 2 and the blood colour `(127, 63, 67)` against `(161, 60, 46)`.
+3. **`#[non_exhaustive]` on `SkeletalRefusal` (and the other public error enums)**: breaking since `0.7.0`; do it with the next variant, or never.
+4. **A Bevy 0.19 citation sweep** (`CLAUDE.md`, `docs/wetmap.md`, `docs/flaymap.md`, `tests/wetmap.rs`, `tests/viscera.rs`, examples).
+5. **The horror-film items from iteration 0** (arterial spray, pooling and drying, wound sheen, fracture debris), each needing `magick`
+   installed first; `vfx` on Bevy 0.20 is still blocked on `bevy_hanabi`.
+
+**Cleanup.** No worktree or `*-target` was made (`git worktree list` shows the clone only). Removed `/tmp/c5` (the before and after
+recorder digests and `md5` lists, the binaries copied out of the cache, the gate logs, the home-still catalog dump; 907 MB at its
+peak; `df`: 181 G free at the end against 21 G at the start, the difference being other loops' cleanups, not mine). The clone's
+own build cache, `/Users/ladvien/target/bevy_carnage-loop`, is kept. Left, not mine and not deleted: `loop/iter-1`, `loop/iter-1b`,
+`loop/iter-2`, `loop/iter-3`, `loop/iter-4` (merged), `loop/iter-4-floor-stains` (parked, mine, kept on purpose), `refs/wiggum/pass-7-*`,
+and other loops' `/tmp` directories.
