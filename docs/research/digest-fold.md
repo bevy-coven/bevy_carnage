@@ -96,7 +96,10 @@ in the crate uses (`wetmap`, `flaymap`, `ClothHoles`, the recorders).
 1. **Fails before, passes after.** The unit test `the_dermis_digest_sees_where_a_bruise_fell_and_how_a_burn_went`
    (`src/preset.rs`) does not compile before the change (`DermisCanvas::digest` did not exist) and passes
    after: a blow and a burn each move a limb's dermis digest off a fresh one's; the same hit in a second app
-   gives the same number; a blow a hand's breadth away, and an iron held three times as long, give other numbers.
+   gives the same number; a blow a hand's breadth away, and an iron that burned to another degree (150 °C for
+   1 s is third degree, 55 °C for 30 s second), give other numbers. An iron held three times as long at
+   150 °C does **not** (the first run of the test found it): the degree decides which zones the dermis shows,
+   and both are third degree, so the buffer is the same one and the digest rightly agrees.
 2. **The acceptance on the recorder.** `capture_skinned` and `capture_skinned --blows`: `digest=` equal
    (`9677d79de848daaa`), `dermis=` different, two runs of each print the same line.
 3. **No documented digest moves.** Every recorder variant's `digest=` after equals its `digest=` before
