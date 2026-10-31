@@ -141,5 +141,8 @@ Parameters).
   4640 MB free < 5000 MB required to load bge-m3`, and the CLI (`hs distill search`) answered
   `401 Unauthorized: missing bearer token`. Sources were found with `hs paper search` / `hs paper get`
   and the papers already quoted in the repository.
-- Ostrowski & Aroudj 2013 (`10.7603/s40601-013-0010-4`) is not in the home-still corpus; quoted from its
-  abstract as `hs paper get` returns it.
+- Ostrowski & Aroudj 2013 (`10.7603/s40601-013-0010-4`) was not in the home-still corpus on the first
+  attempt (quoted from its abstract as `hs paper get` returns it); the stem `s40601-013-0010-4` was
+  embedded at 02:08 UTC on 2026-10-31, so a later pass can quote the paper itself.
+- The second attempt's `distill_search` answered `500 gpu busy: 3288 MB free < 5000 MB required to load
+  bge-m3` and the CLI `401 Unauthorized`, as before; `catalog_recent` and `hs status` work.

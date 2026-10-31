@@ -8,7 +8,13 @@ local corpus; a row added here for a new source says the same in its own words.
 
 **Re-scans.** Iteration 1 (2026-10-30) read `catalog_recent` at limit 200: every one of the 200 events
 was an embed or download of an LLM, speech, mesh-generation or agent paper, and none falls in a
-domain below. Nothing was added.
+domain below. Nothing was added. Iteration 1's second attempt (2026-10-30, 22:05 local) read it again at
+limit 200: the window is the bulk embed of the SIGGRAPH *Advances in Real-Time Rendering* course notes,
+2006 to 2025 (stems `s2006-advances-materials` … `s2025-advances-materials-12`), and `sig2024_*` and
+`sig2026_*` papers (geometry processing, differentiable rendering, cloth appearance). The course notes
+are the shipping-game technique source this loop cites, so they are listed under *Real-time gore* below;
+`distill_search` answered `gpu busy` this pass, so which stem holds which talk is unchecked. Nothing blood-, wound- or fracture-specific
+arrived, and the `sig*` papers are not listed: none is about a domain this crate models.
 
 ## Blood rheology and haemodynamics
 
@@ -80,12 +86,13 @@ domain below. Nothing was added.
 | `10.1080/02699931.2010.496997` | Oum, Lieberman & Aylward, *A feel for disgust* | `docs/bloodstain-citations.md`, `src/flaymap/canvas.rs` |
 | `10.1080/10867651.1997.10487468` | Möller & Trumbore, *Fast, minimum storage ray-triangle intersection* | `src/flaymap/uv.rs` |
 | Kihl, SIGGRAPH 2010 *Advances in Real-Time Rendering* (no DOI) | Frostbite 2's GPU damage mask | `CLAUDE.md` (`flaymap`) |
+| SIGGRAPH *Advances in Real-Time Rendering in Games* course notes, 2006-2025 (no DOI; stems `s2006-advances-materials` … `s2025-advances-materials-12`, embedded 2026-10-30) | The shipping-game technique source: the per-year material, shading and destruction notes. Which stem holds Kihl's 2010 talk is unchecked | the `## How shipping games do it` of each research note |
 
 ## Game testing and visual QA
 
 | DOI | Paper | Cited in |
 |---|---|---|
-| `10.7603/s40601-013-0010-4` | Ostrowski & Aroudj, *Automated Regression Testing within Video Game Development* | `docs/research/qa-harness.md` |
+| `10.7603/s40601-013-0010-4` | Ostrowski & Aroudj, *Automated Regression Testing within Video Game Development* (stem `s40601-013-0010-4`, embedded 2026-10-30) | `docs/research/qa-harness.md` |
 | `10.48550/arXiv.2309.11077` | Rahman, *Weak Supervision for Label Efficient Visual Bug Detection* | `docs/research/qa-harness.md` |
 
 ## Practical makeup effects
