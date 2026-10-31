@@ -492,6 +492,29 @@ NOT YET**, unchanged by this item, backlog item 1.
 **Found, not fixed:** `capture_skinned` and `capture_preset` never see the floor in front of the body, so their frames
 cannot show the spray this item moves; `--eye 0,4.2,0.3 --at 0,0,0` does, and is how it was judged.
 
+**Release: `0.7.0`, published** (https://crates.io/crates/bevy_carnage/0.7.0, tag `v0.7.0`, commit `a3afdf0` on `main`), the
+first since `0.5.18`: the gate was green for the first time since iteration 0, and no tag existed so the 6-hour rule did not
+apply. `cargo semver-checks check-release --baseline-version 0.5.18` could not run with the crate's all-features default (it
+turns on `vfx`, which does not build on Bevy 0.20: `E0277` in the generated docs); with `--only-explicit-features --features
+serde,flesh` it answered `0 checks: 0 pass, 260 skip ... no semver update required`, which is uninformative across a Bevy
+bump, so the bump was read by hand: breaking against `0.5.18`, a MINOR bump, and the manifest's `0.7.0` (never published) is
+above `0.6.0`, so `Cargo.toml` and `Cargo.lock` keep it and the `[Unreleased]` section became `[0.7.0]`. The release commit
+also moved the README's install sentence, Status line and its "unreleased" bullet (`tests/readme.rs` green).
+`cargo publish --dry-run` packaged 178 files, 1.5 MiB compressed, and verified; its one warning is `clipboard-win v5.4.1`
+yanked in `Cargo.lock`, a transitive dependency of Bevy's windowing that dependents' lockfiles do not read, left alone. The
+gate was re-run on the merged tree before the push (`cargo build` 16 s, `--release` 21 s, `cargo test --no-fail-fast` 1651 s,
+`--examples` 5 s, all rc 0; 352 lib tests, every integration binary and the doctests pass).
+
+**Cleanup.** Removed `/tmp/c4` (2.1 GB: the before and after recorder frames and binaries, the semver-checks target, the
+reference images, a venv with Pillow and SciPy, the gate logs) and `target/package` in the clone's cache; `df`: 18 G free at
+the end against 26 G at the start, the difference being the clone's own build cache in
+`/Users/ladvien/target/bevy_carnage-loop`, which is kept. No worktree or `*-target` was made (`git worktree list` shows the
+clone only; the baseline was the before-binaries copied out of the cache, not a worktree). Left, not mine and not deleted: the
+branches `loop/iter-1` (parked, `2ed4559`, superseded by `loop/iter-1b`), `loop/iter-1b`, `loop/iter-2`, `loop/iter-3`
+(merged), `refs/wiggum/pass-7-*`, `/tmp/c1`, `/tmp/c12-1` to `/tmp/c12-3`, `/tmp/c5` and `/tmp/c70.sh` (other loops'), and
+`~/b2_base` (another loop's clone). Mine and kept on purpose: `loop/iter-4` (merged) and `loop/iter-4-floor-stains` (parked,
+pushed).
+
 ### Ranked backlog for iteration 5
 
 1. **The floor's stain look and the droplet count**, together. Parked: branch `loop/iter-4-floor-stains` (`bffcbe8`, floors on
@@ -501,8 +524,9 @@ cannot show the spray this item moves; `--eye 0,4.2,0.3 --at 0,0,0` does, and is
    `(127, 63, 67)` against `(161, 60, 46)`.
 2. **#8: a fold for flaymap and dermis canvases** in `capture_preset` and `capture_skinned` (`DermisCanvas::digest`, `flay=`
    and `dermis=`), so the reproducibility gate sees craters, bruises and burns; `--blows` still prints the default digest.
-3. **`#[non_exhaustive]` on `SkeletalRefusal` (and the other public error enums)**: free until a release has them. See the
-   Release line below.
+3. **`#[non_exhaustive]` on `SkeletalRefusal` (and the other public error enums)**: no longer free. `0.7.0` is published
+   with them exhaustive, so adding the attribute is now a breaking change (a MINOR bump pre-1.0). Do it with the next
+   variant, or never.
 4. **A Bevy 0.19 citation sweep** (`CLAUDE.md`, `docs/wetmap.md`, `docs/flaymap.md`, `tests/wetmap.rs`, `tests/viscera.rs`,
    examples): re-point each to the 0.20 source after checking the cited line.
 5. **The horror-film items from iteration 0** (arterial spray, pooling and drying, wound sheen, fracture debris), each needing
