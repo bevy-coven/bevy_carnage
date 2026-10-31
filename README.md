@@ -15,7 +15,7 @@ Underneath is the fracture it was built on: plane-cut a character's own meshes i
 
 That is `examples/explode.rs` at its own 0.4× playback. The subject is intact, then it *is* its own fragments — the "break" is one despawn and a spawn, because the fracture was computed long before. **The red is not a colour choice, it is the whole idea:** every fragment comes back as two meshes, the subject's own surface and the faces this cut just created, so the inside can take a different material. Render both with the skin material and the same fragments stop looking broken and start looking disassembled.
 
-> **This repository is a mirror; [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) is the source of truth.** The crate is vendored there as a workspace member at `crates/bevy_carnage/`, developed and verified there against that lockfile, and this repository is re-derived from it by `git subtree split`. The flow is one-way and has exactly three stops: **monorepo → this mirror → crates.io**. An earlier revision of this banner claimed the arrow pointed the other way — it did, between 2026-08-16 and 2026-09-01, and `BACKLOG.md` records why it was reversed: the crate was pinned by rev in the game, so every fix meant a sibling clone, a push and a rev bump, which is not a way to do sustained work. **The stale-read hazard that arrangement named is still real:** a `subtree split` carries only *commits*, so anything sitting uncommitted in the monorepo's working tree cannot arrive here.
+> **This repository is the source of truth.** Since 2026-10-19 the crate is developed here, on Bevy 0.20, work is pushed here, and releases to crates.io are cut from here. [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) still carries a copy at `crates/bevy_carnage/`, but it is **frozen at `0.5.64`, on Bevy 0.19**, and is never mirrored over this repository again, so a fix sent there does not reach this crate. `CLAUDE.md` records the two earlier arrangements (pinned by rev from the game, then vendored into the monorepo and mirrored out); neither is live.
 
 ## The family — one crate, seven kernels
 
@@ -32,7 +32,7 @@ This crate is the whole gore stack. **Depend on it alone**: every kernel below i
 | [`laceration`](docs/laceration.md) | a cut that gapes on a time curve, scaled by skin tension and Langer-line orientation | `bevy_carnage::laceration` |
 | [`fracture_modes`](docs/fracture_modes.md) | Sellán's fracture modes on a cell graph: a fixed-schedule bake, impact projection, gluing partition | `bevy_carnage::fracture_modes` |
 
-Every module is deterministic where it can be — fixed schedules, no clocks, frozen digests over its CPU state. `bloodstain` has no engine in it at all, and `tests/leaf.rs` keeps it that way now that it is a module rather than a crate boundary. Fourteen of the family's examples run in a browser at [ladvien.github.io/foundation_vs_slop](https://ladvien.github.io/foundation_vs_slop/).
+Every module is deterministic where it can be — fixed schedules, no clocks, frozen digests over its CPU state. `bloodstain` has no engine in it at all, and `tests/leaf.rs` keeps it that way now that it is a module rather than a crate boundary. Fourteen of the family's examples run in a browser at [ladvien.github.io/foundation_vs_slop](https://ladvien.github.io/foundation_vs_slop/), built from the monorepo's frozen `0.5.64` copy on Bevy 0.19.
 
 ## Features
 
@@ -49,24 +49,26 @@ Every module is deterministic where it can be — fixed schedules, no clocks, fr
 - **A spatter model with a citation, not a preset.** Comiskey, Yarin & Attinger (*Phys. Rev. Fluids* 3, 063901, 2018) show blood disintegrating by *percolation*, which makes droplet size and initial speed **inversely** correlated — many small ones fast, few large ones slow, bracketed by their measured 40 m/s forward and 8 m/s back spatter. One draw sets size and its inverse sets speed, on the CPU and in the shader both, and a test asserts the correlation (Pearson `r < -0.9`) rather than a comment claiming it. Landing points are solved in closed form, so **where blood lands exists with the render feature off** — which matters when a pool's position feeds simulation.
 - **A pulsatile bleed schedule in integer ticks.** One state machine over `tick - opened_at`: integer modulo for the heartbeat, so a pulse train cannot drift or depend on frame rate, and a monotone taper to *exactly* zero at the clot. `pulse_wound` scales the wound's severity, so the first arterial jet and the last seep are the same model at two numbers.
 - **Impact feel as numbers you apply.** Trauma, hit-stop ticks and a tick-indexed shake offset eased along the wound normal — grounded in Pichlmair & Johansen's game-feel survey, which says in as many words that shake should *not* be random. The crate never writes `Time<Virtual>` and never touches a camera: it returns values and you own both.
-- **GPU blood behind a feature.** `bevy_hanabi` is optional and gated on `vfx`, so the default-off build resolves no particle system (the render crate itself is always present — the wetmap and flaymap author `Image`s, though never a shader). It is admitted on the terms that keep the boundary meaningful, and one of them is sharp: Hanabi 0.19 has **no GPU→CPU readback at all**, so a particle cannot reach a golden even by mistake.
+- **GPU blood behind a feature.** `bevy_hanabi` is optional and gated on `vfx`, so the default build resolves no particle system (the render crate itself is always present — the wetmap and flaymap author `Image`s, though never a shader). It is admitted on the terms that keep the boundary meaningful, and one of them is sharp: Hanabi 0.19 has **no GPU→CPU readback at all**, so a particle cannot reach a golden even by mistake. **`vfx` cannot be enabled on Bevy 0.20 yet:** `bevy_hanabi`'s newest release, `0.19.0`, is a Bevy 0.19 crate, so the six examples that need `vfx` are skipped until it publishes for Bevy 0.20.
 - **No physics dependency, no RNG dependency, no game logic.** `bevy`, optional `serde`, `isomesh` for validation, and optional `bevy_hanabi` behind `vfx`. `hash_f32` is the only source of randomness in the crate, and it is frozen by a test.
 
 ## Install
 
 ```toml
 [dependencies]
-bevy_carnage = "0.5"
+bevy_carnage = "0.7"
 ```
 
-Requires **Bevy 0.19** and a Rust toolchain with **edition 2024**. That one line brings the whole family: `bevy_carnage::blood` (the material), `::wetmap`, `::viscera`, `::cross_section`, `::flaymap`, `::laceration` and `::fracture_modes` are the seven sibling crates re-exported whole, so nothing has to be named twice and no two versions of a leaf can meet in one graph.
+Requires **Bevy 0.20** and a Rust toolchain with **edition 2024**. That one line brings the whole family: `bevy_carnage::blood` (the material), `::wetmap`, `::viscera`, `::cross_section`, `::flaymap`, `::laceration` and `::fracture_modes` are the seven sibling crates re-exported whole, so nothing has to be named twice and no two versions of a leaf can meet in one graph.
+
+`0.7` is the version this repository declares. crates.io's newest release is `0.5.18`, a Bevy 0.19 crate, so until `0.7` is published a Bevy 0.20 project depends on the repository instead: `bevy_carnage = { git = "https://github.com/Ladvien/bevy_carnage" }`.
 
 | feature | default | what it does |
 |---|---|---|
 | `serde` | ✅ | `Serialize`/`Deserialize` on the settings and hierarchy types, so a game can author dials in RON |
 | `flesh` | ✅ | The flesh material and the drop-in preset — `bevy_carnage::flesh` and `::preset`. Pulls `bevy_image` and embeds a shader. Off, the deterministic half compiles without either, which is what a headless server wants |
 | `strict-order` | — | Turns on the vertex-soup sort's runtime tie check in release. On automatically under `debug_assertions`; this is for a harness that builds in release and still wants it |
-| `vfx` | ✅ | GPU blood (`bevy_hanabi`) and stain decals. Turn it **off** for a headless or server build: the deterministic half — wounds, spatter, stains, bleed schedule, feel — is entirely outside it |
+| `vfx` | — | GPU blood (`bevy_hanabi`) and stain decals. **Cannot be enabled on Bevy 0.20 yet**: `bevy_hanabi` has no release for it, so the six examples that need it are skipped by their `required-features`. The deterministic half — wounds, spatter, stains, bleed schedule, feel — is entirely outside it |
 
 ## Quick start — the two-line inclusion
 
@@ -341,6 +343,15 @@ Everything the preset casts a ray at — a hit, a droplet, a drip — lands on t
 | `preset::SkinAnchor` | A spot on a skinned mesh as a triangle and a place in it, so it can be posed again each tick. Held by `WoundSite::skin` |
 | `preset::RunDirection` | Which way blood runs on a skinned part right now, in UV space: downhill in the world at its wounds |
 
+**Breaking a skinned body at its joints.** `fracture_mesh` cuts a convex proxy, and a body cut per bone comes out as islands, because a bone meets the next at a joint and not over a polygon. `fracture_skeleton` is the other way in: say which joints make one piece and where two pieces meet, and it cuts the body's meshes once, one piece per group, and declares the bonds, so the region queries and `BondGraph::islands` of the cell fracture work on a skeleton. It reads a **rigidly** skinned body only and refuses anything else by name, naming the part and the triangle or vertex, rather than cutting a piece that would jump at the break.
+
+| item | what it is for |
+|---|---|
+| `fracture_skeleton(&[&Mesh], &[Mat4], &[JointGroup], &[JointLink])` | One piece per group, in the meshes' own bind space and not recentred, so a piece drawn with its joint's `joint_global · inverse_bind` lands where the body drew it. `Err(SkeletalRefusal)` when the body cannot be cut exactly |
+| `JointGroup { joints, anchor }` / `JointLink { a, b, joint }` | The joints that make one piece and the one that carries it; two pieces and the joint whose bind position is where they are bonded |
+| `SkeletalFracture { pieces, bonds }` / `SkeletalPiece { id, anchor, meshes, center }` | The pieces, and a `BondGraph` built by `BondGraph::declared` over `FragmentId(0)..FragmentId(n)` |
+| `SkeletalRefusal` | `NotSkinned`, `NotIndexed`, `NotTriangleList` (a strip or a line mesh is not read as a list), `BadIndex`, `UngroupedJoint`, `SplitVertex` (a vertex weighted across two groups: the body is soft-skinned), `SplitTriangle`, `BadLink`, `MissingBind` |
+
 ### The carnage layer
 
 All of it pure functions over a `Wound`, all of it available with `vfx` off. Nothing here reads a clock, spawns anything, or writes a `Transform`.
@@ -394,7 +405,7 @@ The last four are look dials, and the last two touch only the *drawn* mesh: the 
 
 **It does not bond cells that merely touch.** Two cells are neighbours only when they share a *coplanar* face. V-HACD and CoACD produce cells that abut without their boundary polygons agreeing, so each root's subtree comes out as its own island unless your decomposition shares faces. Closing that with a proximity heuristic would silently weld a head to a torso.
 
-**It fractures the bind pose.** Geometry is read from `Mesh3d` as authored, so a skinned character breaks from its rest pose, not its death pose. A death-pose snapshot is the proper upgrade; per the fracture literature the gap is not visible when the chunks are flung fast.
+**`fracture_mesh` fractures the bind pose.** Geometry is read from `Mesh3d` as authored, so a skinned character breaks from its rest pose, not its death pose. The preset carries each piece by the bone of the vertex nearest it, to where that bone is on the tick the body breaks (`0.5.28`), and `fracture_skeleton` (`0.7.0`) cuts a rigidly skinned body along its joints instead; a death-pose snapshot of a soft-skinned body is the proper upgrade, and per the fracture literature the gap is not visible when the chunks are flung fast.
 
 ## Determinism
 
@@ -410,7 +421,13 @@ Note what this does *not* claim. Fragment geometry is `f32` arithmetic, so cross
 
 ## Status
 
-**`0.5.64` in the repository; the latest on crates.io is `0.5.18`. Pre-release in the sense that matters: the API can still move.** It is used in one shipping game — [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop), which is also where it is developed and consumes it by path, not by version.
+**`0.7.0` in the repository; the latest on crates.io is `0.5.18`. Pre-release in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_emerge`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is unpublished, and crates.io's `0.5.18` is a Bevy 0.19 crate, so a Bevy 0.20 project takes this repository as a git dependency until the release.
+
+### What `0.6.0` and `0.7.0` changed: Bevy 0.20, and a body that breaks at its joints
+
+- **`0.6.0`, Bevy 0.20** (`AG-138`). The crate requires Bevy 0.20, and the standalone repository is the source of truth from here. The two shaders are WESL now (`flesh.wesl`, `flesh_prepass.wesl`), and `Cuboid` and `Sphere` live in `bevy::shape`. `vfx` is off by default and cannot be enabled until `bevy_hanabi` publishes for Bevy 0.20. `cargo test` at `0.6.0` passed except `preset::tests::a_wound_stains_the_floor_beneath_it`, which fails the same way on `0.5.64` under Bevy 0.19.
+- **`0.7.0`, a skinned body breaks where its skeleton is** (`AG-139`). `fracture_skeleton` cuts a rigidly skinned body's meshes into one piece per group of joints, once, and declares a bond at each joint where two pieces meet (`BondGraph::declared`), so the region queries and `BondGraph::islands` that work on a cell fracture work on a skeleton. A triangle spanning two groups is refused (`SkeletalRefusal::SplitTriangle`). The API is under "Skinned meshes" in *The API*.
+- **After `0.7.0`, unreleased** (`CHANGELOG.md`, `## [Unreleased]`). `fracture_skeleton` refuses by name what it cannot cut exactly (#7): a part that is not a triangle list (`NotTriangleList`), an index past the vertex buffer (`BadIndex`) and a vertex weighted across two groups (`SplitVertex`), which it used to cut as a list, report as "the body is not rigid" and draw at one anchor so the piece jumped at the break. `tools/qa.sh` finishes a round on a default build (#5).
 
 ### What `0.5.19` to `0.5.64` changed: the preset meets a real character
 
@@ -587,16 +604,13 @@ The last one is the one worth the break. Four baked splats picked by `seed % 4` 
 The API is **not** stable before 1.0. Cargo's caret range on a `0.x` admits `0.2.z` only, so the next breaking change arrives as `0.3` and never by surprise.
 
 **Ten of this crate's examples also build for the browser.** They are published at
-[ladvien.github.io/foundation_vs_slop](https://ladvien.github.io/foundation_vs_slop/) from the monorepo, which is the only tree where all four gore crates are visible to one cargo workspace. Wasm builds never enable `vfx` — `bevy_hanabi`'s wasm support is WebGPU-compute-only — so every new visual in them is CPU-side.
+[ladvien.github.io/foundation_vs_slop](https://ladvien.github.io/foundation_vs_slop/) from the monorepo's frozen `0.5.64` copy, on Bevy 0.19, so the clips there are older than this repository. Wasm builds never enable `vfx` — `bevy_hanabi`'s wasm support is WebGPU-compute-only — so every new visual in them is CPU-side.
 
 Known limitations are listed under "What it deliberately does not do" rather than hidden; `BACKLOG.md` carries the reasoning behind each decision, including the predictions that turned out wrong.
 
 ## Contributing
 
-This repository is a **read-only history mirror**, re-derived by `git subtree split` from
-`crates/bevy_carnage/` in [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop),
-which is where the crate is developed. Nothing is ever edited here and nothing is pulled back, so a PR
-opened against this repo cannot be merged — open issues and PRs on the monorepo instead.
+Work is done **in this repository**, which is the source of truth: open issues and pull requests here. [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) carries a frozen Bevy 0.19 copy (`0.5.64`) that is never mirrored over this one, so a change sent there does not reach this crate.
 
 Before opening a PR:
 
