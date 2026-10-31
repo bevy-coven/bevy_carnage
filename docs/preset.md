@@ -250,6 +250,7 @@ is there.
 | `GoreDials::hz` | fixed ticks per second |
 | `GoreDials::canvas`, `floor_canvas`, `Gore::canvas` | texels per canvas edge; 128 and 256 ship, and 256 is the ceiling. `Gore::with_canvas` gives one surface its own |
 | `GoreDials::floor_y`, `gravity` | world units, world units per second squared |
+| `GoreDials::blood.spatter_speed_scale` | none: a multiple of the paper's 8 to 40 m/s launch speeds. `0.25` ships (`GORE_SPATTER_SPEED_SCALE`), so what a wound throws lands 0.5 to 5 m out, the 0.25 to 4 m Comiskey, Yarin & Attinger measured, and a three-metre floor under the wound takes it. `1.0` is the paper's launch speed with no air drag: a floor takes almost none of it |
 
 A torso's skin and fat are 18 mm deep and its muscle wall reaches 25.5 mm, so an impact of 5 mm opens
 skin and fat, 20 mm reaches muscle and spills guts, and a run of hits that passes 25.5 mm shows bone
