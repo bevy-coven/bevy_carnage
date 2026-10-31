@@ -297,3 +297,101 @@ deleted: the parked branch `loop/iter-1` (`2ed4559`, superseded by `loop/iter-1b
    three fields: the owner's file.
 5. **The horror-film items from iteration 0** (arterial spray, pooling and drying, wound sheen, fracture
    debris), each needing `magick` installed first. `vfx` on Bevy 0.20 is still blocked on `bevy_hanabi`.
+
+## Iteration 3 — 2026-10-31 — README and `docs/DEMOS.md` say what `Cargo.toml` says (#6)
+
+**Item and why it ranked first.** Issue #6, the oldest open bug issue that was still reproducible (filed 19:43:57;
+#7 is fixed, #8 is an enhancement and ranks behind any bug). The command's order is a bug issue first, then a bug
+recorded in the log, so it beat the red `preset::tests::a_wound_stains_the_floor_beneath_it`, which iterations 1
+and 2 both ranked first in their backlogs and which is now the top item for iteration 4. The README is also the
+crate-root rustdoc (`src/lib.rs:1`), so docs.rs and crates.io show it: four false lines were the first thing a
+reader met. Skipped, not blocked: #8, the red `preset` test.
+
+**Measured before the change** (the new `tests/readme.rs` against `main`'s README; all four failed):
+Bevy `0.19` vs `0.20`; install `"0.5"` vs `"0.7"` (`0.7.0`); features ticked `["flesh", "serde", "vfx"]` vs
+`default = ["flesh", "serde"]`; Status `0.5.64` vs `0.7.0`. After: 4 passed.
+
+**What changed** (`a6ff43f`, `7fb1974`; no `src/`, `examples/` or `Cargo.lock` line, `git diff main -- src examples
+Cargo.lock` is empty): `README.md` banner and Contributing paragraph say this repository is the source of truth and
+`foundation_vs_slop` holds a frozen Bevy 0.19 copy (`0.5.64`), as `CLAUDE.md:17` does; install line `"0.7"` with one
+sentence that crates.io's newest is `0.5.18` (a Bevy 0.19 crate) and the git form to use until then; "Requires Bevy
+0.20"; `vfx` is `—` in the feature table and its feature bullet says it cannot be enabled on Bevy 0.20 (the locked
+graph under `--features vfx` holds `bevy_hanabi v0.19.0 -> bevy v0.19.1` beside `bevy v0.20.0`, `bevy_ecs` at both
+versions; not compiled, to keep a second Bevy out of a volume at 98 %); Status says `0.7.0` and has a "What `0.6.0`
+and `0.7.0` changed" section; `fracture_skeleton`, `JointGroup`, `JointLink`, `SkeletalFracture`, `SkeletalPiece`
+and `SkeletalRefusal` are under "Skinned meshes", and "It fractures the bind pose" points at them. `docs/DEMOS.md`
+says `flesh` is on by default and `vfx` is off and cannot build. `Cargo.toml`'s GIF-exclusion comment no longer says
+"mirror". `tests/readme.rs`, four tests, `std::fs` and string scanning like `tests/leaf.rs`, no dependency.
+
+**Assumed decision:** none needed; the issue prescribed the fix. Two additions beyond it, both in
+`docs/research/readme-truth.md` under Deviations: the fourth test (the Status version, exact to the patch, so a
+release commit must move the README line or `cargo test` goes red) and the Contributing and `Cargo.toml` edits, which
+carried the banner's false claim.
+
+**Sources** (`docs/research/readme-truth.md`, `docs/research/corpus.md`): physics, Comiskey, Yarin & Attinger 2018
+(`doi:10.1103/physrevfluids.3.063901`), quoted through `distill_search` (distill answered this pass): the 40 m/s
+forward and 8 m/s back speeds the README quotes are a *previous experiment's* ("at 0.45 ms after bullet impact ...
+40 m/s, whereas for backward spatter it was only 8 m/s [15]"), which `src/bloodstain/droplet.rs:51,55` cite as
+"(ibid., §IV)" and the paper gives in its section III; reference (a non-visible item, so a shipping practice),
+`version-sync` and `bevy_hanabi`'s per-Bevy-version README table; technique, crates.io's API (`bevy_carnage` newest
+`0.5.18` 2026-10-12, `bevy_hanabi` newest `0.19.0` 2026-06-27). The corpus re-scan (`catalog_recent` limit 200)
+found nothing in a domain; `system_status` healthy.
+
+**Critique and verdict** (`/tmp/c3/critique.md`, since removed; no pixel changed, so no frame or sheet): README,
+`docs/DEMOS.md` and `tests/readme.rs` against #6's acceptance **GREAT**. Flaws on the record: the install-line
+sentence "until `0.7` is published" turns false at the release and no test holds it (the Status test going red is
+the prompt); the README still carries drift #6 did not list ("Ten" / "Fourteen" browser examples, `cargo clippy ...
+# 12 warnings pre-exist` against BACKLOG's 338 lines, "the seven sibling crates re-exported whole"); `docs/DEMOS.md`
+is held by no test; the consumer line "used by Sanctuary and bevy_emerge's family integration" rests on `CLAUDE.md`
+and the loop command, not on a look at either repository.
+
+**Numbers.**
+
+- *Recorders and bench:* not run. No `src/` or `examples/` line differs from `main`, so every digest and the bench
+  are `main`'s by construction (iteration 2's: `capture_preset` `b7721708304df85f`, `capture_skinned`
+  `ac9ee874ea09f208`, bench `0x4366a8b64352c85a`). No baseline worktree was built.
+- *Gate*, in the loop's order, on the committed tree: `cargo build` 55 s, `cargo build --release` 28 s (both ok, warm
+  cache); `cargo test --no-fail-fast`: **349 lib tests pass and 1 fails, `preset::tests::a_wound_stains_the_floor_beneath_it`
+  (`src/preset.rs:6019`)**, the same count and test as iterations 1 and 2 (lib tests 170 s); every integration binary
+  passes (`readme` 4 new, `skeleton` 13, `viscera` 19, `wetmap` 13, `tear` 9, `fault_modes` 7, `laceration_plugin` 4,
+  `qa_roster` 4, `leaf` 3, `origin` 3, `expressive_range` 3, `cross_section_plugin` 2) and so do the doctests (8 passed,
+  5 ignored: the README is the crate doc and no `rust` block in it changed); `cargo build --examples` ok. `cargo doc
+  --no-deps` ok in 5 m 40 s, 52 warnings, none at `src/lib.rs:1` (the README). Whole second job 29 min at load 5 to 8.
+- *Locks:* the twelve of section 3 are inside the 349 passing lib tests, untouched.
+
+**Release: none.** The gate is not green for the one pre-existing reason above; `main` is `0.7.0`, crates.io has
+`0.5.18`, no tag exists. **The release pass must edit the README's install sentence and Status line in the `release:`
+commit** (`tests/readme.rs` makes the Status line a red test if it forgets).
+
+**Issues.** #6 fixed (`Fixes #6` in `a6ff43f`). #8 open, not blocked, only younger than a bug.
+
+**Found, not fixed:** `src/bloodstain/droplet.rs:51,55` cite the spatter speeds as "(ibid., §IV)"; the paper has them
+in section III, quoting its reference [15] (`docs/research/readme-truth.md`, Pending index).
+
+**Cleanup.** Removed `/tmp/c3` (my six files: the gate logs, `doc.log` and the critique, 84 KB; `df` 27 G free at the
+end against 29 G at the start, the difference being the gate's builds in `/Users/ladvien/target/bevy_carnage-loop`,
+the clone's own cache, which is kept). No baseline worktree or `*-target` was made; `git worktree list` shows the
+clone only. Left, not mine and not deleted: the parked branch `loop/iter-1` (`2ed4559`, superseded by
+`loop/iter-1b`), `refs/wiggum/pass-7-*`, pass 7's `/tmp/c1/dois.txt`, `qa_new.sh` and `skinned_direct.sh`, `/tmp/c12-*`,
+`/tmp/c4`, `/tmp/c5` and `/tmp/c70.sh` (other loops'), and `~/b2_base` (1.6 MB, another loop's clone with
+uncommitted `examples/two_balloons.rs`, `src/balloon.rs` and `tests/zz_probe.rs`; not removable, not idle-proven).
+
+### Ranked backlog for iteration 4
+
+1. **Bug: `preset::tests::a_wound_stains_the_floor_beneath_it`** (`src/preset.rs:6019`, "nothing landed on the floor",
+   an impact at `(0, 0.9, 2.0)` toward `-Z` onto a `Gore::floor()` plane), red since 0.5.64 on Bevy 0.19, and the one
+   thing between this loop and its first release. Fix in `src/`, not the assertion; if it is a real miss of the floor
+   (a wound that throws nothing at a floor below it) it is a consumer-visible bug and `0.5.18` shipped it. Then
+   **Release** (crates.io `0.5.18`, `main` `0.7.0`, no tag; the 6-hour rule; the install sentence and Status line).
+2. **#8: a fold for flaymap and dermis canvases** in `capture_preset` and `capture_skinned` (`DermisCanvas::digest`,
+   `flay=` and `dermis=` fields), so the reproducibility gate sees craters, bruises and burns. The loop command's
+   checklist should then compare all three fields: the owner's file.
+3. **`#[non_exhaustive]` on `SkeletalRefusal` (and the other public error enums) before the first release that has
+   them**: free today, a MINOR bump for every new variant after. An API decision: record it as an assumed one.
+4. **A Bevy 0.19 citation sweep.** `CLAUDE.md` still says "Bevy 0.19 is pinned" in four rule lists and cites
+   `bevy-0.19.1/` and `bevy_pbr-0.19.0/src/pbr_material.rs:153-154,157-163`; so do `docs/wetmap.md`, `docs/flaymap.md`,
+   `tests/wetmap.rs`, `tests/viscera.rs` and several examples' comments. Re-point each to the 0.20 source after checking
+   the cited line still says what it is cited for; fix the README drift in the critique above in the same pass.
+5. **The horror-film items from iteration 0** (arterial spray, pooling and drying, wound sheen, fracture debris), each
+   needing `magick` installed first (absent on big_mac). `vfx` on Bevy 0.20 is still blocked on `bevy_hanabi`
+   (newest `0.19.0`).
