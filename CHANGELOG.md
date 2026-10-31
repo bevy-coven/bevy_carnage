@@ -5,6 +5,20 @@ comment block at the top of `Cargo.toml`.
 
 ## [Unreleased]
 
+### Changed
+
+- `GoreDials::default()` throws at game scale: its `blood.spatter_speed_scale` is `0.25`
+  (`preset::GORE_SPATTER_SPEED_SCALE`), where it inherited `BloodSettings::default()`'s `1.0`. The paper's
+  8 to 40 m/s launch speeds, landed by this crate's drag-free parabola, put a droplet from a chest-height
+  wound 1.5 to 55 m out (median 4.8 m, 21 of 48 within 4 m), so a three-metre floor under a default
+  `GorePlugin` took almost none of what a wound threw, and `preset::tests::a_wound_stains_the_floor_beneath_it`
+  was red from `0.5.64` to `0.7.0`. At `0.25` the same wound lands 0.6 to 5.1 m out (median 1.5 m, 47 of 48
+  within 4 m), the 0.25 to 4 m field Comiskey, Yarin & Attinger measured their stains over. **This moves every
+  recorder digest whose scene has a floor under the default dials** (`capture_preset`, `capture_skinned`);
+  `BloodSettings::default()` is unchanged and so is every bloodstain golden. A caller who set its own
+  `GoreDials::blood` is unaffected; one that wants the old throw sets `spatter_speed_scale: 1.0`. Research:
+  `docs/research/spray-reach.md`.
+
 ### Fixed
 
 - `fracture_skeleton` refuses what it cannot cut exactly, by name (#7). A part that is not a
