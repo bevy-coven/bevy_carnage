@@ -329,6 +329,11 @@ not quietly divide its own constants. At 1.0 a droplet thrown straight up under 
 18 m/s² gravity rises `40² / (2·18) ≈ 44` metres — correct for a real gunshot, and on a 1.8 m subject
 it is a fountain leaving frame. Both examples set **0.25**, which puts the throw at roughly 1–3 metres.
 
+**The preset ships the same number** (after 0.7.0): `GoreDials::default()` states `0.25` (`preset::GORE_SPATTER_SPEED_SCALE`),
+where it inherited `1.0` and a three-metre floor under a wound took almost none of the spray. It compresses only the
+flight on to a floor: a wall, a cloth or a body part takes a droplet at the paper's launch speed, as it always did. A game
+that wants the unscaled floor throw sets `GoreDials { blood: BloodSettings { spatter_speed_scale: 1.0, ..default() }, ..default() }`.
+
 `soften` is `0.0`, for the reason `bullet_holes` measured: relaxing each shard's skin independently
 pulls the wedges around a channel apart, and this demo fires one.
 
