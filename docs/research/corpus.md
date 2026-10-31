@@ -37,6 +37,15 @@ is the caller's (`CLAUDE.md`, "Where the boundary falls") and the second tracks 
 topology change, neither modelled here. `system_status`: distill, both scribes and qdrant healthy (18 073
 documents embedded). `distill_search` answered and returned Stam et al. (`10.1007_s11517-010-0647-5`); the
 time-step sentence the digest-fold note quotes is in its markdown (`markdown_read`).
+Iteration 6 (2026-10-31, 18:07 UTC) read it at limit 200 against the same window (the SIGGRAPH `sig2024_*` bulk embed, then
+psychology, chronic-pain and relationship-violence papers up to 17:45): the keyword filter (blood, wound, skin, fracture,
+gore, droplet, spatter, rheology, tissue, scatter, decal, burn, bruise, brittle, crack, rendering) matched only six
+`sig2024_*` titles (differentiable rendering of implicit surfaces, yarn-level cloth homogenisation, NeRF as an environment
+emitter, mobile frame generation, path guiding, a multi-scale cloth appearance model), none a domain this crate models, so
+no `Research: corpus` commit. `system_status`: distill, both scribes and qdrant healthy (18 073 documents embedded,
+720 conversions queued). `distill_search` answered, and returned only Comiskey et al. 2018 for four queries on drop-size
+and stain-count distributions (it holds the numbers in Figs. 7 and 9, which the markdown does not extract; `doc_link`'s
+gateway answered 504 from this host).
 
 ## Blood rheology and haemodynamics
 
@@ -117,6 +126,7 @@ time-step sentence the digest-fold note quotes is in its markdown (`markdown_rea
 | Kihl, SIGGRAPH 2010 *Advances in Real-Time Rendering* (no DOI) | Frostbite 2's GPU damage mask | `CLAUDE.md` (`flaymap`) |
 | SIGGRAPH *Advances in Real-Time Rendering in Games* course notes, 2006-2025 (no DOI; stems `s2006-advances-materials` … `s2025-advances-materials-12`, embedded 2026-10-30) | The shipping-game technique source: the per-year material, shading and destruction notes. Which stem holds Kihl's 2010 talk is unchecked | the `## How shipping games do it` of each research note |
 | Bettner & Terrano, *1500 Archers on a 28.8: Network Programming in Age of Empires and Beyond*, GDC 2001 (no DOI; a web page, not in the corpus) | A shipping game's lessons on keeping a simulation checkable: "As much as we check-summed the world ... it seemed that there was always one more thing that slipped just under the radar" | `docs/research/digest-fold.md` |
+| Geffroy, *Rendering of Doom Eternal*, SIGGRAPH 2020 *Advances in Real-Time Rendering* (no DOI; `advances.realtimerendering.com/s2020/RenderingDoomEternal.pdf`) and Coenen, *DOOM Eternal - Graphics Study* (`simoncoenen.com/blog/programming/graphics/DoomEternalStudy`; web pages, not in the corpus) | Mesh decals: "extremely fast and allows artists to go crazy with massive amounts of decals", but "the maximum amount of decals per mesh would theoretically be 255" | `docs/research/floor-spatter.md` |
 | Fiedler, *Deterministic Lockstep*, Gaffer On Games (no DOI; a web page, not in the corpus) | The standard a deterministic simulation is held to: "you could take a checksum of your entire physics state at the end of each frame and it would be identical" | `docs/research/digest-fold.md` |
 
 ## Game testing and visual QA
@@ -128,5 +138,9 @@ time-step sentence the digest-fold note quotes is in its markdown (`markdown_rea
 
 ## Practical makeup effects
 
-None yet. The horror-film reference sets the loop gathers are web pages and stills, cited by URL in
-each system's research note under `## Reference set`, not papers.
+No paper; the horror-film reference sets the loop gathers are web pages and stills, cited by URL in each system's
+research note under `## Reference set`. The craft sources the notes quote, all web pages: Savini on fresh and dried blood
+(RNZ, `rnz.co.nz/national/programmes/afternoons/audio/2018762272/`), Dick Smith's blood formula as Savini tells it, and
+Damien Leone on *Terrifier 2*'s opaque and "chunky" blood (SlashFilm,
+`slashfilm.com/1440753/terrifier-2-grisly-death-scenes-involved-some-unlikely-gross-ingredients/`), cited in
+`docs/research/floor-spatter.md`.

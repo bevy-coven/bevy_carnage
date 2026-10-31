@@ -654,3 +654,127 @@ peak; `df`: 181 G free at the end against 21 G at the start, the difference bein
 own build cache, `/Users/ladvien/target/bevy_carnage-loop`, is kept. Left, not mine and not deleted: `loop/iter-1`, `loop/iter-1b`,
 `loop/iter-2`, `loop/iter-3`, `loop/iter-4` (merged), `loop/iter-4-floor-stains` (parked, mine, kept on purpose), `refs/wiggum/pass-7-*`,
 and other loops' `/tmp` directories.
+
+## Iteration 6 — 2026-10-31 — a floor takes a wound's spray as drops, not blobs (AG-145)
+
+**Item and why it ranked first.** No issue is open (`gh issue list` empty), so no bug and no `consumer` request outranks the
+backlog. Ranked: (1) the floor's stain look and droplet count (iteration 4's parked branch `loop/iter-4-floor-stains`,
+`bffcbe8`), (2) `digest=` blind for a body that breaks (iteration 5's item 1), (3) `#[non_exhaustive]` on the error enums,
+(4) the Bevy 0.19 citation sweep, (5) the horror-film items for pooling, wound sheen and debris. Picked (1): it is the visible
+gap the owner's direction (2026-10-30) asks the loop to close, it was measured in iteration 4 and carried twice, and the runner-up
+is an instrument. Measured before any change: a default floor under a bullet-sized shot (`capture_skinned --eye 0,4.2,0.3 --at
+0,0,0`, frame 359) holds 22 components, 7 of them at least 3 px across, one of 62 px: about nine ragged blobs of ten
+centimetres, from two causes: the floor stamped `stain.radius * 2.2` (the *placement* radius of 2 to 12 cm) where a wall and a
+skin had taken `hard_stain` since 0.5.62, and a 3.5 cm crater throws `pi r^2 * 2400 = 9` droplets. The parked draft fixed the
+first and was "sparse and no more legible". **Not adopted as written; its idea was**: floors take `hard_stain`.
+
+**What changed** (`8160ad5` research, `649f36a` corpus, `d926f2d` and `7919490` the speck, `8a4a6ce` the floor, `cdd1c1d` the
+readme test, `db0f211` docs):
+
+- `throw_spray`'s floor pass: each droplet nothing above caught is its own stain (`hard_stain`'s size and slant from the speed
+  it lands at); its UV is found by a cast down through the mesh's index (`ray_cast`/`cast_index`), not by the canvas walking
+  every triangle once per droplet.
+- `GoreDials::floor_mist` (`GORE_FLOOR_MIST`, `9`): fine droplets thrown at the floors for each droplet thrown at everything.
+  The same stream (ordinals `9..90` for a crater); each cast at the same surfaces and blocked by the first it reaches; stamped only
+  on a floor. **A wall, a skin and a cloth take the primaries only**: their pixels are those of 0.7.0.
+- `WetCanvas::paint_speck` (and `SPECK_MAX_SEMI`, `SPECK_GROW`, `SPECK_FLOOR`): a droplet's stain under four texels across, the
+  blood of its ellipse laid by area over a soft round footprint, placed to a fraction of a texel. **Found by measuring, not by
+  reading**: a stamp's profile saturates only inside 0.44 of its radius and is placed on a whole texel, so on the floor at 12 mm
+  a texel a stamp of two texels peaked at 73 of 255, one of three at 243, a slanted one of one at 18, and a stain smaller than the
+  stamp's floor (1.5 texels) was drawn as a whole one; and a two-texel stamp with its spines cost 45 us (`exp` and `atan2` per
+  sample at four samples a texel). A first speck was a hard disc: the floor read as rotated squares (the flesh shader reads a
+  canvas as a cubic B-spline and draws the stain at 4 % coverage), so it is spread over a soft bump now. In the frames the change
+  is slight.
+- Tooling: `preset::tests::hit_tick_cost` (ignored; what one hit costs the tick it lands on), `capture_skinned --floor N`.
+- **A red `cargo test` on `main`, not mine, fixed**: three tests of `tests/readme.rs` failed at `af13bb4` (the README cut to the org
+  guide, 2026-10-31 12:32, after iteration 5's gate): the facts they pin moved to `docs/guide/install.md` and `history.md`. They
+  read those pages now; no assertion changed.
+
+**Assumed decisions (owner may override)**, each also in a commit body: (1) the fine droplets are a floor dial, not a higher
+`droplets_per_m2` for every surface: a wall stamp of four texels or more costs 0.2 to 0.4 ms and `hit_tick_cost` reads 28 ms for a
+heavy wound facing a wall *at the leaf's count*, so more droplets on a wall are unaffordable until that stamp is cheaper (the first
+design did exactly that and was measured and dropped); (2) `floor_canvas` stays 256, since 512 is 8 MiB a floor and a caller's call;
+(3) a new public field on `GoreDials` is breaking, so the next release is a MINOR (`0.8.0`); (4) `tests/readme.rs` re-pointed to the
+guide pages (above), the assertions untouched.
+
+**Sources** (`docs/research/floor-spatter.md`): physics, Comiskey, Yarin & Attinger 2018 (`doi:10.1103/physrevfluids.3.063901`),
+read through `markdown_read`: "The model predicts the number and area of individual stains" and "drops of different sizes comprised
+of a different number of elementary droplets of size a0"; its Figs. 7 and 9 hold the counts and the host could not fetch the PDF
+(`doc_link` answered through a gateway that returned 504 and a LAN address it cannot reach), so **the count is tuned, not derived**.
+Horror-film and forensic references, kept under `/tmp/c6/refs/` and cited by URL: Ref 1 `commons.wikimedia.org/wiki/File:Blood_Spatter_Texture_-_FREE.jpg`
+(CC BY 2.0, a wall, 220 stains, p90/p10 of the diameters 10.3, mean `(162, 53, 41)`, darkest fifth `(136, 29, 20)`), Ref 2
+`.../File:2023_Blutstropfen_Wischspur.jpg` (CC0), Ref 4 *Evil Dead* (2023, FILMHOUNDS), Ref 5 *Terrifier 3* (Variety), and **Ref 7**, new:
+`.../File:Blood,_guts_and_gore_galore,_Moulage_crew_brings_horror_to_life_140723-A-IX584-092.jpg` (US Army, public domain): a floor fan of
+111 stains in 45 cm, p90/p10 7.7, darkest fifth `(107, 15, 33)`. Craft: Savini (fresh blood bright, dried dark brown; Dick Smith adds green so it
+does not read "candy apple bright red", RNZ), Leone on *Terrifier 2* (powdered milk "to kill the translucency"). Technique: Doom Eternal's mesh decals,
+"extremely fast and allows artists to go crazy with massive amounts of decals", capped at 255 a mesh (Geffroy, SIGGRAPH 2020; Coenen's study): a
+canvas has no per-droplet draw and no such cap, and pays at its texel. `catalog_recent` (limit 200): nothing in a domain (six `sig2024_*` titles on
+rendering and cloth); `system_status` and `scribe_health` healthy. The golem MCP is not mounted on this host and Openverse timed out: the set is
+Wikimedia plus press stills.
+
+**Critique and verdict** (`/tmp/c6/critique.md`, `compare-floor-oblique.png`, `compare-soft.png`, `zoom_preset_fan.png`, removed with `/tmp/c6`).
+Against Refs 1 and 7, from the frames (`/tmp/c6/stains.py`, components of red pixels):
+
+- *Count.* The floor of `--eye 0.0,1.5,3.1 --at 0,0,1.3` holds 5 blobs before, 37 stains at 256 texels and 54 at 512 after; the preset's
+  test shot (3.5 cm, a three-metre slab) 4 stains with the mist at nothing and 25 with it. About half the droplets land past the slab's edge.
+- *Drops, not sheets.* Widest stain 7 cm (the target: 12 cm); no stain is a sheet.
+- *Size spread.* p90/p10 of the equivalent diameters: 3.3 at 256 and **1.8 at 512**, against Ref 7's 7.7 and Ref 1's 10.3. **A gap.** The model spreads
+  0.8 to 6 mm uniformly (a factor of 7.5, where the paper's clusters are a power law) and the shader draws each stain at about its footprint plus its edge.
+- *Shape.* At 12 mm a texel a drop is a few texels and reads as a rounded square with a rim; at 6 mm it is half that. **A gap**: against Ref 7 every
+  outline is crisp and round. It is the floor's texel and the flesh shader's reading of a few texels; the soft kernel moved it slightly.
+- *Colour.* The albedo the canvas writes for a saturated texel is `(113, 33, 42)` venous and `(138, 24, 41)` arterial at 2 mm (`spectral::srgb`, measured
+  with a throwaway example), against the references' darkest fifth `(107, 15, 33)` and `(136, 29, 20)`: right. The *lit* frame's darkest fifth is `(120, 49, 56)`
+  and the mean `(127, 61, 64)`, paler and greyer than Ref 7's `(140, 63, 63)` / `(107, 15, 33)`: the scene's studio light and specular, not this item.
+- *Gloss.* A few stains at 512 catch a highlight; none has Ref 7's wet glaze. Unchanged feature.
+- *Frames.* Read at full frame and zoomed: before is five jelly blobs; after reads as a fan of spatter at a glance and as rounded tiles on a closer look.
+  **In the preset clip (`capture_preset` frame 359, a low camera at about 3 m) the 256 floor reads as red confetti**, which a hostile reviewer will call
+  pixelated; the same shot at 512 does not.
+
+**Verdicts.** **Floor spray, the throw (count, morphology by droplet, cost, determinism, the wall and the skin untouched, nothing through a wall): GREAT**
+against its measured targets (below). **The floor stain's look beside the films (shape, spread, colour, gloss) at the shipped 256 texels: NOT YET**, and
+it ships as NOT YET on purpose: the prior state was FAIL (jelly), nothing in this item makes it worse, and its remaining limits are named: the floor's
+texel (`GoreDials::floor_canvas`), the flesh shader's edge and relief on a few texels (needs a WebGL2 re-check), and the size span of the mist. Changes
+that would move it to GREAT, in order: (a) round the contour of a few-texel stain in `flesh.wesl` (edge and relief), re-checked in a browser; (b) a power-law
+size draw for the mist, which needs a `BloodSettings` field and so the owner's word on the leaf's frozen draw; (c) a scene floor at 512 for the recorders.
+Rounds: three on the look (stamps with a floor of 1.5 texels, odd-sided dots, hard specks, soft specks), each measured; stopped at three because the
+remaining lever is the shader, not this item.
+
+**Numbers.**
+
+- *Reproducibility* (every variant twice, all pairs equal), `digest=` before 0.7.0 to after: `preset` `8a10edd6f39c51d8` to `d4c0bcda72414525`; default
+  `9677d79de848daaa` to `e19726fb05ac40f3`; `--through` `890512dd64b645ea` to `4da541caaf98793b`; `--guard` `555fc5022db246a1` to `a6d89deea27fa717`; `--shirt`
+  `2c86f87087d1e03a` to `bfb01ebc2acae68b`; `--break` `baa76e5ee1e0f626` to `6b95aab1742db9fa`; `--blows` `9677d79de848daaa` to `e19726fb05ac40f3` (the default's, as
+  before: #8's blind spot in `digest=`); **`--stroll` `8ebe761bcc8b4d83` and `--quiet` `f83a631a7426808d` unchanged**, as they take no hit. `flay=` and `dermis=` of all nine
+  variants unchanged (`86616c58c7041083` / `90cb9d2114068ac2` default, `066d165e0ab24b95` `--through`, and so on). The `--eye 0,4.2,0.3` digest equals the default's.
+- *Pixels* (every fifth frame, 0.7.0 against the change): `--through`, default, `--shirt`, `--break`, `--blows` differ only from frame 70 in a 20 by 5 pixel patch at
+  the bottom edge (the default camera hardly sees the floor in front of the body) **and not on the wall**; `capture_preset` differs from frame 30 in a 324 by 117 patch
+  (its floor); `--guard`, `--stroll` and `--quiet` are pixel-identical.
+- *Locks and mass*: the lib's 356 tests pass untouched (`hash_f32_is_frozen`, the spatter, stain, pool, bruise, burn, wick, flesh, tear, strips and scripted-wound
+  goldens, `the_measured_rows_are_the_papers`); `tests/wetmap.rs` 17 pass (13 and the four speck tests; the drip and spread passes were not touched). No geometry touched.
+- *Cost*, `hit_tick_cost`, median of 45 hits, 0.7.0 and the change alternated five times each (a body, a wall 0.9 m behind the wound, load 3 to 5), ms:
+  bullet, floor of 2 triangles 2.57 to 2.74; **floor of 20 000 triangles 8.66 to 4.72**; 2 triangles and the wall 6.74 to 7.85 (**+1.1, +16 %: the 80 mist droplets' casts, the
+  trade**); 20 000 and the wall 7.55 to 7.52; heavy wound (8 cm), 2 triangles **15.53 to 8.28**; heavy wound facing the wall 29.11 to 29.36. `bench_carnage` (it never calls the
+  preset), before 0.906, 0.908, 0.950, 0.983 (median 0.929) and after 0.897, 0.933, 0.986 (0.933) `carnage_frame_ms`, `carnage_p99_ms` 27.6 and 27.3, digest `0x4366a8b64352c85a`
+  unchanged; at load 3 to 6 fourteen of its twenty alternated runs refused ("NO STABLE PLATEAU"), so these are the seven that did not.
+- *Gate*, in the loop's order, on the code that ships (`7919490` plus the test fix): `cargo build` rc 0, 31 s; `cargo build --release` rc 0, 88 s; `cargo test --no-fail-fast`
+  rc 101, 1485 s, **the only failures the three `tests/readme.rs` tests red on `main` since `af13bb4`**, fixed in `cdd1c1d` and green after; `cargo build --examples` rc 0, 3 s.
+  Not run: rustfmt (not clean at `main`), `tools/qa.sh` (no ImageMagick), clippy (no standing gate).
+
+**Found, not fixed.** (1) **A heavy wound facing a wall costs 28 ms of one tick** (`hit_tick_cost`, `floor2_wall_big`, the same before and after): 48 spined stamps at 0.2 to 0.6 ms
+on a 512 wall; that is a dropped frame, and it is why the mist is the floor's alone. (2) The recorders' default camera sees none of the floor in front of the body.
+(3) `docs/*.gif` and the README's clips predate this and cannot be re-cut here (no ImageMagick; `vfx` does not build on Bevy 0.20): `docs/DEMOS.md` says which; the new
+still `docs/media/floor_spray.png` was cut with Pillow. (4) The leaf's droplet draw is uniform in diameter where the paper's clusters are a power law (iteration 4 noted
+the inverse size-speed range, which is still the owner's).
+
+### Ranked backlog for iteration 7
+
+1. **The large spined stamp's cost, and then the mist on a wall.** `hit_tick_cost` reads 28 ms for a heavy wound facing a wall (48 stamps of 0.2 to 0.6 ms: `rasterise`'s
+   `atan2` and `exp` per sample, four samples a texel, spines and satellites). Make it cheap (a detail budget a throw, fewer samples for a large stamp, or a faster exact
+   rasteriser) and give the wall the same mist: Ref 1's wall carries 220 stains where the preset's carries nine to a few dozen. Measure with `hit_tick_cost`.
+2. **The few-texel drop's look in `flesh.wesl`** (a round contour and a crisp edge for a stain of two to four texels; the relief that rims it), judged against Ref 7 at 256 and 512,
+   re-checked in a browser for WebGL2; and the mist's **size draw** (the paper's clusters are a power law; the leaf's is uniform in diameter and frozen: a `BloodSettings`
+   field, which is the owner's word). Expect p90/p10 of the diameters to rise from 1.8 and 3.3 towards 7.7.
+3. **`digest=` itself for a body that breaks** (iteration 5's item 1, still open): `digest=` reads the world once at the end and the body is gone; add a per-frame wet trace beside
+   `flay=` and `dermis=` (`wet=`), and make the recorders' default camera see the floor.
+4. **`#[non_exhaustive]` on `SkeletalRefusal` and the other public error enums**, and the Bevy 0.19 citation sweep: do the first with the `0.8.0` MINOR if it has not shipped yet, or never.
+5. **The horror-film items** (pooling and drying ring, wound sheen, fracture debris), each needing `magick` installed first; `vfx` on Bevy 0.20 still waits on `bevy_hanabi`.

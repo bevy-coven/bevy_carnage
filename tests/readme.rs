@@ -7,6 +7,10 @@
 //! the manifest also states, so each is read from both files and compared here; a release that moves one
 //! number fails `cargo test` until the README moves with it.
 //!
+//! Since `af13bb4` the README is the org guide's short page and three of the four facts live in the guide pages it
+//! links: the install line is still in `README.md`; `Requires **Bevy X.Y**` and the feature table are in
+//! `docs/guide/install.md`; the Status paragraph is in `docs/guide/history.md`. The assertions are the same.
+//!
 //! Read with `std::fs` and plain string scanning, the way `tests/leaf.rs` reads the manifest: a parser
 //! dependency for four lines would be a second convention. Every extraction panics, naming the line it
 //! could not find, rather than passing on a README that no longer states the fact at all.
@@ -97,7 +101,8 @@ fn default_features(manifest: &str) -> Vec<String> {
 
 #[test]
 fn the_readme_names_the_bevy_the_manifest_depends_on() {
-    let readme = read("README.md");
+    // Moved from the README to `docs/guide/install.md` when the README was cut to the org's guide (`af13bb4`).
+    let readme = read("docs/guide/install.md");
     let manifest = read("Cargo.toml");
 
     let stated: Vec<&str> = readme
@@ -107,12 +112,12 @@ fn the_readme_names_the_bevy_the_manifest_depends_on() {
             Some(&rest[..rest.find("**")?])
         })
         .collect();
-    assert_eq!(stated.len(), 1, "README.md must state `Requires **Bevy X.Y**` exactly once, found {stated:?}");
+    assert_eq!(stated.len(), 1, "docs/guide/install.md must state `Requires **Bevy X.Y**` exactly once, found {stated:?}");
 
     let wanted = major_minor(&bevy_requirement(&manifest));
     assert_eq!(
         stated[0], wanted,
-        "README.md says Requires Bevy {}, Cargo.toml's [dependencies] asks for bevy {wanted}",
+        "docs/guide/install.md says Requires Bevy {}, Cargo.toml's [dependencies] asks for bevy {wanted}",
         stated[0]
     );
 }
@@ -142,7 +147,8 @@ fn the_install_line_names_the_version_the_manifest_declares() {
 
 #[test]
 fn the_features_the_readme_ticks_are_the_manifests_defaults() {
-    let readme = read("README.md");
+    // Moved with the install section to `docs/guide/install.md` (`af13bb4`).
+    let readme = read("docs/guide/install.md");
     let manifest = read("Cargo.toml");
 
     let header = "| feature | default | what it does |";
@@ -152,7 +158,7 @@ fn the_features_the_readme_ticks_are_the_manifests_defaults() {
         .skip(2) // the header and its `|---|` rule
         .take_while(|l| l.starts_with('|'))
         .collect();
-    assert!(!table.is_empty(), "README.md has no `{header}` table");
+    assert!(!table.is_empty(), "docs/guide/install.md has no `{header}` table");
 
     let mut ticked: Vec<String> = table
         .iter()
@@ -168,20 +174,21 @@ fn the_features_the_readme_ticks_are_the_manifests_defaults() {
     assert_eq!(
         ticked,
         default_features(&manifest),
-        "README.md's feature table ticks {ticked:?} as default, Cargo.toml's `default` is {:?}",
+        "docs/guide/install.md's feature table ticks {ticked:?} as default, Cargo.toml's `default` is {:?}",
         default_features(&manifest)
     );
 }
 
 #[test]
 fn the_status_paragraph_names_the_version_in_the_repository() {
-    let readme = read("README.md");
+    // Moved to `docs/guide/history.md` (`af13bb4`); the README keeps a one-line `**Status:**`.
+    let readme = read("docs/guide/history.md");
     let manifest = read("Cargo.toml");
 
     let status = readme
         .split("\n## Status")
         .nth(1)
-        .expect("README.md has no `## Status` section");
+        .expect("docs/guide/history.md has no `## Status` section");
     let line = status
         .lines()
         .find(|l| l.contains("` in the repository"))

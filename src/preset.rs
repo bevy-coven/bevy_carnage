@@ -1032,6 +1032,36 @@ fn shape_on(gore: &Gore, shape: &StainShape, texels: u32) -> StainShape {
     }
 }
 
+/// **How many texels across a droplet's stain must be before the canvas draws it as a stamp**: `4`. Under it the stain
+/// is a speck ([`paint_drop`]).
+const FINE_TEXELS: f32 = 4.0;
+
+/// **A droplet's stain on a canvas, at the canvas's resolution**: `shape` in metres, painted on `wet` at `uv`.
+///
+/// From [`FINE_TEXELS`] across it is a stamp, [`shape_on`]'s, with its spines and satellites. **Under it the canvas cannot
+/// draw them, and a stamp is the wrong picture of what it can**, for two reasons that were each measured on the floor at
+/// 12 mm a texel:
+///
+/// - *Coverage.* A stamp's profile saturates only inside about 0.44 of its radius and it is placed on a whole texel, so
+///   a stamp of two texels, whose four texels all lie off its centre, peaked at 73 of 255, one of three at 243 and a
+///   slanted one of one texel at 18; and a stain smaller than the stamp's floor of a texel and a half is drawn as a
+///   whole one. [`WetCanvas::paint_speck`] lays the stain's own area, over a soft round footprint, at its own place to a
+///   fraction of a texel: a 3 mm drop is a tint of a 12 mm texel, a 12 mm one is a saturated texel, and nothing in
+///   between is dimmer than a smaller one.
+/// - *Cost.* The mask holds the whole silhouette, so a spine is a share of the stamp's own width, and on a stain of four
+///   texels the longest is a texel and a half. A two-texel stamp with its spines and satellites rasterised at four
+///   samples a texel cost 45 µs (`hit_tick_cost`), nearly all of it `exp` and `atan2` per sample; a speck costs under 2.
+fn paint_drop(wet: &mut WetCanvas, gore: &Gore, uv: Vec2, shape: &StainShape, tick: u32, edges: &WetSettings) {
+    let texels = wet.size();
+    let t = texels.max(1) as f32;
+    let (major, minor) = (shape.major * gore.density() * t, shape.minor * gore.density() * t);
+    if major >= FINE_TEXELS {
+        wet.paint_uv_with(uv, &shape_on(gore, shape, texels), tick, edges);
+    } else {
+        wet.paint_speck(uv, [0.5 * major, 0.5 * minor], Vec2::from(shape.direction), tick);
+    }
+}
+
 /// **A skinned mesh's pose**, from the inverse bind poses asset and a way to ask for each joint's
 /// world matrix. `None` until both exist — a scene still streaming in has joints no transform
 /// reaches yet, and that is "not yet", never "unskinned".
@@ -2290,6 +2320,23 @@ fn face_measure(mesh: &Mesh) -> Option<(f32, Vec3, Vec3)> {
 /// number every demo already authored by hand (`docs/DEMOS.md`), in `docs/research/spray-reach.md`.
 pub const GORE_SPATTER_SPEED_SCALE: f32 = 0.25;
 
+/// **How many fine droplets a wound throws at the floors for each droplet it throws at everything**: `9`. A bullet-sized
+/// crater (3.5 cm in radius, 3.85e-3 m²) throws 9 droplets at `BloodSettings::default()`'s `2400` a square metre; each is
+/// cast at the body parts, the cloths and the walls round it and stains the first it meets, as it always has. With the
+/// mist it throws 90 more at the floors, **nine for each of those**: they are the same stream (`droplet(wound, i)` is a
+/// pure function of the wound and the ordinal, so ordinals `0..9` are what they were and the mist is ordinals `9..90`), each
+/// is tested against the same surfaces and is blocked by the first it reaches, and the floor takes the ones nothing
+/// blocks, one `crate::wetmap::WetCanvas::paint_speck` apiece. **A wall, a skin and a cloth take no mist**, so what they
+/// take, and what it costs to stamp it, is what it was.
+///
+/// **Why a floor's count is the preset's and not the leaf's**, as with [`GORE_SPATTER_SPEED_SCALE`]: the leaf's `2400`
+/// is pinned by `the_spatter_model_is_frozen`, and nine stains on a floor for a shot is what a floor of jam read as. The
+/// paper's own unit is a floor of *individual stains* binned by distance and the films it is read against throw a
+/// fan (`docs/research/floor-spatter.md`). **Tuned, and says so**: no paper gives a count per wound area at game scale; it
+/// is set so a crater leaves a field of stains on the shipped floor, where the reference photograph shows 111 in 45 cm.
+/// A design default.
+pub const GORE_FLOOR_MIST: f32 = 9.0;
+
 /// A rendered gut tube the preset keeps in step with its strand.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct Gut;
@@ -2307,6 +2354,12 @@ pub struct GoreDials {
     /// floor; a stain on a wall, a cloth or a body part is sized at the paper's speed whatever it is. A caller
     /// who wants the unscaled throw states `BloodSettings { spatter_speed_scale: 1.0, ..default() }`.
     pub blood: BloodSettings,
+    /// **Fine droplets a wound throws at the floors for each one it throws at everything**: [`GORE_FLOOR_MIST`], `9`.
+    /// They stain only a floor, and only if no body part, cloth or wall is in their way; the count of the others, and
+    /// so what a wall or a skin takes, is `blood.droplets_per_m2`'s and does not move. `0` throws none: a floor then
+    /// takes only the droplets the wound threw at everything, each its own stain. A floor shows them as drops from
+    /// about 6 mm a texel (`floor_canvas` `512` for a three-metre slab).
+    pub floor_mist: f32,
     /// Fixed ticks per second, for the bleed schedule.
     pub hz: u32,
     /// Strands a torso hit spills once it reaches muscle. `0` disables viscera.
@@ -2358,6 +2411,7 @@ impl Default for GoreDials {
             gravity: 9.81,
             edge_samples: 4,
             floor_canvas: 256,
+            floor_mist: GORE_FLOOR_MIST,
             bruise_hours_per_tick: 0.02,
             burn_cooling_s: 5.0,
             open_wounds: 16,
@@ -2883,8 +2937,9 @@ struct Thrown<'a, 'w, 's> {
 /// **What a wound throws lands on what it reaches first.** Each droplet is cast straight at every
 /// dressed surface that is not a floor — a sheet, a wall, the next body part, the shirt the wound is
 /// under — and stains only the nearest, so a body part, a cloth or a wall in the way catches it and
-/// nothing behind is stained through it. A cloth's hole lets a droplet through. Then the closed-form
-/// stains of a horizontal plane go on every floor, for each droplet nothing caught. Straight rather
+/// nothing behind is stained through it. A cloth's hole lets a droplet through. Then every floor takes, for
+/// each droplet nothing caught, the stain it makes where its flight lands it: a drop, sized and drawn out by how
+/// it arrived, not a sheet's blob. Straight rather
 /// than ballistic for the cast: a droplet at 8–40 m/s falls under a centimetre in the metre it
 /// travels. The spray leaves `wound.at` in a cone about `wound.normal`; `struck`, the part the wound
 /// is on, is not cast at. The first [`SPRAY_CAST`] droplets are cast; up to [`WALL_CAST`] when a
@@ -2910,7 +2965,22 @@ fn throw_spray(
     // on to a floor (`GORE_SPATTER_SPEED_SCALE`). Cast at `0.25` too, the wall's stipple came out two thirds
     // the size and nearly one size (`docs/research/spray-reach.md`).
     let launch = BloodSettings { spatter_speed_scale: 1.0, ..dials.blood.clone() };
-    let droplets = crate::bloodstain::patterns::impact_spatter(wound, &launch);
+    // **The primary droplets** are what the wound throws at everything, and **the mist** is what it throws on top of
+    // them at the floors (`GORE_FLOOR_MIST`): the same stream, ordinals `n_primary..`, each cast at the same surfaces and
+    // blocked by the first it reaches, stamped only if it gets to a floor. With no floor there is no mist to throw.
+    let n_primary = crate::bloodstain::droplet_count(wound, &launch) as usize;
+    let floors = surfaces.iter().any(|s| s.entity != struck && s.gore.kind == GoreKind::Floor);
+    let mist = if floors && n_primary > 0 && dials.floor_mist.is_finite() && dials.floor_mist > 0.0 { dials.floor_mist } else { 0.0 };
+    let n_total = (n_primary + (n_primary as f32 * mist).round() as usize).min(dials.blood.max_droplets_per_wound as usize).max(n_primary);
+    // The leaf's count is `round(area x density)`; the stream is generated at more than the total needs and cut to it, so
+    // `n_total` is exactly the primaries and `floor_mist` of them again, whatever the rounding.
+    let droplets = if n_total == n_primary {
+        crate::bloodstain::patterns::impact_spatter(wound, &launch)
+    } else {
+        let mut all = crate::bloodstain::patterns::impact_spatter(wound, &BloodSettings { droplets_per_m2: launch.droplets_per_m2 * (2.0 + mist), ..launch.clone() });
+        all.truncate(n_total);
+        all
+    };
     // **What a droplet can be cast at**, each boxed once for the batch and posed, if it is skinned, only
     // when a droplet's ray reaches its box: a crowd's pose is a pass over every vertex of every body.
     let candidates: Vec<&Surface> = surfaces.iter().filter(|s| s.entity != struck && s.gore.kind != GoreKind::Floor).collect();
@@ -2934,13 +3004,18 @@ fn throw_spray(
     let mut soak: Vec<Vec<(Vec2, StainShape, u32)>> = vec![Vec::new(); drawn.len()];
     // `(where the ray enters its box, surface)`, reused by every droplet.
     let mut order: Vec<(f32, usize)> = Vec::with_capacity(drawn.len());
-    for (i, d) in droplets.iter().enumerate().take(if walls { WALL_CAST } else { SPRAY_CAST }) {
+    let cap = if walls { WALL_CAST } else { SPRAY_CAST };
+    for (i, d) in droplets.iter().enumerate() {
+        let primary = i < n_primary;
+        if primary && i >= cap {
+            continue;
+        }
         let dir = Vec3::from_array(d.dir);
         // Past the ordinary cap a droplet is cast only toward a wall, which is what the wider cap is for.
         let toward_wall = || {
             drawn.iter().flatten().any(|(s, b)| s.gore.kind == GoreKind::Wall && b.as_ref().is_none_or(|b| b.reached_by(at_world, dir)))
         };
-        if i >= SPRAY_CAST && !toward_wall() {
+        if primary && i >= SPRAY_CAST && !toward_wall() {
             continue;
         }
         let through_hole = |s: &&Surface, l: &Landing| {
@@ -2956,6 +3031,9 @@ fn throw_spray(
         let Some((k, l)) = nearest_landing(&drawn, at_world, dir, &mut order, cast, through_hole) else { continue };
         if let Some(c) = caught.get_mut(i) {
             *c = true;
+        }
+        if !primary {
+            continue;
         }
         let Some(Some((s, _))) = drawn.get(k) else { continue };
         let Some(asset) = meshes.get(&s.mesh) else { continue };
@@ -2995,31 +3073,46 @@ fn throw_spray(
             });
         }
     }
-    // **The floors**, in closed form, for every droplet nothing above caught. A stain's seed is the
-    // spray's own seed mixed with the droplet's ordinal, which is how a stain is matched to its droplet.
+    // **The floors**, for every droplet nothing above caught, primary or mist, each its own stain as on a wall or a
+    // skin. Where a droplet lands is the closed form's (`crate::bloodstain::landing`, flown at the dial's
+    // `spatter_speed_scale`, which is the launch speed times it: the same bits as throwing the stream at that scale);
+    // how it stains is `hard_stain`'s, from the speed and slant it arrives with, drawn at the canvas's resolution
+    // ([`paint_drop`]). Until now a floor stamped the blob a sheet takes, 2 to 12 cm a side for a droplet a few
+    // millimetres across, so a shot's nine droplets read as nine pieces of jam (`docs/research/floor-spatter.md`).
+    // The UV is found by a cast down on the landing through the mesh's index, as a wall's is: the canvas's own walk
+    // of every triangle, once per droplet, cost a hit on a floor of twenty thousand triangles six milliseconds. A
+    // stain's seed is the spray's own seed mixed with the droplet's ordinal, which is how a stain is matched to its
+    // droplet.
     let spray_seed = wound_seed(wound);
     for s in surfaces.iter().filter(|s| s.entity != struck && s.gore.kind == GoreKind::Floor) {
         let Some(asset) = meshes.get(&s.mesh) else { continue };
         let Some((floor_mesh, floor_xf)) = drawn_now(s, asset, posed, identity) else { continue };
         let Ok((_, _, _, _, _, Some(mut wet))) = bodies.get_mut(s.entity) else { continue };
         let plane_y = floor_xf.translation().y;
-        for stain in crate::bloodstain::stain::stains(wound, &dials.blood, plane_y) {
-            if caught.get((stain.seed ^ spray_seed) as usize).copied().unwrap_or(false) {
+        let fall = (wound.at[1] - plane_y).max(0.0);
+        for (i, d) in droplets.iter().enumerate() {
+            if caught.get(i).copied().unwrap_or(false) {
                 continue;
             }
-            let at = Vec3::new(stain.at[0], stain.at[1] + 0.5, stain.at[2]);
-            let shape = StainShape {
-                major: stain.radius * 2.2,
-                minor: stain.radius * 2.0,
-                spines: 3,
-                satellites: 1,
-                direction: [0.0, 1.0],
-                seed: stain.seed,
-            };
-            let texels = wet.size();
-            let _ = wet.paint_world_with(floor_mesh, floor_xf, at, Vec3::NEG_Y, &shape_on(&s.gore, &shape, texels), tick, edges);
+            let flight = crate::bloodstain::Droplet { speed: d.speed * dials.blood.spatter_speed_scale, ..*d };
+            let Some(at) = crate::bloodstain::landing(wound.at, &flight, dials.blood.gravity, plane_y) else { continue };
+            let above = Vec3::new(at[0], at[1] + 0.5, at[2]);
+            let Some(landing) = ray_cast(floor_mesh, cast_index(index, refits, s, asset, floor_mesh), floor_xf, above, Vec3::NEG_Y) else { continue };
+            let arrives = arriving(&flight, fall, dials.blood.gravity);
+            let Some(shape) = hard_stain(floor_mesh, floor_xf, &landing, &arrives, &dials.blood, spray_seed ^ i as u32) else { continue };
+            paint_drop(&mut wet, &s.gore, landing.uv, &shape, tick, edges);
         }
     }
+}
+
+/// **A droplet as it arrives on a plane `fall` below where it left**: the horizontal velocity it left with and the
+/// vertical one it has gained over the drop, downward whichever way it set out. The closed form
+/// `crate::bloodstain::landing` lands it by, and what `hard_stain` reads its slant and its downrange from.
+fn arriving(d: &crate::bloodstain::Droplet, fall: f32, gravity: f32) -> crate::bloodstain::Droplet {
+    let v = Vec3::from_array(d.dir) * d.speed;
+    let down = (v.y * v.y + 2.0 * gravity * fall).max(0.0).sqrt();
+    let arrival = Vec3::new(v.x, -down, v.z);
+    crate::bloodstain::Droplet { dir: arrival.normalize_or_zero().to_array(), speed: arrival.length(), diameter: d.diameter }
 }
 
 /// **What a surface is drawn as now, without posing it**: its asset placed by its own transform, or
@@ -6098,6 +6191,132 @@ mod tests {
         assert!(floor_wet > 0.0, "nothing landed on the floor");
     }
 
+    /// **The separate stains on a canvas**: each run of 4-connected texels holding more than 32 of 255, as
+    /// `(texels, widest side in texels)`.
+    fn stains_on(wet: &WetCanvas) -> Vec<(u32, u32)> {
+        let n = wet.size();
+        let lit = |x: u32, y: u32| wet.amount_at(x, y) > 32;
+        let mut seen = vec![false; (n * n) as usize];
+        let mut found = Vec::new();
+        for y in 0..n {
+            for x in 0..n {
+                if seen[(y * n + x) as usize] || !lit(x, y) {
+                    continue;
+                }
+                seen[(y * n + x) as usize] = true;
+                let (mut stack, mut texels) = (vec![(x, y)], 0u32);
+                let (mut lo, mut hi) = ((x, y), (x, y));
+                while let Some((cx, cy)) = stack.pop() {
+                    texels += 1;
+                    lo = (lo.0.min(cx), lo.1.min(cy));
+                    hi = (hi.0.max(cx), hi.1.max(cy));
+                    for (dx, dy) in [(-1i32, 0i32), (1, 0), (0, -1), (0, 1)] {
+                        let (nx, ny) = (cx as i32 + dx, cy as i32 + dy);
+                        if nx < 0 || ny < 0 || nx >= n as i32 || ny >= n as i32 {
+                            continue;
+                        }
+                        let (nx, ny) = (nx as u32, ny as u32);
+                        if !seen[(ny * n + nx) as usize] && lit(nx, ny) {
+                            seen[(ny * n + nx) as usize] = true;
+                            stack.push((nx, ny));
+                        }
+                    }
+                }
+                found.push((texels, (hi.0 - lo.0 + 1).max(hi.1 - lo.1 + 1)));
+            }
+        }
+        found
+    }
+
+    /// **A room to shoot into**: a body, a sphere of 0.3 m at chest height; a floor three metres across at the preset's
+    /// floor resolution (12 mm a texel), of `floor_cells x floor_cells` quads; and, if `wall_z` is given, a wall
+    /// three metres wide and two high across the room there, at the wall's 512 texels. Returns `(body, floor, wall)`.
+    fn room(app: &mut App, floor_cells: u32, wall_z: Option<f32>) -> (Entity, Entity, Option<Entity>) {
+        let sphere = app.world_mut().resource_mut::<Assets<Mesh>>().add(Sphere::new(0.3).mesh().uv(16, 8));
+        let plane = app.world_mut().resource_mut::<Assets<Mesh>>().add(Plane3d::new(Vec3::Y, Vec2::splat(1.5)).mesh().subdivisions(floor_cells).build());
+        let material = app.world_mut().resource_mut::<Assets<StandardMaterial>>().add(StandardMaterial::default());
+        let body = app
+            .world_mut()
+            .spawn((Mesh3d(sphere), MeshMaterial3d(material.clone()), Transform::from_xyz(0.0, 0.9, 0.0), GlobalTransform::from_xyz(0.0, 0.9, 0.0), Gore::skin(Region::Limb)))
+            .id();
+        let floor = app
+            .world_mut()
+            .spawn((Mesh3d(plane), MeshMaterial3d(material.clone()), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::floor().with_uv_per_metre(1.0 / 3.0).with_canvas(256)))
+            .id();
+        let wall = wall_z.map(|z| {
+            let slab = app.world_mut().resource_mut::<Assets<Mesh>>().add(Plane3d::new(Vec3::Z, Vec2::new(1.5, 1.0)).mesh().build());
+            let at = Transform::from_xyz(0.0, 1.0, z);
+            app.world_mut().spawn((Mesh3d(slab), MeshMaterial3d(material), at, GlobalTransform::from(at), Gore::wall().with_uv_per_metre(1.0 / 3.0).with_canvas(512))).id()
+        });
+        app.world_mut().run_schedule(FixedUpdate);
+        (body, floor, wall)
+    }
+
+    /// **A shot leaves a fan of drops on the floor, not a few blobs.** A bullet-sized hit at chest height on a
+    /// dressed floor three metres across at the preset's floor resolution (12 mm a texel) stamps dozens of
+    /// separate stains where it stamped under ten, each a drop a few centimetres across, none a sheet. The
+    /// count is the floor's mist ([`GORE_FLOOR_MIST`]) and the width is the droplet's own stain (`hard_stain`),
+    /// drawn at the canvas's resolution ([`paint_drop`]), not the blob a sheet takes: the one it stamped before was
+    /// `2.2 x` a placement radius of 2 to 12 cm.
+    #[test]
+    fn a_shot_leaves_a_fan_of_drops_on_the_floor_not_a_few_blobs() {
+        let fan = |mist: f32| {
+            let mut app = headless();
+            app.world_mut().resource_mut::<GoreDials>().floor_mist = mist;
+            let (body, floor, _) = room(&mut app, 0, None);
+            app.world_mut().write_message(GoreHit::impact(body, Vec3::new(0.0, 0.9, 2.0), Vec3::NEG_Z, 0.035, 5.0));
+            app.world_mut().run_schedule(FixedUpdate);
+            let wet = app.world().get::<WetCanvas>(floor).expect("the floor is dressed");
+            let stains = stains_on(wet);
+            let widest = stains.iter().map(|s| s.1).max().unwrap_or(0) as f32 * 3.0 / wet.size() as f32;
+            (stains.len(), widest)
+        };
+        let ((bare, _), (misty, widest)) = (fan(0.0), fan(GORE_FLOOR_MIST));
+        assert!(misty >= 15, "a shot left {misty} stains on the floor: a fan is dozens");
+        assert!(misty >= 4 * bare.max(1), "the mist added too little: {bare} stains without it, {misty} with it");
+        assert!(widest <= 0.12, "the widest stain is {widest} m across: a drop, not a sheet");
+    }
+
+    /// **Mist is the floor's alone.** A wall and a skin take what they always took: the same shot, with the floor's
+    /// mist at nothing and at its default, leaves the wall behind the body and the body itself exactly as they were.
+    #[test]
+    fn a_wall_and_a_skin_take_no_mist() {
+        let shoot = |mist: f32| {
+            let mut app = headless();
+            app.world_mut().resource_mut::<GoreDials>().floor_mist = mist;
+            let (body, floor, wall) = room(&mut app, 0, Some(-0.9));
+            // From behind the wall's side of the room into the body's far face: the wound looks at the wall.
+            app.world_mut().write_message(GoreHit::impact(body, Vec3::new(0.0, 0.9, -2.0), Vec3::Z, 0.035, 5.0));
+            app.world_mut().run_schedule(FixedUpdate);
+            let wet = |e: Entity| app.world().get::<WetCanvas>(e).map(|w| (w.digest(), w.wetted_area()));
+            (wet(wall.expect("a wall")), wet(body), wet(floor))
+        };
+        let (quiet, misty) = (shoot(0.0), shoot(GORE_FLOOR_MIST));
+        assert!(quiet.0.is_some_and(|(_, area)| area > 0.0), "the premise: the wound sprays the wall at all: {quiet:?}");
+        assert_eq!(quiet.0, misty.0, "the floor's mist changed what the wall took");
+        assert_eq!(quiet.1, misty.1, "the floor's mist changed what the body took");
+    }
+
+    /// **Mist is blocked by what is in its way.** A wall across the room behind the wound takes the spray and the
+    /// floor behind the wall takes none of the mist, which is thrown at the same surfaces as the rest: without the
+    /// wall the same shot wets that floor, so it is the wall that keeps it dry.
+    #[test]
+    fn the_mist_does_not_pass_through_a_wall() {
+        let behind = |wall_z: Option<f32>| {
+            let mut app = headless();
+            let (body, floor, _) = room(&mut app, 0, wall_z);
+            app.world_mut().write_message(GoreHit::impact(body, Vec3::new(0.0, 0.9, -2.0), Vec3::Z, 0.035, 5.0));
+            app.world_mut().run_schedule(FixedUpdate);
+            let wet = app.world().get::<WetCanvas>(floor).expect("the floor is dressed");
+            // The floor on the far side of a wall at z = -0.9: world z below it, which is rows below (z / 3 + 0.5) * 256.
+            let rows = (((-0.9f32 / 3.0 + 0.5) * wet.size() as f32) as u32).saturating_sub(1);
+            (0..rows).map(|y| (0..wet.size()).map(|x| u32::from(wet.amount_at(x, y) > 0)).sum::<u32>()).sum::<u32>()
+        };
+        let (open, walled) = (behind(None), behind(Some(-0.9)));
+        assert!(open >= 50, "the premise: without the wall the shot wets the floor beyond it ({open} texels)");
+        assert_eq!(walled, 0, "mist went through the wall and wet {walled} texels of the floor behind it");
+    }
+
     /// **The default throw lands inside the field the spatter was measured over.** Comiskey, Yarin &
     /// Attinger's stains lie between 0.25 and 4 m of the target on the floor behind it, although the
     /// droplets leave at 8 to 40 m/s: air drag stops them. This crate lands a droplet by a drag-free
@@ -6991,6 +7210,55 @@ mod tests {
                 let image = wet.map_or(0, WetCanvas::image_bytes) + flay.map_or(0, FlayCanvas::image_bytes) + dermis.map_or(0, DermisCanvas::image_bytes);
                 println!("{name:<12}{edge:>6}  {}  {}  {}", kib(heap), kib(image), kib(heap + 2 * image));
             }
+        }
+    }
+
+    /// **What one hit costs the tick it lands on**, in a [`room`]: a body, a floor of two triangles and one of twenty
+    /// thousand, and a wall 0.9 m from the wound, for a bullet-sized wound and a heavy one, with the floor's mist and
+    /// without. Not a test: it prints `METRIC` lines and the floor's stain count, as `bench_carnage` prints the
+    /// carnage's. Each shot enters the body's far side, so the wound looks at the wall and its spray reaches it, and the
+    /// droplets nothing catches reach the floor. Run it with
+    /// `cargo test --release --lib -- hit_tick_cost --ignored --nocapture`, alone on the host: the time of one tick is
+    /// the number a caller's frame pays.
+    #[test]
+    #[ignore]
+    fn hit_tick_cost() {
+        const HITS: usize = 45;
+        for (label, subdivisions, wall, radius, mist) in [
+            ("floor2", 0u32, false, 0.03f32, GORE_FLOOR_MIST),
+            ("floor20k", 99, false, 0.03, GORE_FLOOR_MIST),
+            ("floor2_wall", 0, true, 0.03, GORE_FLOOR_MIST),
+            ("floor20k_wall", 99, true, 0.03, GORE_FLOOR_MIST),
+            ("floor2_big", 0, false, 0.08, GORE_FLOOR_MIST),
+            ("floor2_wall_big", 0, true, 0.08, GORE_FLOOR_MIST),
+            ("floor2_big_nomist", 0, false, 0.08, 0.0),
+            ("floor2_wall_big_nomist", 0, true, 0.08, 0.0),
+        ] {
+            let mut app = headless();
+            app.world_mut().resource_mut::<GoreDials>().floor_mist = mist;
+            let (body, floor, _) = room(&mut app, subdivisions, wall.then_some(-0.9));
+            let quiet = {
+                let t = std::time::Instant::now();
+                app.world_mut().run_schedule(FixedUpdate);
+                t.elapsed().as_secs_f64() * 1e3
+            };
+            let mut ms = Vec::with_capacity(HITS);
+            for i in 0..HITS {
+                let x = ((i % 9) as f32 - 4.0) * 0.04;
+                let y = 0.9 + (((i / 9) % 5) as f32 - 2.0) * 0.03;
+                let t = std::time::Instant::now();
+                app.world_mut().write_message(GoreHit::impact(body, Vec3::new(x, y, -2.0), Vec3::Z, radius, 5.0));
+                app.world_mut().run_schedule(FixedUpdate);
+                ms.push(t.elapsed().as_secs_f64() * 1e3);
+            }
+            ms.sort_by(f64::total_cmp);
+            let median = ms[ms.len() / 2];
+            let worst = ms[ms.len() - 1];
+            let floor_wet = app.world().get::<WetCanvas>(floor).map(|w| (w.wetted_area(), stains_on(w).len())).unwrap_or((0.0, 0));
+            println!("METRIC hit_tick_ms_median_{label}={median:.4}");
+            println!("METRIC hit_tick_ms_worst_{label}={worst:.4}");
+            println!("METRIC quiet_tick_ms_{label}={quiet:.4}");
+            println!("floor_{label}: {HITS} hits, wetted {:.3} m2 in {} stains", floor_wet.0, floor_wet.1);
         }
     }
 }
