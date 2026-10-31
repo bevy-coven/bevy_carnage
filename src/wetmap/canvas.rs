@@ -1322,6 +1322,18 @@ impl WetCanvas {
                     let Some(&(amount, age)) = self.prev.get(i) else {
                         continue;
                     };
+                    // An empty texel whose four neighbours are empty takes nothing and gives nothing: its flux is nil on
+                    // every edge, so it stays `(0, 0)`, which is what it is. Most of what a tick covers is that.
+                    if amount == 0
+                        && age == 0
+                        && x > 0
+                        && y > 0
+                        && x + 1 < n
+                        && y + 1 < n
+                        && [i - 1, i + 1, i - width, i + width].into_iter().all(|j| matches!(self.prev.get(j), Some(&(0, _))))
+                    {
+                        continue;
+                    }
                     // A dry crust neither gives nor receives: nothing flows through set blood.
                     if !is_wet(age, span) {
                         continue;
@@ -1449,6 +1461,12 @@ impl WetCanvas {
                 for x in region.x0..=region.x1 {
                     let i = (y * n + x) as usize;
                     let Some(&(amount, age)) = self.wet.get(i) else { continue };
+                    // A texel with no blood whose pixels already say so is shaded: `R` of the metallic-roughness image is
+                    // the coverage byte it was last drawn with, and every write of it draws the whole texel, so a zero is
+                    // the bare surface in all four channels of both images. Most of what a tick covers is that.
+                    if amount == 0 && self.rough_px.get(i * 4) == Some(&0) {
+                        continue;
+                    }
                     let (rgb, rough_byte) = if amount == 0 {
                         ([base[0], base[1], base[2]], base_rough)
                     } else {
