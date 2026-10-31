@@ -6,6 +6,16 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+### Added
+
+- `DermisCanvas::digest()` (#8): FNV-1a over the bruise-and-burn canvas's bytes, the form `ClothHoles::digest`
+  already had (which now delegates to it). `capture_preset` and `capture_skinned` append `flay=<hex>` (every
+  `FlayCanvas::digest`, the craters) and `dermis=<hex>` (every `DermisCanvas::digest`, the bruises and burns) to
+  their digest line, each a sorted fold across the world. **No `digest=` value moves and no frame changes**:
+  until now neither a crater's depth nor a bruise's place nor a burn's zones was in the reproducibility line, so
+  `capture_skinned --blows` printed the default's line and a pass could have made any of them run-dependent
+  unseen. Research: `docs/research/digest-fold.md`.
+
 ## [0.7.0] - 2026-10-31
 
 ### Changed
