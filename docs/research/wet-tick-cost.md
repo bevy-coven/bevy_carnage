@@ -68,29 +68,33 @@ needs it only at its rim, and skips it inside and outside.
 
 ## Model adopted
 
-No model change. Three exact reductions, each proved against the thing it replaces, in the order of what they cost:
+No model change. Four exact reductions, each held to the thing it replaces, in the order of what they cost:
 
-1. **`rasterise`: a bucketed bound on the rim.** The circle of angles is cut into 64 buckets. For each, the spines whose window
+1. **`rasterise`: a bucketed bound on the rim.** The circle of angles is cut into 32 buckets. For each, the spines whose window
    (`arg >= -17`, the existing skip) can reach it, as a bit set, and an upper bound on `rim` there: `1 +` the sum over those spines
-   of `reach * exp(-gap^2 / 2w^2)`, `gap` the least angular distance from the spine to the bucket, padded so float error cannot
-   cross it. A sample outside the circle of the largest bound is zero without an `atan2`; one outside its bucket's bound is zero
-   without a spine; the rest walk only the spines whose bit is set, in the same ascending order, with the same arithmetic. Satellites
-   are tested on the squared distance first, with a margin the float error cannot cross. Bytes identical:
-   `rasterise_writes_the_mask_its_definition_does` already holds `rasterise` to a by-definition oracle over 3 000 shapes and is
-   widened to the ceiling of spines.
-2. **`shade`: a table of `(level, age)`.** The albedo and roughness a `(fill level, age)` pair gets is a pure function of the
-   canvas's settings, so a canvas keeps them in a small direct-mapped table and the one-slot memo stops thrashing along a rim.
-   The age's wetness byte, a `u64` division a texel, is memoised by age. Identical bytes by construction; the same pure function.
-3. **The passes' inner loops** (`spread`, `drip`, `advance`, the re-measure): row slices rather than a `get` and a bounds branch
-   per neighbour, the lean's `across` hoisted out of the texel, the cumulative absorption by age tabulated, an empty texel with
-   four empty neighbours skipped. The conservation arguments in `CLAUDE.md` (`wetmap`) do not change and the tests that defend
-   them are the proof.
+   of `reach * exp(-gap^2 / 2w^2)`, `gap` the least angular distance from the spine (or its copy a turn either way) to the bucket,
+   padded so float error cannot cross it. A texel outside the circle of the largest bound is zero without an `atan2`; one outside
+   its bucket's bound is zero without a spine; the rest walk only the spines whose bit is set, in the same ascending order, with
+   the same arithmetic. A texel outside a satellite's disc by a margin skips its square root. Bytes identical:
+   `rasterise_writes_the_mask_its_definition_does` already held `rasterise` to a by-definition oracle over 3 000 shapes; a second
+   test holds it there at the ceiling of 24 spines and 24 satellites and over 2 000 impacts `stain_shape` itself makes.
+2. **`shade`: a table on `(level, age)`.** What a `(film level, age)` pair looks like is a pure function of the canvas's settings,
+   so a canvas keeps it in a 1024-slot direct-mapped table, between ticks, and the one-slot memo that thrashed along every rim
+   goes. The wetness byte, a `u64` division a texel, is memoised by age.
+3. **`spread` and `advance`.** The flux across an edge is `round(k * (a_i - a_j))` of two bytes, one of 511 values, read from a
+   table; the substrate's soak by age is a byte table of the drying span; the live tiles are re-measured once a row and tile.
+4. **The check that they are what they say**: `the_passes_are_what_their_definitions_say` copies the pre-table `spread` and
+   `advance` into the test, writes `shade` by its definition (`appearance_with_fresh` asked afresh at every texel), and compares
+   `wet` and every pixel of both images to them on every tick of four scripted runs (soak at 0 and 0.9, a short drying span, a
+   spread at its ceiling).
 
 ## Parameters
 
-`RIM_BUCKETS = 64` (a design default: the bound's looseness against its tables' cost, to be settled by measurement in the log).
-`BUCKET_PAD = 1e-3` rad, `WINDOW_PAD = 1e-3` relative and `RIM_PAD = 1e-4` relative: each three
-orders over float error and below anything that changes a cull, so none moves a byte; the tests are what say so. No behaviour dial.
+`RIM_BUCKETS = 32`: a design default. At 16, 32 and 64 the cost of a big stamp was the same inside the noise of a shared host
+(a fine mask of 96 texels: 2.5, 2.2 and 2.2 ms), and the table a stamp builds fell from 37 us at 64 to 10 to 19 at 32, which is
+most of what a stamp of two texels costs. `BUCKET_PAD = 1e-3` rad, `WINDOW_PAD = 1e-3` relative and `RIM_PAD = 1e-4` relative:
+each orders over float error and below anything that changes a cull, so none moves a byte; the tests are what say so.
+`SHADE_SLOTS = 1024` (8 KiB a canvas that has shaded blood). No behaviour dial.
 
 ## Validation targets
 
