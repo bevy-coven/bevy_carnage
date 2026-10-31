@@ -79,10 +79,12 @@ only when something else happened to move.
   buffer, not the image. The bruise-free `under` copy is not folded separately: it is what the buffer is
   rebuilt from at every redraw, so a difference in it is a difference in the buffer.
 - The recorders keep `digest=` bit-for-bit (the same sorted XOR-then-multiply fold, now `digest::fold` in
-  `examples/common/digest.rs`) and append `flay=<hex>` (every `FlayCanvas::digest`) and `dermis=<hex>`
-  (every `DermisCanvas::digest`), each a sorted fold across the world, "the same way the wet fold is done".
-  The documented `digest=` values in `README.md` and `docs/DEMOS.md` therefore hold, and `tools/qa.sh`'s
-  `DIGEST_RE` (`digest|^[a-z_]+: frames=...`) already matches the longer line.
+  `examples/common/digest.rs`, read once as the clip ends) and append `flay=<hex>` (every
+  `FlayCanvas::digest`) and `dermis=<hex>` (every `DermisCanvas::digest`). Each field is the sorted fold of
+  its canvases, **sampled once every frame and chained** (`digest::SkinTrace`, `(acc ^ frame) * prime`), not
+  read once at the end as the issue proposed: see "What the first build found" below. The documented
+  `digest=` values in `README.md` and `docs/DEMOS.md` therefore hold, and `tools/qa.sh`'s `DIGEST_RE`
+  (`digest|^[a-z_]+: frames=...`) already matches the longer line.
 - A cloth's holes stay in `digest=` (when holed) and are not repeated in `dermis=`, which is the
   `DermisCanvas` *component* only: the cloth's canvas is not on the skin.
 
@@ -96,24 +98,47 @@ in the crate uses (`wetmap`, `flaymap`, `ClothHoles`, the recorders).
 1. **Fails before, passes after.** The unit test `the_dermis_digest_sees_where_a_bruise_fell_and_how_a_burn_went`
    (`src/preset.rs`) does not compile before the change (`DermisCanvas::digest` did not exist) and passes
    after: a blow and a burn each move a limb's dermis digest off a fresh one's; the same hit in a second app
-   gives the same number; a blow a hand's breadth away, and an iron held three times as long, give other numbers.
+   gives the same number; a blow a hand's breadth away, and an iron that burned to another degree (150 °C for
+   1 s is third degree, 55 °C for 30 s second), give other numbers. An iron held three times as long at
+   150 °C does **not** (the first run of the test found it): the degree decides which zones the dermis shows,
+   and both are third degree, so the buffer is the same one and the digest rightly agrees.
 2. **The acceptance on the recorder.** `capture_skinned` and `capture_skinned --blows`: `digest=` equal
    (`9677d79de848daaa`), `dermis=` different, two runs of each print the same line.
 3. **No documented digest moves.** Every recorder variant's `digest=` after equals its `digest=` before
    (`preset` `8a10edd6f39c51d8`, the eight skinned variants as `docs/loop-log.md` iteration 4 recorded them,
    re-measured this pass), and every frame is byte-identical (`md5` per frame).
-4. **The gate can fail.** A throwaway perturbation of one burn texel moves `dermis=` and leaves `digest=`
-   and `flay=`; one of a crater's depth moves `flay=` and leaves `dermis=`. The perturbations are reverted.
-5. **`--reset-at N`** prints the quiet run's whole line, `flay=` and `dermis=` included: a reset canvas is a
-   fresh one in every buffer the line folds.
+4. **The gate can fail.** A throwaway perturbation of the script moves `dermis=` and leaves `digest=`: the
+   shin blow of `capture_skinned` placed 5 mm further along the limb; and one of a crater's depth (9.0 mm to
+   9.1 mm) moves `flay=`. Reverted after; the measured lines are in the log.
+5. **A breaking body is seen.** `capture_preset` and `capture_skinned --break` print a `flay=` and a `dermis=`
+   that are not `cbf29ce484222325` (the empty fold, which is what a fold of the world as the clip ends reads,
+   because the body has broken and no skin canvas is left).
 6. **Locks and cost.** Every golden in the loop's section 3 passes untouched; `bench_carnage`'s digest
    `0x4366a8b64352c85a` and its timing are unchanged (the library gains one method no hot path calls).
+
+## What the first build found
+
+The issue proposes "each a sorted FNV fold over that component across the world, the same way the wet fold is
+done", read once as the clip ends. Built that way and run, `capture_preset` printed
+`flay=cbf29ce484222325 dermis=cbf29ce484222325` and so did `capture_skinned --break`: the FNV offset basis, the
+fold of nothing. In both clips the body breaks (frame 120 of the preset, 200 of `--break`), is despawned, and
+its pieces carry no `FlayCanvas` or `DermisCanvas`; at the end of the clip no skin canvas is left to fold.
+A field that reads one constant whatever the craters and bruises were is the blind spot again under another
+name, and it is exactly Bettner & Terrano's "one more thing that slipped just under the radar". The fix is
+to sample the canvases while they exist: once a frame, chained, which costs a fold of about 7 canvases of
+32 to 64 KiB a frame in a recorder that also writes a PNG a frame. `digest=` should have the same property
+for the body's wetmaps once the body is gone (`[INFERENCE]`: the body is despawned, so its `WetCanvas` goes
+with it; the count of `WetCanvas` at the end of the clip was not measured this pass). It is not changed here
+because every documented value of it would move, and is recorded in the log as the next item.
 
 ## Deviations
 
 - **The command file's checklist is the owner's to edit** (`.omp/commands/build-loop.md`, "Teach the loop's
   checklist to compare all three fields"). This pass does not edit it; it says so on #8 and the loop's own
   gate compares all three fields from here (`docs/loop-log.md`).
+- **`flay=` and `dermis=` are sampled every frame, where #8 proposes one fold at the end.** The end fold is
+  the empty fold for both clips that were run before the fix (the preset and `--break`; the run was stopped at
+  the third). The issue's own acceptance (`--blows` against the default, `digest=` held) is met either way.
 - **`dermis=` folds the `DermisCanvas` component, not a cloth's.** Recorded above; a cloth's holes keep the
   `digest=` slot they always had so that no documented digest moves.
 - A shipping game's gore determinism check is not published; the lockstep checksum is the nearest source and
