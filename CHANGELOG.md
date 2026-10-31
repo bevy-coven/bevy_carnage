@@ -1,9 +1,12 @@
 # Changelog
 
-All notable changes to this crate are recorded here. Versions up to `0.7.0` are described in the
-comment block at the top of `Cargo.toml`.
+All notable changes to this crate are recorded here. `0.6.0` and `0.7.0` (Bevy 0.20, `fracture_skeleton`) are
+described in the comment block at the top of `Cargo.toml`; they and every entry below were published together as
+`0.7.0`, the first release since `0.5.18`, which is a Bevy 0.19 crate.
 
 ## [Unreleased]
+
+## [0.7.0] - 2026-10-31
 
 ### Changed
 

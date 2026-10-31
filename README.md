@@ -61,7 +61,7 @@ bevy_carnage = "0.7"
 
 Requires **Bevy 0.20** and a Rust toolchain with **edition 2024**. That one line brings the whole family: `bevy_carnage::blood` (the material), `::wetmap`, `::viscera`, `::cross_section`, `::flaymap`, `::laceration` and `::fracture_modes` are the seven sibling crates re-exported whole, so nothing has to be named twice and no two versions of a leaf can meet in one graph.
 
-`0.7` is the version this repository declares. crates.io's newest release is `0.5.18`, a Bevy 0.19 crate, so until `0.7` is published a Bevy 0.20 project depends on the repository instead: `bevy_carnage = { git = "https://github.com/Ladvien/bevy_carnage" }`.
+`0.7` is on crates.io. The release before it, `0.5.18`, is a Bevy 0.19 crate; a Bevy 0.19 project stays on `"0.5"`. To follow the repository instead of a release: `bevy_carnage = { git = "https://github.com/Ladvien/bevy_carnage" }`.
 
 | feature | default | what it does |
 |---|---|---|
@@ -421,13 +421,13 @@ Note what this does *not* claim. Fragment geometry is `f32` arithmetic, so cross
 
 ## Status
 
-**`0.7.0` in the repository; the latest on crates.io is `0.5.18`. Pre-release in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_emerge`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is unpublished, and crates.io's `0.5.18` is a Bevy 0.19 crate, so a Bevy 0.20 project takes this repository as a git dependency until the release.
+**`0.7.0` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_emerge`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in that one release, and the `0.5.18` before it is a Bevy 0.19 crate.
 
 ### What `0.6.0` and `0.7.0` changed: Bevy 0.20, and a body that breaks at its joints
 
 - **`0.6.0`, Bevy 0.20** (`AG-138`). The crate requires Bevy 0.20, and the standalone repository is the source of truth from here. The two shaders are WESL now (`flesh.wesl`, `flesh_prepass.wesl`), and `Cuboid` and `Sphere` live in `bevy::shape`. `vfx` is off by default and cannot be enabled until `bevy_hanabi` publishes for Bevy 0.20. `cargo test` at `0.6.0` passed except `preset::tests::a_wound_stains_the_floor_beneath_it`, which fails the same way on `0.5.64` under Bevy 0.19.
 - **`0.7.0`, a skinned body breaks where its skeleton is** (`AG-139`). `fracture_skeleton` cuts a rigidly skinned body's meshes into one piece per group of joints, once, and declares a bond at each joint where two pieces meet (`BondGraph::declared`), so the region queries and `BondGraph::islands` that work on a cell fracture work on a skeleton. A triangle spanning two groups is refused (`SkeletalRefusal::SplitTriangle`). The API is under "Skinned meshes" in *The API*.
-- **After `0.7.0`, unreleased** (`CHANGELOG.md`, `## [Unreleased]`). `fracture_skeleton` refuses by name what it cannot cut exactly (#7): a part that is not a triangle list (`NotTriangleList`), an index past the vertex buffer (`BadIndex`) and a vertex weighted across two groups (`SplitVertex`), which it used to cut as a list, report as "the body is not rigid" and draw at one anchor so the piece jumped at the break. `tools/qa.sh` finishes a round on a default build (#5).
+- **Also in `0.7.0` as published** (`CHANGELOG.md`, `## [0.7.0]`). `fracture_skeleton` refuses by name what it cannot cut exactly (#7): a part that is not a triangle list (`NotTriangleList`), an index past the vertex buffer (`BadIndex`) and a vertex weighted across two groups (`SplitVertex`), which it used to cut as a list, report as "the body is not rigid" and draw at one anchor so the piece jumped at the break. `tools/qa.sh` finishes a round on a default build (#5). `GoreDials::default()` throws a wound's spray at game scale (`preset::GORE_SPATTER_SPEED_SCALE`, `0.25`), so a three-metre floor under a default `GorePlugin` takes it; `preset::tests::a_wound_stains_the_floor_beneath_it`, red since `0.5.64`, is green.
 
 ### What `0.5.19` to `0.5.64` changed: the preset meets a real character
 
