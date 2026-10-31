@@ -46,10 +46,20 @@ pub const UV_SPAN_M: f32 = 1.0;
 /// would be unbounded memory in a shipped game.
 const WARN_MEMO: usize = 16;
 
-/// The longest semi-axis, in texels, [`WetCanvas::paint_speck`] draws: eight texels across. Past it a stain is a stamp's.
-pub const SPECK_MAX_SEMI: f32 = 4.0;
+/// The longest semi-axis, in texels, [`WetCanvas::paint_speck`] draws: four texels across. Past it a stain is a stamp's.
+pub const SPECK_MAX_SEMI: f32 = 2.0;
 
-/// The texels along a side of the scratch a speck's shares are gathered in: `ceil(2 * SPECK_MAX_SEMI) + 1`, rounded up.
+/// **How far a speck's footprint reaches past its ellipse**, as a multiple of each semi-axis: `2`. **Tuned, and says
+/// so**: read through the cubic B-spline and the edge of [`DETAIL_EDGE`], a footprint of the ellipse's own size comes out
+/// a rounded square, and twice it comes out round (`docs/research/floor-spatter.md`).
+pub const SPECK_GROW: f32 = 2.0;
+
+/// **The least a speck's footprint reaches**, texels: `1.2`. Past the largest distance from a point to the nearest
+/// texel's centre, `0.71`, so a speck of any size lands on at least one texel with weight. Tuned, as [`SPECK_GROW`].
+pub const SPECK_FLOOR: f32 = 1.2;
+
+/// The texels along a side of the scratch a speck's weights are gathered in: `ceil(2 * SPECK_GROW * SPECK_MAX_SEMI) + 1`,
+/// rounded up.
 const SPECK_FOOTPRINT: usize = 10;
 
 /// **Texture-space blood accumulation for one actor.** Two images out, and the authority stays here.
@@ -451,26 +461,31 @@ impl WetCanvas {
         self.stamp(uv, shape, tick, s.edge_span());
     }
 
-    /// **A droplet's stain too small for a stamp**: a hard-edged ellipse of semi-axes `semi` texels, `semi[0]` along
-    /// `direction`, centred on `uv` **to a fraction of a texel**, each texel taking the share of itself the ellipse
-    /// covers.
+    /// **A droplet's stain too small for a stamp**: the blood of an ellipse of semi-axes `semi` texels, `semi[0]` along
+    /// `direction`, laid on the texels round `uv` **to a fraction of a texel**, as much of it as the ellipse's area.
     ///
     /// [`paint_uv`](Self::paint_uv) draws a stamp: a mask of `round(major)` texels whose profile falls off from a
-    /// soft centre, placed on a whole texel. Under four texels across that is the wrong picture of a droplet, which
-    /// is a crisp opaque disc. Measured on a floor at 12 mm a texel: a stamp of two texels peaked at 73 of 255,
-    /// because all four of its texels lie off the centre where the profile has fallen, while one of three peaked at
-    /// 243, and a slanted stain of one texel at 18; and a stain smaller than a texel is drawn as a whole one, so a
-    /// canvas that cannot show a 3 mm stain shows a 12 mm dot where the blood was a sixteenth of it. Here the
-    /// coverage is the area: an ellipse of a tenth of a texel's area adds a tenth of full coverage to the texel it
-    /// falls in (or is shared by the texels it falls across), so the blood a canvas cannot resolve reads as the tint
-    /// it would be, a droplet moves smoothly across the texels as it moves, and the bytes laid sum to the area to
-    /// within the sampling.
+    /// soft centre, placed on a whole texel. Under four texels across that is the wrong picture of a droplet. Measured
+    /// on a floor at 12 mm a texel: a stamp of two texels peaked at 73 of 255, because all four of its texels lie off
+    /// the centre where the profile has fallen, while one of three peaked at 243, and a slanted stain of one texel at
+    /// 18; and a stain smaller than a texel is drawn as a whole one, so a canvas that cannot show a 3 mm stain shows a
+    /// 12 mm dot where the blood was a sixteenth of it. **Here the coverage is the area**: the bytes laid sum to the
+    /// ellipse's area, `pi a b` texels of full coverage, to within each texel's rounding and what falls off the canvas,
+    /// so the blood a canvas cannot resolve reads as the tint it would be and a droplet moves smoothly across the
+    /// texels as it moves.
     ///
-    /// Sampled, not integrated: the ellipse's own box carries `k x k` sample points, `k` four times the semi-major axis
-    /// in texels, between 4 and 16, so the spacing along the long axis is at most half a texel; a point inside the ellipse
-    /// deposits its share of the area in the texel it lies in. Every operation is a multiply, an add or a
-    /// compare on `f32`, no transcendental, so the bytes are the same on every machine. The deposit is the
-    /// same as a stamp's: it adds to the texel, ages it to zero and marks it live.
+    /// **How it is spread.** A hard-edged disc laid on a grid is a square after the cubic B-spline a shader reads the
+    /// canvas through (the `flesh` material's, and the detailed images'), and the edge it draws is where that
+    /// smoothing crosses [`DETAIL_EDGE`]; a droplet is round. So the area is spread over a soft round footprint, a
+    /// `(1 - rho^2)^3` bump on the texels whose centres lie within [`SPECK_GROW`] times the ellipse's own axes, at
+    /// least [`SPECK_FLOOR`] texels, and normalised to the area: a texel takes `pi a b` times its weight over the sum
+    /// of the weights. The floor is what keeps a speck of a tenth of a texel from landing on one texel (whose
+    /// centre is at most 0.71 from the nearest centre, inside the floor). **Tuned, and says so**: the two numbers
+    /// were chosen by reading the bump through the B-spline and the edge, against a disc, for how round it comes out
+    /// at 0.35 to 1.4 texels (`docs/research/floor-spatter.md`).
+    ///
+    /// Every operation is a multiply, an add or a compare on `f32`, no transcendental, so the bytes are the same on
+    /// every machine. The deposit is the same as a stamp's: it adds to the texel, ages it to zero and marks it live.
     ///
     /// Refused, writing nothing, for a non-finite argument or an axis that is not positive. `semi[0]` is
     /// clamped to [`SPECK_MAX_SEMI`] texels, `semi[1]` to `semi[0]`; a larger stain is a stamp's business.
@@ -485,30 +500,30 @@ impl WetCanvas {
         let (ux, uy) = if len > 0.0 { (direction.x / len, direction.y / len) } else { (1.0, 0.0) };
         let size = self.size as f32;
         let (cx, cy) = (uv.x.clamp(0.0, 1.0) * size, uv.y.clamp(0.0, 1.0) * size);
-        let k = ((4.0 * a).ceil() as u32).clamp(4, 16);
-        let (step_a, step_b) = (2.0 * a / k as f32, 2.0 * b / k as f32);
-        // Each sample stands for this much of a texel, as a fraction of full coverage.
-        let share = step_a * step_b;
-        let (inv_a, inv_b) = (1.0 / a, 1.0 / b);
-        // The footprint's top-left texel, and a scratch of the share each texel takes.
-        let (x0, y0) = ((cx - a).floor() as i64, (cy - a).floor() as i64);
-        let mut taken = [[0.0f32; SPECK_FOOTPRINT]; SPECK_FOOTPRINT];
-        for j in 0..k {
-            let ly = -b + (j as f32 + 0.5) * step_b;
-            for i in 0..k {
-                let lx = -a + (i as f32 + 0.5) * step_a;
-                let (qx, qy) = (lx * inv_a, ly * inv_b);
-                if qx * qx + qy * qy > 1.0 {
-                    continue;
-                }
-                // Along the direction, then across it.
-                let (px, py) = (cx + lx * ux - ly * uy, cy + lx * uy + ly * ux);
-                let (tx, ty) = (px.floor() as i64 - x0, py.floor() as i64 - y0);
-                if let Some(slot) = usize::try_from(ty).ok().and_then(|ty| taken.get_mut(ty)).and_then(|row| usize::try_from(tx).ok().and_then(|tx| row.get_mut(tx))) {
-                    *slot += share;
+        // The footprint's radii along and across, and the texel its scratch starts at.
+        let (ra, rb) = ((a * SPECK_GROW).max(SPECK_FLOOR), (b * SPECK_GROW).max(SPECK_FLOOR));
+        let (inv_a2, inv_b2) = (1.0 / (ra * ra), 1.0 / (rb * rb));
+        let (x0, y0) = ((cx - ra).floor() as i64, (cy - ra).floor() as i64);
+        let mut weight = [[0.0f32; SPECK_FOOTPRINT]; SPECK_FOOTPRINT];
+        let mut sum = 0.0f32;
+        for (dy, row) in weight.iter_mut().enumerate() {
+            for (dx, slot) in row.iter_mut().enumerate() {
+                // The texel's centre from the speck's, along the direction and across it.
+                let (px, py) = ((x0 + dx as i64) as f32 + 0.5 - cx, (y0 + dy as i64) as f32 + 0.5 - cy);
+                let (u, v) = (px * ux + py * uy, py * ux - px * uy);
+                let rho2 = u * u * inv_a2 + v * v * inv_b2;
+                if rho2 < 1.0 {
+                    let t = 1.0 - rho2;
+                    *slot = t * t * t;
+                    sum += *slot;
                 }
             }
         }
+        if sum <= 0.0 {
+            return;
+        }
+        let mass = core::f32::consts::PI * a * b / sum;
+        let taken = weight.map(|row| row.map(|w| w * mass));
         let n = self.size as i64;
         let mut touched = false;
         for (dy, row) in taken.iter().enumerate() {

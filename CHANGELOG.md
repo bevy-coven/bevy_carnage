@@ -8,10 +8,38 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ### Changed
 
+- **A floor takes what a wound throws as drops, not as blobs** (iteration 6, `docs/research/floor-spatter.md`). A
+  default `GorePlugin` floor under a bullet-sized shot took about nine ragged blobs of ten centimetres, each the
+  *placement* radius of a droplet (2 to 12 cm) stamped as a sheet's stain: at 12 mm a texel, a few pieces of jam.
+  Now each droplet a floor takes is its own stain, as a wall's and a skin's have been since 0.5.62: `hard_stain`'s size
+  and slant from the speed it lands at, found on the floor by a cast through the mesh's index instead of the canvas
+  walking every triangle once per droplet, so a hit on a floor of twenty thousand triangles costs 4 ms where it cost 9.
+  A stain under four texels across, which a canvas cannot give spines, is a `WetCanvas::paint_speck`. **A wound also
+  throws `GoreDials::floor_mist` fine droplets at the floors for each droplet it throws at everything** (`9`, so a
+  crater's 9 droplets are 90): the same stream, cast at the same surfaces and caught by the first they reach (a wall
+  across the room keeps the floor behind it dry), stamped only on a floor. A shot into a body in a three-metre room
+  left 4 stains on the floor (the new stains, no mist) and now leaves 25 (`a_shot_leaves_a_fan_of_drops_on_the_floor_not_a_few_blobs`);
+  **a wall, a skin and a cloth take exactly what they took**, pixel for pixel in `capture_skinned --through`. Every
+  recorder digest whose clip has a hit and a floor moves on purpose (`capture_preset`, and `capture_skinned`'s default,
+  `--through`, `--shirt`, `--break`, `--blows`), and `--stroll`, `--quiet` and `--guard` keep theirs.
+  **Breaking, pre-1.0 so the next release is a MINOR**: `GoreDials` has a new public field, `floor_mist`; a literal
+  that names every field adds `..default()`. A caller who wants the old throw states `floor_mist: 0.0`.
+
 - The README follows the bevy-coven org's documentation guide (250 lines at most; it was 646): the org banner, badges, a Status and a Why line, an 18-line quick start compiled as a doctest, a still image, and "What you can do" bullets. Every section it carried moved unchanged into `docs/guide/` and `docs/gallery.md`, and the guide's full quick start is still compiled as doctests. Image and file links are absolute URLs, so docs.rs shows them.
 
 ### Added
 
+- `WetCanvas::paint_speck(uv, semi, direction, tick)` and `wetmap::SPECK_MAX_SEMI`: a droplet's stain too small for a
+  stamp, a hard-edged ellipse of semi-axes in texels, placed to a fraction of a texel, each texel taking the share of
+  itself the ellipse covers, so the bytes laid sum to its area (`a_speck_lays_its_area_whatever_its_size_and_where_it_sits`).
+  A stamp of two texels peaked at 73 of 255, one of three at 243 and a slanted one of one at 18 (measured on the floor at
+  12 mm a texel), and a stain smaller than the stamp's floor was drawn as a whole texel; a speck of an eighth of a texel
+  adds an eighth of full coverage. Only multiplies, adds and compares on `f32`, no transcendental: the bytes are the same everywhere.
+- `GoreDials::floor_mist` and `preset::GORE_FLOOR_MIST` (`9`): see Changed.
+- `capture_skinned --floor N` dresses the floor at `N` texels a side instead of the dial's 256, to see spatter at 6 mm a
+  texel (`--floor 512`). An ignored measurement test, `preset::tests::hit_tick_cost`, prints what one hit costs the tick it
+  lands on in a room with a floor of two triangles and of twenty thousand and a wall (`cargo test --release --lib --
+  hit_tick_cost --ignored --nocapture`).
 - `DermisCanvas::digest()` (#8): FNV-1a over the bruise-and-burn canvas's bytes, the form `ClothHoles::digest`
   already had (which now delegates to it). `capture_preset` and `capture_skinned` append `flay=<hex>` (every
   `FlayCanvas::digest`, the craters) and `dermis=<hex>` (every `DermisCanvas::digest`, the bruises and burns) to

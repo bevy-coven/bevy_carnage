@@ -5,7 +5,7 @@ mod digest;
 mod settings;
 mod uv;
 
-pub use canvas::{DETAIL_EDGE, MAX_DETAIL, PRINT_CORE, Print, SPECK_MAX_SEMI, UV_SPAN_M, WICK_CORE, WetCanvas};
+pub use canvas::{DETAIL_EDGE, MAX_DETAIL, PRINT_CORE, Print, SPECK_FLOOR, SPECK_GROW, SPECK_MAX_SEMI, UV_SPAN_M, WICK_CORE, WetCanvas};
 pub use settings::WetSettings;
 
 /// The stain silhouette [`WetCanvas::paint_uv`] and [`WetCanvas::paint_world`] take. Re-exported
