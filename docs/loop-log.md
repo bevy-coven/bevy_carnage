@@ -623,6 +623,9 @@ bruises on the shin, blood pools on the floor, as before.
   passed, 5 ignored); `cargo build --examples` rc 0, 40 s. After the DEMOS edit `readme`, `leaf` and `qa_roster` re-run green.
   Not run: rustfmt (the repository is not rustfmt-clean, iteration 2's lesson), `tools/qa.sh` (no sheets without ImageMagick),
   clippy (no standing gate).
+- *Merged tree* (`a3e5bd3`, the merge of `loop/iter-5` into `main`, before the push): `cargo build` rc 0, 21 s; `cargo build --release`
+  rc 0, 20 s; `cargo test --no-fail-fast` rc 0, 2298 s (lib 353 passed, 2 ignored, every integration binary and the doctests as
+  above); `cargo build --examples` rc 0, 3 s. `main` pushed (`5bd8960..a3e5bd3`); #8 closed by that push (`Fixes #8`).
 
 **Not released.** The package changed (`src/preset.rs` ships), but `v0.7.0` is under two hours old and loops release at most once
 every six hours, so the change rides in the next release; it is in `CHANGELOG.md` under `## [Unreleased]`. It adds a public
