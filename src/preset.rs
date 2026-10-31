@@ -2261,6 +2261,22 @@ fn face_measure(mesh: &Mesh) -> Option<(f32, Vec3, Vec3)> {
     (area > 0.0 && area.is_finite()).then(|| (area, centre / area, normal.normalize_or_zero()))
 }
 
+/// **How far the preset throws a droplet on to a floor, against the paper's launch speeds**: `0.25`, so the
+/// 8 to 40 m/s Comiskey, Yarin & Attinger measured 0.45 ms after a bullet's impact
+/// (`doi:10.1103/physrevfluids.3.063901`) fly as 2 to 10 m/s and land within the 0.25 to 4 m field their stains
+/// were measured over. **It compresses the flight and nothing else**: a droplet a wall, a cloth or a body part
+/// catches is cast at the wound and sized at the paper's launch speed, so the stipple on a wall is the one
+/// it was at `1.0`.
+///
+/// **Why the preset states it and `BloodSettings` does not.** `crate::bloodstain::droplet::landing` is a vacuum
+/// parabola with no drag, so at `1.0` a 40 m/s droplet thrown from chest height lands 12 to 43 m away and a
+/// three-metre floor under a wound takes almost none of it; `a_wound_stains_the_floor_beneath_it` failed on
+/// exactly that from `0.5.64` to `0.7.0`. The paper's air drag is what stops a real droplet inside four
+/// metres, and this number stands in for it. `BloodSettings::default()` keeps `1.0` because its constants are
+/// measurements and `the_spatter_model_is_frozen` pins them. **Tuned, and says so**: a design default, the
+/// number every demo already authored by hand (`docs/DEMOS.md`), in `docs/research/spray-reach.md`.
+pub const GORE_SPATTER_SPEED_SCALE: f32 = 0.25;
+
 /// A rendered gut tube the preset keeps in step with its strand.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct Gut;
@@ -2273,7 +2289,10 @@ pub struct GoreDials {
     pub canvas: u32,
     /// The scale of the game's meshes, millimetres per unit. `1000` for metres.
     pub mm_per_unit: f32,
-    /// The blood model.
+    /// **The blood model**, at **game scale**: [`GORE_SPATTER_SPEED_SCALE`] on `spatter_speed_scale`, where
+    /// `BloodSettings::default()` is the paper's launch speeds. The scale is how far a droplet flies on to a
+    /// floor; a stain on a wall, a cloth or a body part is sized at the paper's speed whatever it is. A caller
+    /// who wants the unscaled throw states `BloodSettings { spatter_speed_scale: 1.0, ..default() }`.
     pub blood: BloodSettings,
     /// Fixed ticks per second, for the bleed schedule.
     pub hz: u32,
@@ -2317,7 +2336,7 @@ impl Default for GoreDials {
         Self {
             canvas: 128,
             mm_per_unit: 1000.0,
-            blood: BloodSettings::default(),
+            blood: BloodSettings { spatter_speed_scale: GORE_SPATTER_SPEED_SCALE, ..BloodSettings::default() },
             hz: 60,
             strands: 5,
             spawn_fragments: true,
@@ -2873,7 +2892,12 @@ fn throw_spray(
     let index: &MeshIndex = index;
     let (edges, tick, identity) = (&**edges, *tick, &**identity);
     let at_world = Vec3::from_array(wound.at);
-    let droplets = crate::bloodstain::patterns::impact_spatter(wound, &dials.blood);
+    // **A droplet something near the wound catches lands at the speed it left at**, less a little to drag, so
+    // the stain it makes is sized at the paper's launch speed: `spatter_speed_scale` compresses only the flight
+    // on to a floor (`GORE_SPATTER_SPEED_SCALE`). Cast at `0.25` too, the wall's stipple came out two thirds
+    // the size and nearly one size (`docs/research/spray-reach.md`).
+    let launch = BloodSettings { spatter_speed_scale: 1.0, ..dials.blood.clone() };
+    let droplets = crate::bloodstain::patterns::impact_spatter(wound, &launch);
     // **What a droplet can be cast at**, each boxed once for the batch and posed, if it is skinned, only
     // when a droplet's ray reaches its box: a crowd's pose is a pass over every vertex of every body.
     let candidates: Vec<&Surface> = surfaces.iter().filter(|s| s.entity != struck && s.gore.kind != GoreKind::Floor).collect();
@@ -6017,6 +6041,56 @@ mod tests {
         app.world_mut().run_schedule(FixedUpdate);
         let floor_wet = app.world().get::<WetCanvas>(floor).map(|w| w.wetted_area()).unwrap_or(0.0);
         assert!(floor_wet > 0.0, "nothing landed on the floor");
+    }
+
+    /// **The default throw lands inside the field the spatter was measured over.** Comiskey, Yarin &
+    /// Attinger's stains lie between 0.25 and 4 m of the target on the floor behind it, although the
+    /// droplets leave at 8 to 40 m/s: air drag stops them. This crate lands a droplet by a drag-free
+    /// parabola, so the preset's default dials ([`GORE_SPATTER_SPEED_SCALE`]) stand in for the drag. A
+    /// wound at chest height, throwing along the floor, wets a fan of floor out to the measured four
+    /// metres, where the paper's launch speeds unscaled land the median droplet farther than that and the
+    /// farthest forty metres out.
+    #[test]
+    fn the_default_throw_lands_inside_the_field_the_spatter_was_measured_over() {
+        let wound = BloodWound { at: [0.0, 1.0, 0.0], normal: [0.0, 0.0, 1.0], area: 0.02, severity: 1.0, kind: WoundKind::Channel };
+        let reach = |blood: &BloodSettings| -> Vec<f32> {
+            let mut r: Vec<f32> = crate::bloodstain::stain::stains(&wound, blood, 0.0).iter().map(|s| Vec3::new(s.at[0], 0.0, s.at[2]).length()).collect();
+            r.sort_by(f32::total_cmp);
+            r
+        };
+        let game = reach(&GoreDials::default().blood);
+        let paper = reach(&BloodSettings::default());
+        let within = |r: &[f32]| r.iter().filter(|d| (0.25..=4.0).contains(*d)).count();
+        assert!(!game.is_empty() && game.len() == paper.len(), "the scale moves where droplets land, not how many: {} against {}", game.len(), paper.len());
+        assert!(within(&game) * 20 >= game.len() * 19, "{} of {} droplets landed in 0.25 to 4 m under the default dials", within(&game), game.len());
+        assert!(game.last().is_some_and(|far| *far < 8.0), "the farthest droplet landed {:?} m out", game.last());
+        assert!(paper.get(paper.len() / 2).is_some_and(|m| *m > 4.0) && paper.last().is_some_and(|far| *far > 40.0), "the unscaled launch speeds were meant to overshoot: {:?}", (paper.get(paper.len() / 2), paper.last()));
+    }
+
+    /// **The flight scale shortens a throw to a floor and does not change what a wall takes.** A droplet a
+    /// wall catches is sized at the paper's launch speed, so the wall behind a body is stained the same
+    /// whether the dials compress the flight to a floor (`0.25`, the default) or not (`1.0`). Cast at the
+    /// compressed speed, the wall's stipple came out two thirds the size and nearly one size.
+    #[test]
+    fn the_flight_scale_leaves_a_wall_as_it_was() {
+        let wall_after = |scale: f32| {
+            let mut app = headless();
+            app.insert_resource(GoreDials { blood: BloodSettings { spatter_speed_scale: scale, ..default() }, ..default() });
+            let (body, panel) = {
+                let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
+                (meshes.add(Cuboid::new(0.6, 0.6, 0.2).mesh().build()), meshes.add(Plane3d::new(Vec3::Z, Vec2::splat(1.5)).mesh().build()))
+            };
+            let far = Transform::from_xyz(0.0, 0.0, 1.2);
+            let body = app.world_mut().spawn((Mesh3d(body), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::skin(Region::Torso))).id();
+            let wall = app.world_mut().spawn((Mesh3d(panel), far, GlobalTransform::from(far), Gore::wall())).id();
+            app.world_mut().run_schedule(FixedUpdate);
+            app.world_mut().write_message(GoreHit::impact(body, Vec3::new(0.0, 0.05, 2.0), Vec3::NEG_Z, 0.04, 5.0));
+            app.world_mut().run_schedule(FixedUpdate);
+            app.world().get::<WetCanvas>(wall).map(|w| (w.wetted_area(), w.digest()))
+        };
+        let (compressed, unscaled) = (wall_after(GORE_SPATTER_SPEED_SCALE), wall_after(1.0));
+        assert!(compressed.is_some_and(|(area, _)| area > 0.0), "the wall took no spray at all: {compressed:?}");
+        assert_eq!(compressed, unscaled, "compressing the flight to a floor changed what the wall behind the body took");
     }
 
     /// **A culled droplet would have missed.** The spray's broad phase tests each droplet's ray against
