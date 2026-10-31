@@ -15,6 +15,12 @@ limit 200: the window is the bulk embed of the SIGGRAPH *Advances in Real-Time R
 are the shipping-game technique source this loop cites, so they are listed under *Real-time gore* below;
 `distill_search` answered `gpu busy` this pass, so which stem holds which talk is unchecked. Nothing blood-, wound- or fracture-specific
 arrived, and the `sig*` papers are not listed: none is about a domain this crate models.
+Iteration 2 (2026-10-31) read it at limit 200 against the same window (the SIGGRAPH course-note bulk embed
+of 02:05 to 02:22 UTC, then spinal-deformity, chronic-pain and relationship-psychology papers up to 07:21):
+nothing is blood-, wound-, fracture- or gore-specific. `tetgen_si2015_wias2602` and
+`transvoxel_dissertation_lengyel2010` (mesh generation) are the nearest and model nothing this crate does.
+`distill_search` answered `gpu busy: 4508 MB free < 5000 MB required to load bge-m3` for both queries, so the
+corpus was not searched this pass; `paper_search` found the one paper below.
 
 ## Blood rheology and haemodynamics
 
@@ -61,6 +67,13 @@ arrived, and the `sig*` papers are not listed: none is about a domain this crate
 | `10.1007/s10103-013-1446-7` | Bosschaart et al., *Optical properties of whole blood* | `docs/bloodstain-citations.md`, `src/flesh.rs` |
 | `10.1145/383259.383319` | Jensen, Marschner, Levoy & Hanrahan, *A practical model for subsurface light transport* | `src/flesh.rs` |
 | Penner, *Pre-Integrated Skin Shading* (SIGGRAPH 2011 course, no DOI) | The `(N·L, 1/r)` lookup `flesh::sss_lut` bakes | `src/flesh.rs` |
+
+## Skinning and skeletal breakage
+
+| DOI | Paper | Cited in |
+|---|---|---|
+| `10.1145/1230100.1230107` | Kavan, Collins, Žára & O'Sullivan, *Skinning with dual quaternions* (not in the corpus: `paper_download` found no open copy, see `docs/research/skeleton.md` `## Pending index`) | `docs/research/skeleton.md` |
+| glTF 2.0 Specification, "Skinned Mesh Primitive Attributes", "Skins" and "Primitive topology" (Khronos, no DOI) | The per-vertex matrix `Σ W_i · M_Ji · B_Ji`; a triangle list's vertex count `MUST` be divisible by three | `docs/research/skeleton.md`, `src/skeleton.rs` |
 
 ## Fracture mechanics and fracture simulation
 
