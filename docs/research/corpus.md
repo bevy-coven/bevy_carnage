@@ -21,6 +21,13 @@ nothing is blood-, wound-, fracture- or gore-specific. `tetgen_si2015_wias2602` 
 `transvoxel_dissertation_lengyel2010` (mesh generation) are the nearest and model nothing this crate does.
 `distill_search` answered `gpu busy: 4508 MB free < 5000 MB required to load bge-m3` for both queries, so the
 corpus was not searched this pass; `paper_search` found the one paper below.
+Iteration 3 (2026-10-31, 09:41 UTC) read it at limit 200 against the same window (the SIGGRAPH course-note
+bulk embed again, then psychology, chronic-pain, forest-ecology, MCP and candle-flame papers up to 09:07):
+nothing is blood-, wound-, fracture- or gore-specific, so no `Research: corpus` commit. `system_status`:
+distill, both scribes and qdrant healthy (18 073 documents embedded). `distill_search` answered this time,
+and Comiskey, Yarin & Attinger 2018 (`10.1103/physrevfluids.3.063901`) is indexed and quotable: its
+reference to a previous experiment's 40 m/s forward and 8 m/s back droplet speeds at 0.45 ms is in the
+chunk at lines 336 to 362 of its markdown.
 
 ## Blood rheology and haemodynamics
 

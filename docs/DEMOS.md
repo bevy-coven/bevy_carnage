@@ -2,17 +2,21 @@
 
 Every example in the repo, and what each one is for. The 25 windowed ones and the terminal
 `fracture_cube` run from a clean checkout with no assets and no setup. Seven of them declare a
-`required-features` entry in `Cargo.toml`; both features are on by default, and the flag is shown so
-a `--no-default-features` build knows what to ask for:
+`required-features` entry in `Cargo.toml`. `flesh` is on by default (`default = ["serde", "flesh"]`), so
+its four need no flag, and the flag is shown so a `--no-default-features` build knows what to ask for.
+**`vfx` is off by default, and cannot be turned on on Bevy 0.20**: its optional dependency `bevy_hanabi` has
+no release for Bevy 0.20 yet (its newest, `0.19.0`, is a Bevy 0.19 crate), so the three `--features vfx`
+commands below are the ones that cannot build here, and neither can the three recorders of the same clips
+(`capture_carnage`, `capture_pooling`, `capture_ribbons`):
 
 ```sh
 cargo run -p bevy_carnage --release --example fracture_cube   # terminal only — no window, no GPU
 cargo run -p bevy_carnage --release --example sever
 cargo run -p bevy_carnage --release --example explode
 cargo run -p bevy_carnage --release --example bullet_holes
-cargo run -p bevy_carnage --release --features vfx --example carnage
-cargo run -p bevy_carnage --release --features vfx --example ribbons
-cargo run -p bevy_carnage --release --features vfx --example pooling
+cargo run -p bevy_carnage --release --features vfx --example carnage    # cannot build on Bevy 0.20 yet
+cargo run -p bevy_carnage --release --features vfx --example ribbons     # cannot build on Bevy 0.20 yet
+cargo run -p bevy_carnage --release --features vfx --example pooling     # cannot build on Bevy 0.20 yet
 cargo run -p bevy_carnage --release --features flesh --example flesh
 cargo run -p bevy_carnage --release --features flesh --example preset
 cargo run -p bevy_carnage --release --features flesh --example skinned

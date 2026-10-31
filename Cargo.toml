@@ -399,9 +399,9 @@ keywords = ["bevy", "gamedev", "gore", "fracture", "destruction"]
 categories = ["game-development", "graphics"]
 # **The six `docs/*.gif` are 10.4 MB of the crate's 11.9 MB, and crates.io's package limit is 10 MiB.**
 # GIFs do not gzip, so they cannot be squeezed under it — and a registry consumer wants the library, not
-# the clips. Excluded here and served from the mirror instead; `README.md`'s image links are absolute for
-# exactly this reason. `docs/DEMOS.md` stays in the package and its relative links resolve on the mirror,
-# where it is actually read.
+# the clips. Excluded here and served from the repository's `main` branch instead; `README.md`'s image
+# links are absolute for exactly this reason. `docs/DEMOS.md` stays in the package and its relative links
+# resolve in the repository, where it is actually read.
 exclude = ["docs/*.gif"]
 
 [dependencies]
