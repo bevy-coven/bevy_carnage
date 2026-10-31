@@ -4851,6 +4851,25 @@ mod tests {
     /// A headless app running the preset's chain, with the baked tables faked: any handle other than
     /// the default passes the gate. The material plugin needs a render app; the preset must still
     /// build without one.
+    // PROBE
+    pub(crate) static SPAN: [std::sync::atomic::AtomicU64; 16] = [const { std::sync::atomic::AtomicU64::new(0) }; 16];
+    static LAST: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    fn nanos() -> u64 {
+        static BASE: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+        BASE.get_or_init(std::time::Instant::now).elapsed().as_nanos() as u64
+    }
+    fn probe_mark(i: usize) -> impl FnMut() {
+        move || {
+            use std::sync::atomic::Ordering::Relaxed;
+            let now = nanos();
+            if i == 0 {
+                LAST.store(now, Relaxed);
+            } else {
+                let prev = LAST.swap(now, Relaxed);
+                SPAN[i].fetch_add(now - prev, Relaxed);
+            }
+        }
+    }
     fn headless() -> App {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, bevy::asset::AssetPlugin::default()))
@@ -4872,7 +4891,10 @@ mod tests {
             .init_resource::<WetSettings>()
             .init_resource::<FlaySettings>()
             .add_systems(FixedUpdate, scene_gore.before(dress))
-            .add_systems(FixedUpdate, (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, pour_cut_faces, take_steps, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
+            .add_systems(FixedUpdate, (
+                (probe_mark(0), advance_clock, probe_mark(1), dress, probe_mark(2), reset_gore, probe_mark(3), take_hits, probe_mark(4), throw_bodies, probe_mark(5)).chain(),
+                (bleed, probe_mark(6), pour_cut_faces, probe_mark(7), take_steps, probe_mark(8), age_bruises, probe_mark(9), soak_cloth, probe_mark(10), tick_canvases, probe_mark(11), flush_dermis, probe_mark(12), fly, probe_mark(13)).chain(),
+            ).chain()); // PROBE
         let images = app.world_mut().resource_mut::<Assets<Image>>().reserve_handle();
         app.world_mut().resource_mut::<FleshTables>().luts = images;
         app
@@ -7223,7 +7245,8 @@ mod tests {
     #[test]
     #[ignore]
     fn hit_tick_cost() {
-        const HITS: usize = 45;
+        let HITS: usize = std::env::var("HITS").ok().and_then(|v| v.parse().ok()).unwrap_or(45); // PROBE
+        let only = std::env::var("CASE").ok(); // PROBE
         for (label, subdivisions, wall, radius, mist) in [
             ("floor2", 0u32, false, 0.03f32, GORE_FLOOR_MIST),
             ("floor20k", 99, false, 0.03, GORE_FLOOR_MIST),
@@ -7234,6 +7257,7 @@ mod tests {
             ("floor2_big_nomist", 0, false, 0.08, 0.0),
             ("floor2_wall_big_nomist", 0, true, 0.08, 0.0),
         ] {
+            if only.as_deref().is_some_and(|o| o != label) { continue; } // PROBE
             let mut app = headless();
             app.world_mut().resource_mut::<GoreDials>().floor_mist = mist;
             let (body, floor, _) = room(&mut app, subdivisions, wall.then_some(-0.9));
@@ -7243,6 +7267,8 @@ mod tests {
                 t.elapsed().as_secs_f64() * 1e3
             };
             let mut ms = Vec::with_capacity(HITS);
+            for s in SPAN.iter() { s.store(0, std::sync::atomic::Ordering::Relaxed); } // PROBE
+            for i in 5..13 { crate::wetmap::canvas::PROBE[i].store(0, std::sync::atomic::Ordering::Relaxed); } // PROBE
             for i in 0..HITS {
                 let x = ((i % 9) as f32 - 4.0) * 0.04;
                 let y = 0.9 + (((i / 9) % 5) as f32 - 2.0) * 0.03;
@@ -7250,6 +7276,42 @@ mod tests {
                 app.world_mut().write_message(GoreHit::impact(body, Vec3::new(x, y, -2.0), Vec3::Z, radius, 5.0));
                 app.world_mut().run_schedule(FixedUpdate);
                 ms.push(t.elapsed().as_secs_f64() * 1e3);
+            }
+            { // PROBE
+                let names = ["-", "advance_clock", "dress", "reset_gore", "take_hits", "throw_bodies", "bleed", "pour_cut_faces", "take_steps", "age_bruises", "soak_cloth", "tick_canvases", "flush_dermis", "fly"];
+                let parts: Vec<String> = names.iter().enumerate().skip(1).map(|(i, n)| format!("{n} {:.3}", SPAN[i].swap(0, std::sync::atomic::Ordering::Relaxed) as f64 / 1e6 / HITS as f64)).collect();
+                println!("SYSTEMS {label} ms/hit: {}", parts.join(", "));
+            }
+            let probe = |i: usize| crate::wetmap::canvas::PROBE[i].swap(0, std::sync::atomic::Ordering::Relaxed); // PROBE
+            let (ras_ns, n, samples, pxs, rest_ns) = (probe(0), probe(1), probe(2), probe(3), probe(4)); // PROBE
+            println!("PROBE {label}: stamps {n} (per hit {:.1}), rasterise {:.3} ms/hit, rest {:.3} ms/hit, mean fine samples {:.0}, mean px {:.1}, ns/sample {:.1}", n as f64 / HITS as f64, ras_ns as f64 / 1e6 / HITS as f64, rest_ns as f64 / 1e6 / HITS as f64, samples as f64 / n.max(1) as f64, pxs as f64 / n.max(1) as f64, ras_ns as f64 / samples.max(1) as f64); // PROBE
+            if std::env::var("STAMPS").is_ok() { // PROBE
+                let mut v = crate::wetmap::canvas::STAMPS.lock().map(|mut v| std::mem::take(&mut *v)).unwrap_or_default();
+                v.sort_by_key(|s| std::cmp::Reverse(s.2));
+                let total: u64 = v.iter().map(|s| s.2).sum();
+                println!("STAMPS {label}: {} stamps, {:.3} ms total; top 12 (px, fine, us): {:?}", v.len(), total as f64 / 1e6, v.iter().take(12).map(|s| (s.0, s.1, s.2 / 1000)).collect::<Vec<_>>());
+                let mut by_px = std::collections::BTreeMap::<u32, (u32, u64)>::new();
+                for s in &v { let e = by_px.entry(s.0).or_default(); e.0 += 1; e.1 += s.2; }
+                println!("STAMPS by px (px: count, ms): {:?}", by_px.iter().map(|(k, (c, t))| (*k, *c, (*t as f64 / 1e5).round() / 10.0)).collect::<Vec<_>>());
+            }
+            { // PROBE: the ticks after the last hit
+                let mut after = Vec::new();
+                for _ in 0..90 {
+                    let t = std::time::Instant::now();
+                    app.world_mut().run_schedule(FixedUpdate);
+                    after.push(t.elapsed().as_secs_f64() * 1e3);
+                }
+                let first10: f64 = after[..10].iter().sum::<f64>() / 10.0;
+                let last10: f64 = after[80..].iter().sum::<f64>() / 10.0;
+                after.sort_by(f64::total_cmp);
+                println!("AFTER {label}: first 10 ticks mean {first10:.3} ms, last 10 mean {last10:.3} ms, median {:.3}, max {:.3}", after[45], after[89]);
+            }
+            { // PROBE
+                use std::sync::atomic::Ordering::Relaxed;
+                let p = &crate::wetmap::canvas::PROBE;
+                let ticks = p[12].swap(0, Relaxed).max(1) as f64;
+                let ms = |i: usize| p[i].swap(0, Relaxed) as f64 / 1e6 / ticks;
+                println!("TICKPASS {label}: ticks-with-work {ticks}, covered {:.3}, drip {:.3}, spread {:.3}, advance {:.3}, shade {:.3}, remeasure {:.3} ms/tick; texels covered/tick {:.0}, with blood {:.0}", ms(5), ms(6), ms(7), ms(8), ms(9), ms(11), p[10].swap(0, Relaxed) as f64 / ticks, p[13].swap(0, Relaxed) as f64 / ticks);
             }
             ms.sort_by(f64::total_cmp);
             let median = ms[ms.len() / 2];
