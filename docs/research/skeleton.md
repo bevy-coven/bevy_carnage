@@ -73,25 +73,25 @@ list, which is what `indices.chunks_exact(3)` does to it.
 
 `read_part` checks, in this order, and the first failure is the answer:
 
-1. topology is `TriangleList` and the index count is a multiple of three, else
-   `NotTriangleList { part }`. Checked first: it is one fact about the mesh, and every later check assumes it.
+1. topology is `TriangleList`, else `NotTriangleList { part }`. Checked first: it is one fact about the
+   mesh, and every later check assumes it.
 2. positions, joints and weights are present (`NotSkinned`); indices are present and readable
-   (`NotIndexed`).
-3. every index is below the vertex count, else `BadIndex { part, triangle }` naming the first triangle
-   that holds one. Before the group checks, so a missing vertex is never reported as a rigidity failure.
-4. every vertex's dominant joint is grouped (`UngroupedJoint`), as before.
-5. every vertex with positive, finite weight on a joint outside its dominant joint's group is refused,
-   `SplitVertex { part, vertex }`. A weight on a joint that **no** group holds counts as outside: the vertex
-   is then partly carried by something that belongs to no piece. Weights that are zero, negative or not finite
-   are skipped, as `Rig::dominant_joint` skips them. Vertices are checked in index order, so the first
-   offender reported is the same on every run.
-6. a triangle whose three vertices are in different groups is `SplitTriangle`, as before.
+   (`NotIndexed`); the index count is a multiple of three (`NotTriangleList` again: a list with a
+   remainder is not a list, and `chunks_exact(3)` would drop it).
+3. every vertex, in index order, so the first offender is the same on every run: its dominant joint is
+   in a group (`NotSkinned` / `UngroupedJoint`, as before), and **every joint with positive, finite
+   weight on it is in that same group**, else `SplitVertex { part, vertex }`. A weight on a joint that no
+   group holds counts as outside: the vertex is then partly carried by something that belongs to no piece.
+   Weights that are zero, negative or not finite are skipped, as `Rig::dominant_joint` skips them.
+4. every triangle: an index past the vertex count is `BadIndex { part, triangle }`, three vertices
+   in different groups is `SplitTriangle`, as before. A missing vertex is never reported as a rigidity
+   failure, because the index is tested for existence before the groups are compared.
 
 Nothing in the output changes for an input that passes: the cut is the same bits (`two_cuts_of_one_body_are_the_same_bits`).
 
 ## Parameters
 
-None. Check 5 has no tolerance on purpose: a tolerance would be a number with no source, and the maths
+None. The vertex check has no tolerance on purpose: a tolerance would be a number with no source, and the maths
 above is exact. glTF's own epsilon (`2·10^-7` times the count of non-zero weights) is for whether a
 vertex's weights *sum* to one, which this function does not read.
 
