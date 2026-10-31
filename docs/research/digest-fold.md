@@ -125,8 +125,9 @@ fold of nothing. In both clips the body breaks (frame 120 of the preset, 200 of 
 its pieces carry no `FlayCanvas` or `DermisCanvas`; at the end of the clip no skin canvas is left to fold.
 A field that reads one constant whatever the craters and bruises were is the blind spot again under another
 name, and it is exactly Bettner & Terrano's "one more thing that slipped just under the radar". The fix is
-to sample the canvases while they exist: once a frame, chained, which costs a fold of about 7 canvases of
-32 to 64 KiB a frame in a recorder that also writes a PNG a frame. `digest=` should have the same property
+to sample the canvases while they exist: once a frame, chained. That hashes about 0.6 MB a frame (an estimate:
+six skins at the shipped 128, a 32 KiB depth buffer and a 64 KiB dermis each) in a recorder that also writes a
+PNG a frame, and measured no change in wall time (17.4 and 17.1 s before, 17.0 and 17.8 s after). `digest=` should have the same property
 for the body's wetmaps once the body is gone (`[INFERENCE]`: the body is despawned, so its `WetCanvas` goes
 with it; the count of `WetCanvas` at the end of the clip was not measured this pass). It is not changed here
 because every documented value of it would move, and is recorded in the log as the next item.
