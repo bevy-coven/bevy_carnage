@@ -153,6 +153,17 @@ are **one mechanism at three ages**. There is deliberately no `clotted` boolean 
 second `f <= 0.0` guard in `pulse_wound` — a second guard would be a second answer to the same
 question.
 
+#### A faster `rasterise` is the same mask, byte for byte
+
+`stain::rasterise` is the hottest function of a wound on a wall (a droplet at wall speed has all 24 spines, and every texel
+of its mask used to walk them). Its skips are each exact: `RimBounds` tabulates, per angular bucket, which spines can reach it
+and an upper bound on the rim there, rounded **up** by three pads that are each orders over the float error they cover, and
+the texels that are left walk those spines in the same ascending order with the same arithmetic.
+`rasterise_by_definition`, in the module's tests, is the mask with no skip at all, and the two tests that hold `rasterise` to it
+(3 000 shapes, then the ceiling of spines and satellites and the impacts `stain_shape` makes) are the proof a skip needs. A
+tighter bound, a coarser pad or a new skip goes in with a case that fails without its margin. A change that moves one byte of
+the mask is a model change and moves every recorder's digest: say so, and re-bless on purpose.
+
 #### Tuned constants say so
 
 `SPINE_WE_MIN`, `PERFUSION_STRESS_PA`, `hct_exponent`, `DRY_REF_TICKS` are tuned or compressed rather
@@ -207,6 +218,17 @@ Wetness gates every change to `amount`. A texel past `dry_ticks` neither drips, 
 and its age has stopped — so a dried canvas is a **fixed point** of `tick`, and asks for no upload.
 That is what makes a run stop where it stopped. Do not add a "dry blood slowly fades" path; a second
 rule for the same quantity is how a run would start creeping again three months later.
+
+#### The tick's tables are the functions they tabulate
+
+`spread` reads its flux from a table of the 511 coverage differences, `advance` the substrate's soak from a table of ages, and
+`shade` what a `(level, age)` pair looks like from a table of its own, kept between ticks and dropped when anything it was
+computed from changes. Each is a function evaluated ahead of time, not a quantisation: a collision in the shade table costs a
+recompute and never a byte. `the_passes_are_what_their_definitions_say` holds all three to their definitions (the
+pre-table passes, copied into the test) on every tick of four scripted runs, over every texel and every pixel of both images, so a
+change to a pass that moves a byte of `wet` or a pixel of either image is a model change, whatever it was meant to be. Cost is
+measured with `cargo test --release --lib -- hit_tick_cost --ignored --nocapture`, alternated with the build it is compared to:
+single runs on a shared host vary by two.
 
 #### `flush` is the only place `Assets<Image>` is touched
 
