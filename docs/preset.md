@@ -251,6 +251,7 @@ is there.
 | `GoreDials::canvas`, `floor_canvas`, `Gore::canvas` | texels per canvas edge; 128 and 256 ship, and 256 is the ceiling. `Gore::with_canvas` gives one surface its own |
 | `GoreDials::floor_y`, `gravity` | world units, world units per second squared |
 | `GoreDials::blood.spatter_speed_scale` | none: a multiple of the paper's 8 to 40 m/s launch speeds, and **how far a droplet flies on to a floor**, nothing else (a stain on a wall, a cloth or a body part is sized at the paper's speed). `0.25` ships (`GORE_SPATTER_SPEED_SCALE`), so what a wound throws lands 0.5 to 5 m out, the 0.25 to 4 m Comiskey, Yarin & Attinger measured, and a three-metre floor under the wound takes it. `1.0` is the launch speed with no air drag: a floor takes almost none of it |
+| `GoreDials::floor_mist` | fine droplets a wound throws **at the floors** for each one it throws at everything: `9` ships (`GORE_FLOOR_MIST`), so a 3.5 cm crater's 9 droplets are 90, and a floor under a shot takes a fan of stains where it took a few blobs. They are the same stream as the rest (ordinals `9..90`), cast at the same surfaces and caught by the first they reach, and stain only a floor: **a wall, a skin and a cloth take what they always took**. `0` throws none. Each is one `WetCanvas::paint_speck` on a floor whose texel is wider than its stain; mind the floor's texel (3 m at 256 is 12 mm, at 512 6 mm): spatter is read as drops from 6 mm a texel |
 
 A torso's skin and fat are 18 mm deep and its muscle wall reaches 25.5 mm, so an impact of 5 mm opens
 skin and fat, 20 mm reaches muscle and spills guts, and a run of hits that passes 25.5 mm shows bone
@@ -604,7 +605,9 @@ the player never sees up close, and the wrong one for the one they shoot.
   droplet something caught does not also land on the floor. The cast is a straight line, so a
   droplet that would arc over a low wall onto the floor behind it is caught by the wall instead, and
   only the first `SPRAY_CAST` (24) droplets of a wound are cast at all — 128 when a wall is in
-  their path; the rest go to the floors as before. Until 0.5.32 every surface took every droplet
+  their path; the rest go to the floors as before. **The floor's mist** (`GoreDials::floor_mist`), the droplets
+  thrown on top of those for the floors alone, is cast in full, every droplet of it, and stamped only if nothing
+  stops it: a wall across the room keeps the floor behind it dry. Until 0.5.32 every surface took every droplet
   aimed at it, so a wall behind a shirt was spattered as if the shirt were not there.
 - **Wet blood needs a room to look wet.** Its look is a clear coat, and a coat shows what it
   reflects. Under a plain `AmbientLight`, a sky of one brightness from every direction, runs of blood
