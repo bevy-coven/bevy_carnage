@@ -2261,6 +2261,19 @@ fn face_measure(mesh: &Mesh) -> Option<(f32, Vec3, Vec3)> {
     (area > 0.0 && area.is_finite()).then(|| (area, centre / area, normal.normalize_or_zero()))
 }
 
+/// **How fast the preset throws a droplet, against the paper's launch speeds**: `0.25`, so the 8 to 40 m/s
+/// Comiskey, Yarin & Attinger measured 0.45 ms after a bullet's impact (`doi:10.1103/physrevfluids.3.063901`)
+/// leave at 2 to 10 m/s and land within the 0.25 to 4 m field their stains were measured over.
+///
+/// **Why the preset states it and `BloodSettings` does not.** `crate::bloodstain::droplet::landing` is a vacuum
+/// parabola with no drag, so at `1.0` a 40 m/s droplet thrown from chest height lands 12 to 43 m away and a
+/// three-metre floor under a wound takes almost none of it; `a_wound_stains_the_floor_beneath_it` failed on
+/// exactly that from `0.5.64` to `0.7.0`. The paper's air drag is what stops a real droplet inside four
+/// metres, and this number stands in for it. `BloodSettings::default()` keeps `1.0` because its constants are
+/// measurements and `the_spatter_model_is_frozen` pins them. **Tuned, and says so**: a design default, the
+/// number every demo already authored by hand (`docs/DEMOS.md`), in `docs/research/spray-reach.md`.
+pub const GORE_SPATTER_SPEED_SCALE: f32 = 0.25;
+
 /// A rendered gut tube the preset keeps in step with its strand.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct Gut;
@@ -2273,7 +2286,9 @@ pub struct GoreDials {
     pub canvas: u32,
     /// The scale of the game's meshes, millimetres per unit. `1000` for metres.
     pub mm_per_unit: f32,
-    /// The blood model.
+    /// **The blood model**, at **game scale**: [`GORE_SPATTER_SPEED_SCALE`] on `spatter_speed_scale`, where
+    /// `BloodSettings::default()` is the paper's launch speeds. A caller who wants the unscaled throw
+    /// states `BloodSettings { spatter_speed_scale: 1.0, ..default() }`.
     pub blood: BloodSettings,
     /// Fixed ticks per second, for the bleed schedule.
     pub hz: u32,
@@ -2317,7 +2332,7 @@ impl Default for GoreDials {
         Self {
             canvas: 128,
             mm_per_unit: 1000.0,
-            blood: BloodSettings::default(),
+            blood: BloodSettings { spatter_speed_scale: GORE_SPATTER_SPEED_SCALE, ..BloodSettings::default() },
             hz: 60,
             strands: 5,
             spawn_fragments: true,
@@ -6017,6 +6032,30 @@ mod tests {
         app.world_mut().run_schedule(FixedUpdate);
         let floor_wet = app.world().get::<WetCanvas>(floor).map(|w| w.wetted_area()).unwrap_or(0.0);
         assert!(floor_wet > 0.0, "nothing landed on the floor");
+    }
+
+    /// **The default throw lands inside the field the spatter was measured over.** Comiskey, Yarin &
+    /// Attinger's stains lie between 0.25 and 4 m of the target on the floor behind it, although the
+    /// droplets leave at 8 to 40 m/s: air drag stops them. This crate lands a droplet by a drag-free
+    /// parabola, so the preset's default dials ([`GORE_SPATTER_SPEED_SCALE`]) stand in for the drag. A
+    /// wound at chest height, throwing along the floor, wets a fan of floor out to the measured four
+    /// metres, where the paper's launch speeds unscaled land the median droplet farther than that and the
+    /// farthest forty metres out.
+    #[test]
+    fn the_default_throw_lands_inside_the_field_the_spatter_was_measured_over() {
+        let wound = BloodWound { at: [0.0, 1.0, 0.0], normal: [0.0, 0.0, 1.0], area: 0.02, severity: 1.0, kind: WoundKind::Channel };
+        let reach = |blood: &BloodSettings| -> Vec<f32> {
+            let mut r: Vec<f32> = crate::bloodstain::stain::stains(&wound, blood, 0.0).iter().map(|s| Vec3::new(s.at[0], 0.0, s.at[2]).length()).collect();
+            r.sort_by(f32::total_cmp);
+            r
+        };
+        let game = reach(&GoreDials::default().blood);
+        let paper = reach(&BloodSettings::default());
+        let within = |r: &[f32]| r.iter().filter(|d| (0.25..=4.0).contains(*d)).count();
+        assert!(!game.is_empty() && game.len() == paper.len(), "the scale moves where droplets land, not how many: {} against {}", game.len(), paper.len());
+        assert!(within(&game) * 20 >= game.len() * 19, "{} of {} droplets landed in 0.25 to 4 m under the default dials", within(&game), game.len());
+        assert!(game.last().is_some_and(|far| *far < 8.0), "the farthest droplet landed {:?} m out", game.last());
+        assert!(paper.get(paper.len() / 2).is_some_and(|m| *m > 4.0) && paper.last().is_some_and(|far| *far > 40.0), "the unscaled launch speeds were meant to overshoot: {:?}", (paper.get(paper.len() / 2), paper.last()));
     }
 
     /// **A culled droplet would have missed.** The spray's broad phase tests each droplet's ray against
