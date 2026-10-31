@@ -190,6 +190,66 @@ fn a_default_round_runs_every_example_it_builds_and_names_the_rest() {
     }
 }
 
+/// The frame a windowed run's script exits on, and the seconds its watchdog is given, for each
+/// windowed line of a dry round.
+fn windowed_budgets(stdout: &str) -> Vec<(String, u32, u32)> {
+    stdout
+        .lines()
+        .filter(|l| l.starts_with("+ CARNAGE_AUTOPILOT=\""))
+        .map(|l| {
+            let script = l.split('"').nth(1).expect("a quoted script");
+            let exit = script
+                .split_whitespace()
+                .find_map(|t| t.strip_suffix(":exit"))
+                .and_then(|f| f.parse().ok())
+                .expect("every script ends in `<frame>:exit`");
+            let words: Vec<&str> = l.split_whitespace().collect();
+            let secs = words
+                .windows(2)
+                .find(|w| w[0] == "timeout")
+                .and_then(|w| w[1].parse().ok())
+                .expect("a windowed line carries `timeout <secs>`");
+            let name = words
+                .iter()
+                .find_map(|w| w.strip_prefix("CARNAGE_AUTOPILOT_OUT="))
+                .and_then(|dir| dir.rsplit('/').next())
+                .expect("a windowed line names its output directory")
+                .to_string();
+            (name, exit, secs)
+        })
+        .collect()
+}
+
+/// **A windowed run is given time for every frame of its script.** The loop's host is shared, and an
+/// off-screen run there is a few frames a second: `skinned`'s 1620 frames took 145 s on a busy host
+/// and were killed at the old flat 180 s in the next two rounds, and `sever`'s 2660 in one. A budget
+/// that does not grow with the script reports a slow host as a missing example.
+#[test]
+fn a_windowed_run_is_given_time_for_every_frame_of_its_script() {
+    let scratch = Scratch::new("budget");
+    let run = qa(&scratch, &[("QA_DRY", "1"), ("QA_PHASES", "windowed")], &[]);
+    let stdout = text(&run.stdout);
+    assert!(run.status.success(), "a dry windowed round must succeed:\n{}{}", stdout, text(&run.stderr));
+    let budgets = windowed_budgets(&stdout);
+    assert!(
+        budgets.iter().any(|(n, _, _)| n == "skinned"),
+        "the skinned body is one of the windowed runs: {budgets:?}"
+    );
+    for (name, exit, secs) in &budgets {
+        assert!(
+            u64::from(*secs) * 4 >= u64::from(*exit),
+            "{name}: {secs} s for {exit} frames is under a quarter-second a frame"
+        );
+    }
+
+    let flat = qa(&scratch, &[("QA_DRY", "1"), ("QA_PHASES", "windowed"), ("QA_TIMEOUT", "7")], &[]);
+    let flat = windowed_budgets(&text(&flat.stdout));
+    assert!(
+        !flat.is_empty() && flat.iter().all(|(_, _, secs)| *secs == 7),
+        "QA_TIMEOUT is one flat limit for every run: {flat:?}"
+    );
+}
+
 /// **An example the build was not asked for is skipped with a line, and the round goes on.** Before,
 /// a recorders round named `capture_carnage` died with "no built binary" before writing a summary.
 #[test]
