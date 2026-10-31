@@ -5,3 +5,4 @@ The clips under `docs/` are listed with their recorders and regeneration command
 | File | What it shows | Command | Captured | Shows |
 |---|---|---|---|---|
 | `docs/media/preset.png` | the README's still: frame 120 of `docs/preset.gif`, the body in pieces in its pool | `ffmpeg -i docs/preset.gif -vf "select=eq(n\,120)" -frames:v 1 docs/media/preset.png` | 2026-10-31 | 0.5.x (from `preset.gif`, recorded 2026-10-12) |
+| `docs/media/floor_spray.png` | the floor in front of the mannequin after the clip's three shots, three panels side by side: 0.7.0 at 256 texels (five jelly blobs), this change at 256 (a fan of about forty stains) and at 512 (about fifty finer ones) | `capture_skinned --eye 0.0,1.5,3.1 --at 0,0,1.3 [--floor 512]`, frame 359, each cropped to 500 x 200 at (160, 110); labels added with Pillow | 2026-10-31 | the release after 0.7.0 |
