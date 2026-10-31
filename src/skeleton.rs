@@ -11,12 +11,19 @@
 //!
 //! # Rigid bodies only, and that is a refusal
 //!
-//! A vertex belongs to the group of its dominant joint ([`Rig::dominant_joint`]). A triangle whose
-//! three vertices fall in different groups would have to be cut or assigned by a guess, and a guess
-//! here would tear a limb or weld a piece to its neighbour; [`SkeletalRefusal::SplitTriangle`] says so
-//! instead. A skeleton whose bones are separate meshes skinned rigidly (each vertex one joint at
-//! weight one) never trips it. A soft-skinned body is refused, as the crate's other bakes refuse what
-//! they cannot do exactly.
+//! A vertex belongs to the group of its dominant joint ([`Rig::dominant_joint`]), and that is exact only
+//! when it is carried by nothing else: the body draws a vertex at `Σ wᵢ · Mᵢ · Bᵢ · v` over its joints, and
+//! a piece is drawn by one anchor, so a vertex with weight on a joint outside its group would jump at the
+//! moment of the break. [`SkeletalRefusal::SplitVertex`] says so for the vertex, and
+//! [`SkeletalRefusal::SplitTriangle`] for a triangle whose three vertices fall in different groups, which
+//! would have to be cut or assigned by a guess that tears a limb or welds a piece to its neighbour. A
+//! skeleton whose bones are separate meshes skinned rigidly (each vertex one joint at weight one) never
+//! trips either. A soft-skinned body is refused, as the crate's other bakes refuse what they cannot do
+//! exactly.
+//!
+//! Every part must be a triangle list ([`SkeletalRefusal::NotTriangleList`]) whose indices all name a
+//! vertex ([`SkeletalRefusal::BadIndex`]); a strip or a line mesh is not read as a list. See
+//! `docs/research/skeleton.md`.
 //!
 //! # What comes out
 //!
@@ -86,8 +93,17 @@ pub enum SkeletalRefusal {
     NotSkinned { part: usize },
     /// Part `part` has no indices.
     NotIndexed { part: usize },
+    /// Part `part` is not a triangle list: its topology is a strip, a line list or anything else, or its
+    /// index count is not a multiple of three. It is not read as a list.
+    NotTriangleList { part: usize },
+    /// Triangle `triangle` of part `part` has an index past the end of the part's vertex buffer.
+    BadIndex { part: usize, triangle: u32 },
     /// A vertex of part `part` is carried by `joint`, which no group holds.
     UngroupedJoint { part: usize, joint: u16 },
+    /// Vertex `vertex` of part `part` has weight on a joint outside its dominant joint's group, or on a
+    /// joint no group holds: the body is soft-skinned, and a piece drawn by one anchor would not land
+    /// where the body drew the vertex.
+    SplitVertex { part: usize, vertex: u32 },
     /// Triangle `triangle` of part `part` has vertices in different groups: the body is not rigid.
     SplitTriangle { part: usize, triangle: u32 },
     /// Link number `link` joins a group to itself or names a group that does not exist.
@@ -101,7 +117,10 @@ impl std::fmt::Display for SkeletalRefusal {
         match self {
             Self::NotSkinned { part } => write!(f, "part {part} is not skinned"),
             Self::NotIndexed { part } => write!(f, "part {part} has no indices"),
+            Self::NotTriangleList { part } => write!(f, "part {part} is not a triangle list (a strip, a line mesh, or an index count that is not a multiple of three)"),
+            Self::BadIndex { part, triangle } => write!(f, "triangle {triangle} of part {part} names a vertex past the end of the vertex buffer"),
             Self::UngroupedJoint { part, joint } => write!(f, "part {part} has a vertex on joint {joint}, which no group holds"),
+            Self::SplitVertex { part, vertex } => write!(f, "vertex {vertex} of part {part} is weighted across more than one group: the body is soft-skinned, not rigid"),
             Self::SplitTriangle { part, triangle } => write!(f, "triangle {triangle} of part {part} spans two groups: the body is not rigid"),
             Self::BadLink { link } => write!(f, "link {link} joins a group to itself or to one that does not exist"),
             Self::MissingBind { joint } => write!(f, "joint {joint} has no inverse bind matrix"),
@@ -125,6 +144,9 @@ fn read_part<'a>(
     mesh: &'a Mesh,
     group_of_joint: &HashMap<u16, usize>,
 ) -> Result<Part<'a>, SkeletalRefusal> {
+    if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
+        return Err(SkeletalRefusal::NotTriangleList { part: p });
+    }
     let rig = Rig::of(mesh).ok_or(SkeletalRefusal::NotSkinned { part: p })?;
     let Ok(Some(VertexAttributeValues::Float32x3(positions))) = mesh.try_attribute_option(Mesh::ATTRIBUTE_POSITION) else {
         return Err(SkeletalRefusal::NotSkinned { part: p });
@@ -137,20 +159,30 @@ fn read_part<'a>(
         Ok(Some(VertexAttributeValues::Float32x2(uv))) if uv.len() == positions.len() => Some(uv.as_slice()),
         _ => None,
     };
-    let Some(index) = mesh.indices() else { return Err(SkeletalRefusal::NotIndexed { part: p }) };
+    let Ok(Some(index)) = mesh.try_indices_option() else { return Err(SkeletalRefusal::NotIndexed { part: p }) };
     let indices: Vec<u32> = index.iter().map(|i| i as u32).collect();
+    if indices.len() % 3 != 0 {
+        return Err(SkeletalRefusal::NotTriangleList { part: p });
+    }
 
+    // Every vertex, in index order, so the first offender is the same on every run. A vertex is rigid when
+    // every joint that carries it is in its dominant joint's group: that is what makes one anchor's matrix
+    // draw it where the body did.
     let mut group_of = Vec::with_capacity(positions.len());
     for v in 0..positions.len() {
         let joint = rig.dominant_joint(v).ok_or(SkeletalRefusal::NotSkinned { part: p })?;
         let group = *group_of_joint.get(&joint).ok_or(SkeletalRefusal::UngroupedJoint { part: p, joint })?;
+        if rig.carrying_joints(v).any(|other| group_of_joint.get(&other) != Some(&group)) {
+            return Err(SkeletalRefusal::SplitVertex { part: p, vertex: v as u32 });
+        }
         group_of.push(group);
     }
     for (t, tri) in indices.chunks_exact(3).enumerate() {
-        let g = |i: u32| group_of.get(i as usize).copied();
-        match (g(tri[0]), g(tri[1]), g(tri[2])) {
+        let group = |i: u32| group_of.get(i as usize).copied();
+        match (group(tri[0]), group(tri[1]), group(tri[2])) {
             (Some(a), Some(b), Some(c)) if a == b && b == c => {}
-            _ => return Err(SkeletalRefusal::SplitTriangle { part: p, triangle: t as u32 }),
+            (Some(_), Some(_), Some(_)) => return Err(SkeletalRefusal::SplitTriangle { part: p, triangle: t as u32 }),
+            _ => return Err(SkeletalRefusal::BadIndex { part: p, triangle: t as u32 }),
         }
     }
     Ok(Part { positions, normals, uvs, indices, group_of })

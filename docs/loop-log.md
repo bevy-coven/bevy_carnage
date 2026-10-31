@@ -189,3 +189,111 @@ word), `refs/wiggum/pass-7-*`, and pass 7's `/tmp/c1/dois.txt`, `qa_new.sh`, `sk
 5. **The horror-film items from iteration 0** (arterial spray, pooling and drying, wound sheen, fracture
    debris), each needing `magick` (or a substitute) installed first, and the **Release** once item 1 is
    green. `vfx` on Bevy 0.20 is still blocked on `bevy_hanabi`.
+
+## Iteration 2 — 2026-10-31 — `fracture_skeleton` refuses a strip, a bad index and a soft-skinned vertex by name (#7)
+
+**Item and why it ranked first.** Issue #7, a bug: `read_part` in `src/skeleton.rs` cut a `TriangleStrip` or
+`LineList` as a triangle list, called an out-of-range index `SplitTriangle` ("the body is not rigid"), and
+accepted a vertex weighted across two groups although the module says a soft-skinned body is refused. It beat
+#6 (README contradicts the manifest; filed two seconds earlier, so strictly the older bug) because #7 returns
+a wrong *result* on a caller's mesh (section 4, rank 1) where #6 is wrong prose, iteration 1's log had named
+it "first next time", and #6 is a text edit plus a test that the next pass can do without a build of this
+size. #8 is an enhancement. Skipped, not blocked: #6, #8, and the red `preset` test (below).
+
+**Measured before the change** (a throwaway test against the old `src/`, removed): a `TriangleStrip`
+`[0,1,2,3]` came back `Ok` with one triangle (index 3 and a triangle dropped); a `LineList` of six indices `Ok`
+with two triangles nobody authored; a `TriangleList` of four indices `Ok` with the fourth dropped; index 7 of 3
+vertices `Err(SplitTriangle { part: 0, triangle: 0 })`; a 0.6 / 0.4 vertex `Ok`. After: `NotTriangleList`,
+`NotTriangleList`, `NotTriangleList`, `BadIndex { part: 0, triangle: 0 }`, `SplitVertex { part: 0, vertex: 0 }`.
+
+**What changed** (`782da1a`, `3baeb0b`): three `SkeletalRefusal` variants, `NotTriangleList { part }`,
+`BadIndex { part, triangle }` and `SplitVertex { part, vertex }`; `read_part` checks topology first, then the
+index count (a multiple of three: glTF says a list's vertex count `MUST` be divisible by three), then per vertex
+that every joint with positive finite weight is in the dominant joint's group, then per triangle `BadIndex`
+before `SplitTriangle`; `Rig::carrying_joints` (crate-private) reads the same weights `dominant_joint` does;
+`mesh.indices()` became `try_indices_option()` (the accessor `expect`s on an extracted mesh, `CLAUDE.md`
+forbids it). Eight new tests in `tests/skeleton.rs` (13 total; the seven old ones pass unchanged, including
+`triangle: 24`). **No owner decision was needed:** the issue offered "refuse, or correct the module doc" and
+recommended refusing; refusing it is. Two additions the issue did not list, both the same hole: the index count
+not a multiple of three, and `try_indices_option`; both are under `## Deviations` in the note.
+
+**Sources** (`docs/research/skeleton.md`, `docs/research/corpus.md`): physics, the glTF 2.0 "Skins" equation
+`Σ W_i · M_Ji · B_Ji` (so one anchor's matrix cannot draw a mixed vertex where the body did; the piece jumps at
+the break) and Kavan et al. 2007 (`doi:10.1145/1230100.1230107`, abstract only, no open copy); reference (a
+non-visible item, so a shipping pipeline), Creation Engine `BSDismemberSkinInstance` partitions ("Polygons
+cannot be assigned to multiple dismemberment partitions", GECK wiki, read through a search result's text, the
+site answers a direct fetch with a Cloudflare 403) and Raven's GHOUL zones (Wikipedia wikitext); technique, the
+glTF "Primitive topology" rules and `bevy_gltf-0.20.1/src/loader/gltf_ext/mesh.rs:24-27`. `distill_search`
+answered `gpu busy: 4508 MB free < 5000 MB required to load bge-m3`, so the corpus was not searched; the
+`catalog_recent` re-scan (limit 200) found nothing in a domain; `paper_download` for Kavan found no copy.
+
+**Critique and verdict** (no pixel changed, so no frame and no reference sheet). Flaws I looked for against the
+note's `## What great looks like` ("a refusal that names the true cause and the offending part, triangle or
+vertex, never a piece cut from the wrong geometry"): (1) the vertex check has **no tolerance** on purpose, so a
+rigid vertex exported with residue weight `1e-9` on another group is refused, and the caller cannot override it;
+that is the exactness the module promises, and it names the vertex so the weights can be cleaned, but a game's
+asset pipeline may meet it; (2) `SkeletalRefusal` is not `#[non_exhaustive]`, so the next variant is a breaking
+change again; `fracture_skeleton` is in no published release, so marking it now would cost nothing, which is
+item 3 of the backlog below; (3) a vertex no triangle uses still has to be rigid (the existing rule for an
+ungrouped joint, kept). Verdict: `fracture_skeleton`'s input refusals **GREAT** against the issue's acceptance
+and the three failing-first inputs; flaws 1 and 2 are on the record.
+
+**Numbers.**
+
+- *Reproducibility* (recorders, each twice): `capture_preset` `b7721708304df85f` before and after, both runs
+  equal; `capture_skinned` `ac9ee874ea09f208` before and after, both runs equal (`frames=360 ticks=365`). The
+  other skinned variants were not run: `fracture_skeleton` has no caller in `examples/`, and the changed
+  `Rig::carrying_joints` is called only from it. The bench's digest `0x4366a8b64352c85a` "unchanged" on both
+  stable runs and equal to iteration 1's.
+- *Locks*: all twelve of section 3's (`hash_f32_is_frozen` ... `the_measured_rows_are_the_papers`) ran and
+  passed untouched, as part of `cargo test`'s 349 passing lib tests. `tests/wetmap.rs` (mass conservation) 13
+  pass; `tests/leaf.rs` 3 pass (no panicking call in `src/`).
+- *Bench* (`bench_carnage`; the host refused some runs, so no median of three): before, all three runs refused
+  "NO STABLE PLATEAU" (best-3 spread 40.31 % on the first, host load 13 to 15), so there is no before number from
+  this pass; after, load 7.7, two of three stable: `carnage_frame_ms` 1.48808 and 1.50466, `carnage_p99_ms`
+  39.36500 and 42.49383, `carnage_total_ms` 892.849 and 902.796, the third refused (spread 8.21 %). Iteration 1
+  recorded 1.95392 ms and 52.98812 ms p99 at load 15 to 22 on the same code path. The bench never calls
+  `fracture_skeleton` or `Rig::carrying_joints`, so no change to its cost is claimed or implied; the figures
+  are the host's, not the change's. No baseline worktree was built (30 GB, a volume at 97 %).
+- *Gate*, in the loop's order, on the committed tree: `cargo build` rc 0 in 143 s; `cargo build --release` rc 0
+  in 395 s; `cargo build --release --examples` rc 0 in 1330 s; `cargo test --no-fail-fast` rc 101 in 3009 s:
+  **349 lib tests pass and 1 fails, `preset::tests::a_wound_stains_the_floor_beneath_it` ("nothing landed on
+  the floor", `src/preset.rs:6019`)**, the same count and the same test as iteration 1, on a tree whose
+  `src/preset.rs` this pass did not touch; every integration binary passes (`skeleton` 13, `leaf` 3, `wetmap`
+  13, `viscera` 19, `tear` 9, `qa_roster` 4, `fault_modes` 7, `laceration_plugin` 4, `cross_section_plugin` 2,
+  `expressive_range` 3, `origin` 3) and so do the doctests (8 passed, 5 ignored); `cargo build --examples` rc 0.
+  No new compiler warning from `src/skeleton.rs`, `src/skin.rs` or `tests/skeleton.rs`.
+- *Not run:* rustfmt. The repository is not rustfmt-clean (28 diffs on `src/skeleton.rs` and
+  `tests/skeleton.rs` as they stood at `main`, no `rustfmt.toml`), so `cargo fmt` would restyle unrelated lines;
+  the new code follows the files' own long-line style instead.
+
+**Release: none.** The gate is not green for the one pre-existing reason above, and the Release block asks for a
+green gate. `main` is `0.7.0`, crates.io has `0.5.18`, no tag exists. This pass's change adds enum variants to
+a public item that no published release contains.
+
+**Issues.** #7 fixed (`Fixes #7` in `782da1a`). #6 and #8 stay open, not blocked.
+
+**Cleanup.** Removed `/tmp/c2` (457 MB: the before/after bench and recorder output, the glTF spec, the GECK,
+Nexus and GitHub pages I fetched, `fmt/` and `gate.sh`). No worktree or `*-target` was made; `git
+worktree list` shows the clone only. `df`: 29 G free at the end, 32 G at the start (the gate's builds in
+`/Users/ladvien/target/bevy_carnage-loop`, which is the clone's own cache and is kept). Left, not mine and not
+deleted: the parked branch `loop/iter-1` (`2ed4559`, superseded by `loop/iter-1b`), `refs/wiggum/pass-7-*`, pass
+7's `/tmp/c1/dois.txt`, `qa_new.sh` and `skinned_direct.sh`, and `/tmp/c12-*`, `/tmp/c3`, `/tmp/c4`, `/tmp/c5`,
+`/tmp/c70.sh`, which belong to other loops.
+
+### Ranked backlog for iteration 3
+
+1. **Bug: `preset::tests::a_wound_stains_the_floor_beneath_it`** (`src/preset.rs:6019`), still red, still the
+   Release block's blocker (an impact at `(0, 0.9, 2.0)` toward `-Z` onto a `Gore::floor()` plane lands nothing).
+   Fix in `src/`, not the assertion. Then **Release** (crates.io `0.5.18`, `main` `0.7.0`, no tag).
+2. **#6, bug: README and `docs/DEMOS.md`** say `0.5`, Bevy 0.19, `vfx` on by default and "this repository is a
+   mirror"; add `tests/readme.rs` (the three checks in the issue). Also `CLAUDE.md`'s "Bevy 0.19 is pinned".
+   `fracture_skeleton` and its refusals are in no README section either: put them in the one the issue names.
+3. **`#[non_exhaustive]` on `SkeletalRefusal` (and the other public error enums) before the first release that
+   has them**: free today, a MINOR bump for every new variant after. An API decision, so record it as an
+   assumed one on the issue.
+4. **#8: a fold for flaymap and dermis canvases** in `capture_preset` and `capture_skinned`
+   (`DermisCanvas::digest`, `flay=` and `dermis=` fields). The loop command's checklist should then compare all
+   three fields: the owner's file.
+5. **The horror-film items from iteration 0** (arterial spray, pooling and drying, wound sheen, fracture
+   debris), each needing `magick` installed first. `vfx` on Bevy 0.20 is still blocked on `bevy_hanabi`.
