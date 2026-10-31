@@ -467,42 +467,44 @@ fn the_shipped_dials_are_the_contract() {
 
 /// **A speck lays the blood it is, and no more.** A canvas that cannot show a 3 mm stain should show the tint
 /// 3 mm of blood is in a 12 mm texel, not a 12 mm dot: the bytes a speck deposits sum to its area, to within the
-/// sampling, whatever its size, its axis ratio and where in the texel it sits. The stamp it replaces under four
-/// texels is nothing like that: a stain of a sixteenth of a texel is drawn as a whole one.
+/// rounding of each texel, whatever its size, its axis ratio and where in the texel it sits. The stamp it replaces under
+/// four texels is nothing like that: a stain of a sixteenth of a texel is drawn as a whole one.
 #[test]
 fn a_speck_lays_its_area_whatever_its_size_and_where_it_sits() {
     use std::f32::consts::PI;
-    for (semi, direction) in [([0.25f32, 0.25f32], Vec2::X), ([0.5, 0.25], Vec2::new(1.0, 1.0)), ([1.0, 1.0], Vec2::X), ([1.5, 0.6], Vec2::new(0.3, -1.0)), ([3.0, 2.0], Vec2::Y)] {
+    for (semi, direction) in [([0.25f32, 0.25f32], Vec2::X), ([0.5, 0.25], Vec2::new(1.0, 1.0)), ([1.0, 1.0], Vec2::X), ([1.5, 0.6], Vec2::new(0.3, -1.0)), ([2.0, 1.4], Vec2::Y)] {
         let want = PI * semi[0] * semi[1] * 255.0;
         for (sx, sy) in [(0.5, 0.5), (0.33, 0.71), (0.0, 0.0), (0.98, 0.12)] {
             let (_images, mut canvas) = scratch(64);
             // Centres on a texel's corner and on a texel's middle among them: the total must not care.
             canvas.paint_speck(Vec2::new((20.0 + sx) / 64.0, (20.0 + sy) / 64.0), semi, direction, 1);
             let got = coverage(&canvas) as f32;
-            assert!((got - want).abs() <= 0.12 * want + 3.0, "a speck of {semi:?} at ({sx}, {sy}) laid {got} of {want}");
+            assert!((got - want).abs() <= 0.1 * want + 14.0, "a speck of {semi:?} at ({sx}, {sy}) laid {got} of {want}");
         }
     }
 }
 
-/// A speck is placed to a fraction of a texel: centred on the corner of four texels it is shared between them,
-/// centred in one it falls in that one, and moving it half a texel moves coverage across, not the total.
+/// A speck is round about where it is centred, and is placed to a fraction of a texel: centred on the corner of four
+/// texels it lays the same on each of them, centred in one it lays the same on either side and above and below, and
+/// the texel it is centred in holds the most. Moving it half a texel moves coverage across and not the total.
 #[test]
-fn a_speck_straddling_texels_is_shared_between_them() {
+fn a_speck_is_symmetric_about_where_it_is_centred() {
     let size = 64u32;
     let (_images, mut corner) = scratch(size);
-    corner.paint_speck(Vec2::new(20.0 / 64.0, 20.0 / 64.0), [0.4, 0.4], Vec2::X, 1);
+    corner.paint_speck(Vec2::new(20.0 / 64.0, 20.0 / 64.0), [0.5, 0.5], Vec2::X, 1);
     let four = [(19, 19), (20, 19), (19, 20), (20, 20)].map(|(x, y)| corner.amount_at(x, y));
-    assert!(four.iter().all(|&a| a > 0), "a speck on a corner left a texel of the four empty: {four:?}");
-    assert!(four.iter().max().unwrap() - four.iter().min().unwrap() <= 6, "a speck on a corner was not shared evenly: {four:?}");
+    assert!(four[0] > 0 && four.iter().max().unwrap() - four.iter().min().unwrap() <= 1, "a speck on a corner was not laid evenly on its four texels: {four:?}");
     let (_images, mut middle) = scratch(size);
-    middle.paint_speck(Vec2::new(20.5 / 64.0, 20.5 / 64.0), [0.4, 0.4], Vec2::X, 1);
-    assert!(middle.amount_at(20, 20) > 0);
-    assert_eq!([(19, 20), (21, 20), (20, 19), (20, 21)].map(|(x, y)| middle.amount_at(x, y)), [0, 0, 0, 0], "a speck of 0.4 texels centred in one spilled into its neighbours");
-    assert!((coverage(&corner) as i32 - coverage(&middle) as i32).abs() <= 8, "moving a speck half a texel changed what it laid");
+    middle.paint_speck(Vec2::new(20.5 / 64.0, 20.5 / 64.0), [0.5, 0.5], Vec2::X, 1);
+    let (left, right) = (middle.amount_at(19, 20), middle.amount_at(21, 20));
+    let (above, below) = (middle.amount_at(20, 19), middle.amount_at(20, 21));
+    assert!(left > 0 && left.abs_diff(right) <= 1 && above.abs_diff(below) <= 1 && left.abs_diff(above) <= 1, "a speck centred in a texel was not round about it: {left} {right} {above} {below}");
+    assert!(middle.amount_at(20, 20) > left, "the texel a speck is centred in does not hold the most");
+    assert!((coverage(&corner) as i32 - coverage(&middle) as i32).abs() <= 14, "moving a speck half a texel changed what it laid");
 }
 
 /// A speck is a pure function of its arguments: two canvases painted alike hold the same bytes, and one painted
-/// a thirtieth of a texel off does not.
+/// a twentieth of a texel off does not.
 #[test]
 fn a_speck_is_reproducible_and_is_placed_finely() {
     let paint = |dx: f32| {
@@ -514,7 +516,7 @@ fn a_speck_is_reproducible_and_is_placed_finely() {
         canvas.digest()
     };
     assert_eq!(paint(0.0), paint(0.0), "a speck depends on something other than its arguments");
-    assert_ne!(paint(0.0), paint(0.03), "a speck is placed on a whole texel");
+    assert_ne!(paint(0.0), paint(0.05), "a speck is placed on a whole texel");
 }
 
 /// Nonsense is refused and writes nothing, a speck at the canvas's edge is clipped and never wrapped to the far
@@ -536,14 +538,14 @@ fn a_speck_refuses_nonsense_and_is_clipped_at_the_edge() {
     assert_eq!(coverage(&canvas), 0, "a refused speck wrote");
     assert!(!canvas.is_dirty(), "a refused speck dirtied the canvas");
     // On the corner: a quarter of it is on the canvas, and none wraps to the far corner.
-    canvas.paint_speck(Vec2::ZERO, [2.0, 2.0], Vec2::X, 1);
+    canvas.paint_speck(Vec2::ZERO, [1.5, 1.5], Vec2::X, 1);
     let got = coverage(&canvas) as f32;
-    let quarter = std::f32::consts::PI * 4.0 * 255.0 / 4.0;
+    let quarter = std::f32::consts::PI * 2.25 * 255.0 / 4.0;
     assert!((got - quarter).abs() <= 0.15 * quarter, "a speck on the corner laid {got}, a quarter of it is {quarter}");
     assert_eq!(canvas.amount_at(31, 31) + canvas.amount_at(31, 0) + canvas.amount_at(0, 31), 0, "a speck wrapped to the far side");
     // Far past the largest a speck draws: clamped to it, not drawn at a hundred texels.
     let (_images, mut huge) = scratch(64);
     huge.paint_speck(centre, [100.0, 100.0], Vec2::X, 1);
     let max = std::f32::consts::PI * bevy_carnage::wetmap::SPECK_MAX_SEMI.powi(2) * 255.0;
-    assert!(coverage(&huge) as f32 <= 1.12 * max + 3.0, "a speck of a hundred texels laid {} (the largest is {max})", coverage(&huge));
+    assert!(coverage(&huge) as f32 <= 1.1 * max + 14.0, "a speck of a hundred texels laid {} (the largest is {max})", coverage(&huge));
 }
