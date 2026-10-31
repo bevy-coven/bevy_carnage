@@ -5,7 +5,9 @@
 //! ```
 //!
 //! `--eye x,y,z` renders from another camera position, aimed at the chest or at `--at x,y,z`. Neither
-//! changes a digest.
+//! changes a digest. `--floor N` dresses the floor at `N` texels a side instead of the dial's 256 (`GoreDials::floor_canvas`):
+//! a three-metre slab at 512 is 6 mm a texel, where a drop of blood a few millimetres across is a stain and not a tint.
+//! It changes the digest, as the canvas it folds is another size.
 //! `--break` makes the body breakable and takes a heavy shot to the chest at frame 200: it breaks where
 //! its skeleton is, mid-walk with the arm raised, and its pieces fall to the floor. `--shirt` dresses
 //! the body in a sleeveless shirt: the two chest shots hole it and the wound is seen through the hole,
@@ -51,7 +53,7 @@ use std::time::Duration;
 use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use bevy_carnage::preset::{ClothHoles, Gore, GoreClock, GorePlugin, GoreReset, GoreStep, HitKind, Sole};
+use bevy_carnage::preset::{ClothHoles, Gore, GoreClock, GoreDials, GorePlugin, GoreReset, GoreStep, HitKind, Sole};
 use bevy_carnage::wetmap::{StainShape, WetCanvas};
 
 mod common;
@@ -97,6 +99,9 @@ fn main() {
         // burst of blood in the air; the digest cannot see it.
         #[cfg(feature = "vfx")]
         app.add_plugins(bevy_carnage::CarnageVfxPlugin);
+        if let Some(floor_canvas) = common::arg("--floor").and_then(|n| n.parse::<u32>().ok()) {
+            app.insert_resource(GoreDials { floor_canvas, ..default() });
+        }
         app.add_plugins(GorePlugin)
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / (60.0 * slow as f64))))
             .insert_resource(Time::<Fixed>::from_hz(60.0))

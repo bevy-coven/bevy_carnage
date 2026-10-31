@@ -46,6 +46,12 @@ pub const UV_SPAN_M: f32 = 1.0;
 /// would be unbounded memory in a shipped game.
 const WARN_MEMO: usize = 16;
 
+/// The longest semi-axis, in texels, [`WetCanvas::paint_speck`] draws: eight texels across. Past it a stain is a stamp's.
+pub const SPECK_MAX_SEMI: f32 = 4.0;
+
+/// The texels along a side of the scratch a speck's shares are gathered in: `ceil(2 * SPECK_MAX_SEMI) + 1`, rounded up.
+const SPECK_FOOTPRINT: usize = 10;
+
 /// **Texture-space blood accumulation for one actor.** Two images out, and the authority stays here.
 ///
 /// # The state is one buffer, and its order is the canonical order
@@ -443,6 +449,91 @@ impl WetCanvas {
     /// the same reason [`tick`](Self::tick) takes the settings: one authority, held by the caller.
     pub fn paint_uv_with(&mut self, uv: Vec2, shape: &StainShape, tick: u32, s: &WetSettings) {
         self.stamp(uv, shape, tick, s.edge_span());
+    }
+
+    /// **A droplet's stain too small for a stamp**: a hard-edged ellipse of semi-axes `semi` texels, `semi[0]` along
+    /// `direction`, centred on `uv` **to a fraction of a texel**, each texel taking the share of itself the ellipse
+    /// covers.
+    ///
+    /// [`paint_uv`](Self::paint_uv) draws a stamp: a mask of `round(major)` texels whose profile falls off from a
+    /// soft centre, placed on a whole texel. Under four texels across that is the wrong picture of a droplet, which
+    /// is a crisp opaque disc. Measured on a floor at 12 mm a texel: a stamp of two texels peaked at 73 of 255,
+    /// because all four of its texels lie off the centre where the profile has fallen, while one of three peaked at
+    /// 243, and a slanted stain of one texel at 18; and a stain smaller than a texel is drawn as a whole one, so a
+    /// canvas that cannot show a 3 mm stain shows a 12 mm dot where the blood was a sixteenth of it. Here the
+    /// coverage is the area: an ellipse of a tenth of a texel's area adds a tenth of full coverage to the texel it
+    /// falls in (or is shared by the texels it falls across), so the blood a canvas cannot resolve reads as the tint
+    /// it would be, a droplet moves smoothly across the texels as it moves, and the bytes laid sum to the area to
+    /// within the sampling.
+    ///
+    /// Sampled, not integrated: the ellipse's own box carries `k x k` sample points, `k` four times the semi-major axis
+    /// in texels, between 4 and 16, so the spacing along the long axis is at most half a texel; a point inside the ellipse
+    /// deposits its share of the area in the texel it lies in. Every operation is a multiply, an add or a
+    /// compare on `f32`, no transcendental, so the bytes are the same on every machine. The deposit is the
+    /// same as a stamp's: it adds to the texel, ages it to zero and marks it live.
+    ///
+    /// Refused, writing nothing, for a non-finite argument or an axis that is not positive. `semi[0]` is
+    /// clamped to [`SPECK_MAX_SEMI`] texels, `semi[1]` to `semi[0]`; a larger stain is a stamp's business.
+    pub fn paint_speck(&mut self, uv: Vec2, semi: [f32; 2], direction: Vec2, tick: u32) {
+        let [a, b] = semi;
+        if !(uv.is_finite() && a.is_finite() && b.is_finite() && direction.is_finite()) || a <= 0.0 || b <= 0.0 {
+            return;
+        }
+        let (a, b) = (a.max(b), a.min(b));
+        let (a, b) = (a.min(SPECK_MAX_SEMI), b.min(SPECK_MAX_SEMI));
+        let len = direction.length();
+        let (ux, uy) = if len > 0.0 { (direction.x / len, direction.y / len) } else { (1.0, 0.0) };
+        let size = self.size as f32;
+        let (cx, cy) = (uv.x.clamp(0.0, 1.0) * size, uv.y.clamp(0.0, 1.0) * size);
+        let k = ((4.0 * a).ceil() as u32).clamp(4, 16);
+        let (step_a, step_b) = (2.0 * a / k as f32, 2.0 * b / k as f32);
+        // Each sample stands for this much of a texel, as a fraction of full coverage.
+        let share = step_a * step_b;
+        let (inv_a, inv_b) = (1.0 / a, 1.0 / b);
+        // The footprint's top-left texel, and a scratch of the share each texel takes.
+        let (x0, y0) = ((cx - a).floor() as i64, (cy - a).floor() as i64);
+        let mut taken = [[0.0f32; SPECK_FOOTPRINT]; SPECK_FOOTPRINT];
+        for j in 0..k {
+            let ly = -b + (j as f32 + 0.5) * step_b;
+            for i in 0..k {
+                let lx = -a + (i as f32 + 0.5) * step_a;
+                let (qx, qy) = (lx * inv_a, ly * inv_b);
+                if qx * qx + qy * qy > 1.0 {
+                    continue;
+                }
+                // Along the direction, then across it.
+                let (px, py) = (cx + lx * ux - ly * uy, cy + lx * uy + ly * ux);
+                let (tx, ty) = (px.floor() as i64 - x0, py.floor() as i64 - y0);
+                if let Some(slot) = usize::try_from(ty).ok().and_then(|ty| taken.get_mut(ty)).and_then(|row| usize::try_from(tx).ok().and_then(|tx| row.get_mut(tx))) {
+                    *slot += share;
+                }
+            }
+        }
+        let n = self.size as i64;
+        let mut touched = false;
+        for (dy, row) in taken.iter().enumerate() {
+            for (dx, &fraction) in row.iter().enumerate() {
+                let cov = ((fraction * 255.0 + 0.5) as u32).min(255) as u8;
+                if cov == 0 {
+                    continue;
+                }
+                let (x, y) = (x0 + dx as i64, y0 + dy as i64);
+                if x < 0 || y < 0 || x >= n || y >= n {
+                    continue;
+                }
+                let Some(cell) = self.wet.get_mut((y * n + x) as usize) else { continue };
+                cell.0 = cell.0.saturating_add(cov);
+                cell.1 = 0;
+                touched = true;
+                mark(&mut self.live, self.size, x, y);
+            }
+        }
+        if touched {
+            self.quiet = None;
+            if self.dirty_since.is_none() {
+                self.dirty_since = Some(tick);
+            }
+        }
     }
 
     /// **Blood wicking through a weave**: wet every texel inside `shape`'s silhouette, frayed by the
