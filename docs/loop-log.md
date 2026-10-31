@@ -778,3 +778,19 @@ the inverse size-speed range, which is still the owner's).
    `flay=` and `dermis=` (`wet=`), and make the recorders' default camera see the floor.
 4. **`#[non_exhaustive]` on `SkeletalRefusal` and the other public error enums**, and the Bevy 0.19 citation sweep: do the first with the `0.8.0` MINOR if it has not shipped yet, or never.
 5. **The horror-film items** (pooling and drying ring, wound sheen, fracture debris), each needing `magick` installed first; `vfx` on Bevy 0.20 still waits on `bevy_hanabi`.
+
+**Merged tree and release.** Merged `loop/iter-6` into `main` (`423556a`, `--no-ff`) and re-ran the gate on it before the push: `cargo build` rc 0, 10 s; `cargo build --release` rc 0,
+12 s; `cargo test --no-fail-fast` rc 0, 1042 s (lib 356, `readme` 4, `wetmap` 17, every other binary and the doctests green); `cargo build --examples` rc 0, 2 s; `main` pushed
+(`af13bb4..423556a`). **Released `0.8.0`** (https://crates.io/crates/bevy_carnage/0.8.0, tag `v0.8.0`, `395bb38`): `v0.7.0` was tagged 08:42 CDT and the pass released at about 16:20,
+so the six-hour rule held. `cargo semver-checks check-release --baseline-version 0.7.0 --only-explicit-features --features serde,flesh` (`vfx` still cannot build, so the crate's
+all-features default is out) ran this time: 202 checks, 201 pass, 1 fails, `constructible_struct_adds_field` on `GoreDials.floor_mist`, "requires new major version": pre-1.0, so a
+MINOR, `0.8.0`. The release commit moved the changelog, `Cargo.toml`, `Cargo.lock`, the install lines in `README.md` and `docs/guide/install.md`, and `docs/guide/history.md`'s Status and a
+`0.8.0` entry (`tests/readme.rs` green); `cargo publish --dry-run` packaged 197 files, 4.5 MiB (1.7 MiB compressed) and verified, with the same yanked `clipboard-win` warning as `0.7.0`.
+crates.io's API answers `0.8.0`, not yanked. `0.8.0` carries `0.7.0`'s `[Unreleased]` too (`DermisCanvas::digest`, the org-guide README).
+
+**Cleanup.** No worktree or `*-target` was made (`git worktree list` shows the clone only). Removed `/tmp/c6` (6.5 GB: every recorder variant's 360 frames before and after, the
+binaries copied out of the cache, the semver-checks target, a venv with Pillow, SciPy and NumPy, the lib-test binaries, the reference images and the gate logs) and `target/package`
+(6.9 MB) in the clone's cache; `df`: 67 G free at the end against 73 G at the start (the difference is the clone's own cache growing, which is kept, and other loops' work). Left,
+not mine and not deleted: the branches `loop/iter-1`, `loop/iter-1b`, `loop/iter-2`, `loop/iter-3`, `loop/iter-4` (merged), `loop/iter-5` (merged), `loop/iter-4-floor-stains`
+(parked, mine: its idea was adopted this pass, kept on purpose), and `/tmp/b2`, `/tmp/b2.sh`, `/tmp/c-0.25`, `/tmp/c-0.3`, `/tmp/c.md`, `/tmp/c1`, `/tmp/c12-1` to `/tmp/c12-3`,
+`/tmp/c70.sh`, `/tmp/ca0.0`, `/tmp/ca0.35`, `/tmp/cap*` and other loops' `/tmp` directories. Mine and kept: `loop/iter-6` (merged, pushed).
