@@ -155,27 +155,33 @@ pub struct WetCanvas {
     /// change to the settings, wakes it. On a body dressed by the preset that is most canvases on
     /// most ticks: a part nobody has shot, or one whose blood has set.
     quiet: Option<WetSettings>,
-    /// **For each tile of [`LIVE_TILE`] texels square, the smallest rectangle holding its blood**, or
-    /// `None` for a tile with none; row-major over the canvas's tiles. Every texel outside them is
-    /// `(0, 0)`. One tick moves blood at most [`TICK_REACH`] texels — drip translates a parcel one
-    /// texel, and spread, which runs after it in the same tick, can carry that parcel's share one more
-    /// — so the passes run over the union of these rectangles grown by that much, as disjoint runs
-    /// along the rows (`runs`), and leave the rest of the canvas untouched. That is exact, not an
-    /// approximation: outside them every pass would read zeros and write the zeros already there.
-    /// Re-measured after every tick, so it shrinks as the substrate takes the blood.
+    /// **For each tile of [`LIVE_TILE`] texels square, the smallest rectangle holding the blood painted into it since the last
+    /// tick**, or `None` for a tile with none; row-major over the canvas's tiles. A paint marks a texel here and a tick consumes
+    /// the marks: what it measures afterwards is `spans`. Every texel outside both is `(0, 0)`. One tick moves blood at most
+    /// [`TICK_REACH`] texels — drip translates a parcel one texel, and spread, which runs after it in the same tick, can carry
+    /// that parcel's share one more — so the passes run over the union of these rectangles and the spans grown by that much, as
+    /// disjoint runs along the rows (`runs`), and leave the rest of the canvas untouched. That is exact, not an approximation:
+    /// outside them every pass would read zeros and write the zeros already there.
     ///
-    /// Until 0.5.58 this was one rectangle round all the blood, and a canvas with blood in two of its
-    /// corners ticked every texel between them: two pools in opposite corners of a 1024 floor cost
-    /// 25.5 ms a tick, against 0.35 for one. A tile's own rectangle is what keeps the one-pool case as
-    /// cheap as it was: covering whole tiles and the ring of tiles round them, as was tried first,
-    /// tripled it.
+    /// Until 0.5.58 this was one rectangle round all the blood, and a canvas with blood in two of its corners ticked every texel
+    /// between them: two pools in opposite corners of a 1024 floor cost 25.5 ms a tick, against 0.35 for one. A tile's own
+    /// rectangle is what keeps the one-pool case as cheap as it was: covering whole tiles and the ring of tiles round them, as was
+    /// tried first, tripled it.
     live: Vec<Option<Live>>,
+    /// **The blood a tick left, as a rectangle one row high for each stretch of a row that holds any**, `x0..=x1` of row `y`
+    /// (stretches of one row less than [`SPAN_GAP`] texels apart are one). Re-measured over what a tick covered, so it shrinks as
+    /// the substrate takes the blood. It replaced a rectangle for each tile of blood, which for a spray of fine drops was the
+    /// whole tile round each of them: about three texels covered for each that held blood, and a tick's passes are paid per texel
+    /// covered.
+    spans: Vec<Live>,
     /// Scratch: the runs a tick's passes cover, and the wider runs their snapshot covers, kept so a
-    /// tick does not allocate; and the cuts along one row while they are built.
+    /// tick does not allocate; and the cuts along one row while they are built, the boxes they are built from, and the boxes
+    /// that cross the row being built.
     runs: Vec<Live>,
     snap: Vec<Live>,
     cuts: Vec<(i64, i64)>,
     boxes: Vec<Live>,
+    active: Vec<Live>,
     /// **Image pixels per texel along each edge**, `1..=MAX_DETAIL`. See
     /// [`new_detailed`](Self::new_detailed).
     detail: u32,
@@ -318,6 +324,8 @@ impl WetCanvas {
             snap: Vec::new(),
             cuts: Vec::new(),
             boxes: Vec::new(),
+            spans: Vec::new(),
+            active: Vec::new(),
             detail,
             detail_albedo: base_rgba.iter().copied().cycle().take(pixels * 4).collect(),
             detail_rough: base_rough_rgba.iter().copied().cycle().take(pixels * 4).collect(),
@@ -386,7 +394,7 @@ impl WetCanvas {
         let cell = std::mem::size_of::<(u8, u16)>();
         (self.wet.capacity() + self.prev.capacity()) * cell
             + self.live.capacity() * std::mem::size_of::<Option<Live>>()
-            + (self.runs.capacity() + self.snap.capacity() + self.boxes.capacity()) * std::mem::size_of::<Live>()
+            + (self.runs.capacity() + self.snap.capacity() + self.boxes.capacity() + self.spans.capacity() + self.active.capacity()) * std::mem::size_of::<Live>()
             + self.cuts.capacity() * std::mem::size_of::<(i64, i64)>()
             + self.mask.capacity()
             + self.fine.capacity()
@@ -448,6 +456,7 @@ impl WetCanvas {
         self.stale.fill(false);
         self.quiet = None;
         self.live.fill(None);
+        self.spans.clear();
         self.dirty_since = Some(self.dirty_since.map_or(tick, |since| since.min(tick)));
     }
 
@@ -951,51 +960,44 @@ impl WetCanvas {
             return;
         }
         let n = self.size as i64;
-        // Where blood can be after this tick: every tile's blood grown by the distance one tick can
-        // move it, and what the passes read, one texel further. A canvas with no blood has nothing to
-        // move or shade. See `live`.
+        // Where blood can be after this tick: the stretches of blood the last tick left and the tiles painted since, each grown
+        // by the distance one tick can move it, and what the passes read, one texel further. A canvas with no blood has
+        // nothing to move or shade. See `live` and `spans`.
         let (mut runs, mut snap) = (std::mem::take(&mut self.runs), std::mem::take(&mut self.snap));
-        covered(&self.live, n, TICK_REACH, &mut runs, &mut self.cuts, &mut self.boxes);
-        covered(&self.live, n, TICK_REACH + 1, &mut snap, &mut self.cuts, &mut self.boxes);
+        covered(&self.spans, &self.live, n, TICK_REACH, &mut runs, &mut self.cuts, &mut self.boxes, &mut self.active);
+        covered(&self.spans, &self.live, n, TICK_REACH + 1, &mut snap, &mut self.cuts, &mut self.boxes, &mut self.active);
         if !runs.is_empty() {
             self.drip(&runs, &snap, gravity_uv, s);
             self.spread(&runs, &snap, s);
             self.advance(&runs, s);
             self.shade(&runs, tick, s);
         }
-        // Re-measured over what was covered: outside it every texel is still `(0, 0)`.
+        // Re-measured over what was covered: outside it every texel is still `(0, 0)`. A row's blood is one stretch from its
+        // first texel to its last, and two stretches less than `SPAN_GAP` apart are one, which covers what growing each
+        // would have.
         let span = s.dry_span();
         let mut moving = false;
         self.live.fill(None);
-        // A texel with blood takes its tile's rectangle in; along a row the texels of one tile are consecutive, so the row's
-        // run of them in a tile widens the rectangle once, to its two ends, which is the same rectangle every texel of the run
-        // would have made (`min` and `max` do not care how often they are asked, or in what order).
-        let tiles = (self.size as i64 + LIVE_TILE - 1) / LIVE_TILE;
-        let widen = |live: &mut [Option<Live>], y: i64, tile_x: i64, (x0, x1): (i64, i64)| {
-            if let Some(tile) = live.get_mut(((y / LIVE_TILE) * tiles + tile_x) as usize) {
-                *tile = Some(tile.map_or(Live::texel(x0, y), |l| l.with(x0, y)).with(x1, y));
-            }
-        };
+        self.spans.clear();
         for r in &runs {
             for y in r.y0..=r.y1 {
-                let mut open: Option<(i64, i64, i64)> = None;
+                let mut open: Option<(i64, i64)> = None;
                 for x in r.x0..=r.x1 {
                     let Some(&(amount, age)) = self.wet.get((y * n + x) as usize) else { continue };
                     if amount > 0 {
                         moving |= is_wet(age, span);
-                        let tile_x = x / LIVE_TILE;
                         open = match open {
-                            Some((tx, x0, _)) if tx == tile_x => Some((tx, x0, x)),
-                            Some((tx, x0, x1)) => {
-                                widen(&mut self.live, y, tx, (x0, x1));
-                                Some((tile_x, x, x))
+                            Some((x0, x1)) if x - x1 <= SPAN_GAP => Some((x0, x)),
+                            Some((x0, x1)) => {
+                                self.spans.push(Live { x0, y0: y, x1, y1: y });
+                                Some((x, x))
                             }
-                            None => Some((tile_x, x, x)),
+                            None => Some((x, x)),
                         };
                     }
                 }
-                if let Some((tx, x0, x1)) = open {
-                    widen(&mut self.live, y, tx, (x0, x1));
+                if let Some((x0, x1)) = open {
+                    self.spans.push(Live { x0, y0: y, x1, y1: y });
                 }
             }
         }
@@ -1592,10 +1594,15 @@ impl Live {
 /// (then over a rectangle) caught it on a spined stain at tick 0.
 const TICK_REACH: i64 = 2;
 
-/// **The tile a canvas tracks its blood in, texels square: 32.** Each keeps the rectangle round its
-/// own blood, so blood in two far corners is two small rectangles rather than one round both; at 32
-/// a 1024 canvas has a thousand of them to look through each tick. See [`WetCanvas::live`].
+/// **The tile a canvas tracks the blood a paint adds in, texels square: 32.** Each keeps the rectangle round its own new blood,
+/// so a paint is a few texels marked and not a pass over the canvas; at 32 a 1024 canvas has a thousand of them to look through
+/// each tick. See [`WetCanvas::live`].
 const LIVE_TILE: i64 = 32;
+
+/// **How far apart, in texels, two blood texels of a row can be and still be one stretch of it: `2 * (TICK_REACH + 1) + 1`**,
+/// seven. The passes cover a stretch grown by `TICK_REACH` and their snapshot by one more, so two stretches that a snapshot's
+/// growth joins (a gap of six, three from each) are one box either way; fewer boxes to sort and sweep, the same texels covered.
+const SPAN_GAP: i64 = 2 * (TICK_REACH + 1) + 1;
 
 /// Take texel `(x, y)`, on a canvas `size` texels square, into its tile's rectangle of blood.
 fn mark(live: &mut [Option<Live>], size: u32, x: i64, y: i64) {
@@ -1605,26 +1612,45 @@ fn mark(live: &mut [Option<Live>], size: u32, x: i64, y: i64) {
     }
 }
 
-/// **The texels every tile's rectangle of blood, grown by `reach` and clamped to a canvas `n` texels
-/// square, covers between them**, written to `out` as disjoint rectangles: along each row the
-/// rectangles' spans merged, and rows whose spans are the same as the row above folded into it. Disjoint
-/// because a pass that ages a texel must visit it once. `cuts` and `boxes` are scratch.
-fn covered(live: &[Option<Live>], n: i64, reach: i64, out: &mut Vec<Live>, cuts: &mut Vec<(i64, i64)>, boxes: &mut Vec<Live>) {
+/// **The texels every box of blood, grown by `reach` and clamped to a canvas `n` texels square, covers between them**, written to
+/// `out` as disjoint rectangles: along each row the boxes' spans merged, and rows whose spans are the same as the row above folded
+/// into it. The boxes are `spans`, the rows of blood the last tick left, and `live`, the tiles of blood painted since. Disjoint
+/// because a pass that ages a texel must visit it once. `cuts`, `boxes` and `active` are scratch: the boxes sorted by the row they
+/// begin on, and those among them that cross the row being built.
+#[allow(clippy::too_many_arguments)]
+fn covered(
+    spans: &[Live],
+    live: &[Option<Live>],
+    n: i64,
+    reach: i64,
+    out: &mut Vec<Live>,
+    cuts: &mut Vec<(i64, i64)>,
+    boxes: &mut Vec<Live>,
+    active: &mut Vec<Live>,
+) {
     out.clear();
     boxes.clear();
-    boxes.extend(live.iter().flatten().map(|l| l.grown(reach, n)));
-    let grown = || boxes.iter();
-    let Some(top) = grown().map(|g| g.y0).min() else { return };
-    let bottom = grown().map(|g| g.y1).max().unwrap_or(top);
+    boxes.extend(spans.iter().copied().chain(live.iter().flatten().copied()).map(|l| l.grown(reach, n)));
+    boxes.sort_unstable_by_key(|g| g.y0);
+    let Some(top) = boxes.first().map(|g| g.y0) else { return };
+    let bottom = boxes.iter().map(|g| g.y1).max().unwrap_or(top);
+    active.clear();
+    // The first box not yet begun.
+    let mut next = 0;
     // Where the runs of the row above start in `out`, to fold an identical row into them.
     let mut above = 0;
     let mut y = top;
     while y <= bottom {
+        while let Some(g) = boxes.get(next).filter(|g| g.y0 <= y) {
+            active.push(*g);
+            next += 1;
+        }
+        active.retain(|g| g.y1 >= y);
         cuts.clear();
-        cuts.extend(grown().filter(|g| g.y0 <= y && y <= g.y1).map(|g| (g.x0, g.x1)));
+        cuts.extend(active.iter().map(|g| (g.x0, g.x1)));
         if cuts.is_empty() {
-            // A gap between rectangles: jump to the next row any of them starts on.
-            y = grown().map(|g| g.y0).filter(|&y0| y0 > y).min().unwrap_or(bottom + 1);
+            // A gap between boxes: jump to the row the next one begins on.
+            y = boxes.get(next).map_or(bottom + 1, |g| g.y0);
             above = out.len();
             continue;
         }
