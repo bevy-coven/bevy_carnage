@@ -15,6 +15,9 @@ use crate::bloodstain::dry::{DRY_REF_AREA_M2, DRY_REF_TICKS, appearance_with_fre
 use crate::bloodstain::spectral::Film;
 use crate::bloodstain::stain::{StainShape, rasterise};
 
+/// PROBE: temporary stamp counters.
+pub static PROBE: [std::sync::atomic::AtomicU64; 16] = [const { std::sync::atomic::AtomicU64::new(0) }; 16]; // PROBE
+
 /// Thickness levels the fresh-colour table holds per tick. Sixteen: blood's colour moves fastest
 /// in the first quarter-millimetre and is flat past a couple, so the levels are spent where the
 /// substrate still shows through.
@@ -717,6 +720,7 @@ impl WetCanvas {
     /// `span` is capped so the scratch cannot exceed a 2048-texel edge: at the shipped 128-texel
     /// canvas that is never reached, and on a canvas large enough to reach it a subtexel edge is not
     /// what is limiting the look.
+    // PROBE
     fn stamp(&mut self, uv: Vec2, shape: &StainShape, tick: u32, span: u32) {
         if !uv.is_finite() {
             return;
@@ -728,9 +732,15 @@ impl WetCanvas {
         if self.fine.len() != fine_need {
             self.fine.resize(fine_need, 0);
         }
+        let t_ras = std::time::Instant::now(); // PROBE
         if !rasterise(shape, fine_px, &mut self.fine) {
             return;
         }
+        PROBE[0].fetch_add(t_ras.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+        PROBE[1].fetch_add(1, std::sync::atomic::Ordering::Relaxed); // PROBE
+        PROBE[2].fetch_add(fine_need as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+        PROBE[3].fetch_add(px as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+        let t_rest = std::time::Instant::now(); // PROBE
         let need = (px as usize) * (px as usize);
         if self.mask.len() != need {
             self.mask.resize(need, 0);
@@ -796,6 +806,7 @@ impl WetCanvas {
                 self.dirty_since = Some(tick);
             }
         }
+        PROBE[4].fetch_add(t_rest.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
     }
 
     /// **Stamp a stain where a world-space ray hits this actor.**
@@ -919,15 +930,28 @@ impl WetCanvas {
         // Where blood can be after this tick: every tile's blood grown by the distance one tick can
         // move it, and what the passes read, one texel further. A canvas with no blood has nothing to
         // move or shade. See `live`.
+        let t0 = std::time::Instant::now(); // PROBE
         let (mut runs, mut snap) = (std::mem::take(&mut self.runs), std::mem::take(&mut self.snap));
         covered(&self.live, n, TICK_REACH, &mut runs, &mut self.cuts, &mut self.boxes);
         covered(&self.live, n, TICK_REACH + 1, &mut snap, &mut self.cuts, &mut self.boxes);
+        PROBE[5].fetch_add(t0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
         if !runs.is_empty() {
+            let t1 = std::time::Instant::now(); // PROBE
             self.drip(&runs, &snap, gravity_uv, s);
+            PROBE[6].fetch_add(t1.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+            let t1 = std::time::Instant::now(); // PROBE
             self.spread(&runs, &snap, s);
+            PROBE[7].fetch_add(t1.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+            let t1 = std::time::Instant::now(); // PROBE
             self.advance(&runs, s);
+            PROBE[8].fetch_add(t1.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+            let t1 = std::time::Instant::now(); // PROBE
             self.shade(&runs, tick, s);
+            PROBE[9].fetch_add(t1.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+            PROBE[10].fetch_add(runs.iter().map(|r| ((r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1)) as u64).sum::<u64>(), std::sync::atomic::Ordering::Relaxed); // PROBE texels covered
+            PROBE[13].fetch_add(runs.iter().map(|r| (r.y0..=r.y1).map(|y| (r.x0..=r.x1).filter(|&x| self.wet.get((y * n + x) as usize).is_some_and(|c| c.0 > 0)).count() as u64).sum::<u64>()).sum::<u64>(), std::sync::atomic::Ordering::Relaxed); // PROBE blood texels after passes
         }
+        let t2 = std::time::Instant::now(); // PROBE
         // Re-measured over what was covered: outside it every texel is still `(0, 0)`.
         let span = s.dry_span();
         let mut moving = false;
@@ -943,6 +967,8 @@ impl WetCanvas {
                 }
             }
         }
+        PROBE[11].fetch_add(t2.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE
+        PROBE[12].fetch_add(1, std::sync::atomic::Ordering::Relaxed); // PROBE ticks with work
         (self.runs, self.snap) = (runs, snap);
         self.quiet = (!moving).then(|| s.clone());
     }

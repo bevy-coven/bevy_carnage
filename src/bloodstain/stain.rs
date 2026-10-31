@@ -293,26 +293,30 @@ pub fn rasterise(shape: &StainShape, px: u32, out: &mut [u8]) -> bool {
     let a = 0.5f32 / extent;
     let b = a * aspect;
 
-    // **Three ways to skip work that cannot change a byte**, each exact rather than approximate:
+    // **Ways to skip work that cannot change a byte**, each exact rather than approximate, and each held
+    // to the by-definition mask by `rasterise_writes_the_mask_its_definition_does`:
     //
     // - A satellite is a pure function of the seed and its spine, so it is placed once per mask;
-    //   per texel it repeated the same two hashes, a cosine and a sine.
-    // - `rim` is `1 + Σ reach·falloff` with every falloff at most one, summed in this order, and
-    //   floating-point addition is monotone, so it never exceeds `reach_bound`. Where `r` is at least
-    //   that, the body covers nothing, whatever the angle: no `atan2`, no `exp`.
+    //   per texel it repeated the same two hashes, a cosine and a sine. A texel outside a satellite's
+    //   disc by a margin the float error cannot cross skips its square root.
     // - A spine whose falloff argument is below `-17` adds under `0.6 · e⁻¹⁷ ≈ 2.5e-8` to a `rim`
     //   that is never below one, less than half its ulp, so the sum rounds back to `rim` exactly.
+    // - `rim` is `1 + Σ reach·falloff`, and where `r` is at least `rim` the body covers nothing. `RimBounds`
+    //   tabulates, per angular bucket, which spines can reach it and an upper bound on `rim` there, so a
+    //   texel outside the largest bound is zero without an `atan2`, one outside its bucket's bound is zero
+    //   without a spine, and the rest walk only the spines that can reach them, in the same order.
     let spines = spines.min(SPINE_MAX as usize);
     let sats = (shape.satellites as usize).min(spines);
-    let mut satellite = [(0.0f32, 0.0f32, 0.0f32); SPINE_MAX as usize];
+    let mut satellite = [(0.0f32, 0.0f32, 0.0f32, 0.0f32); SPINE_MAX as usize];
     for (k, slot) in satellite.iter_mut().enumerate().take(sats) {
         let key = shape.seed ^ (k as u32).wrapping_mul(0x85EB_CA6B);
         let ang = spine_angle[k];
         let dist = 1.0 + spine_reach[k] + 0.10 + hash_f32(key) * 0.25;
         let rad = 0.05 + hash_f32(key ^ 0x1656_67B1) * 0.07;
-        *slot = (a * dist * m::cos(ang), b * dist * m::sin(ang), rad);
+        *slot = (a * dist * m::cos(ang), b * dist * m::sin(ang), rad, rad * rad * SATELLITE_SKIP);
     }
-    let reach_bound = spine_reach.iter().take(spines).fold(1.0f32, |rim, &reach| rim + reach);
+    let bounds = RimBounds::of(spines, &spine_angle, &spine_reach, &spine_width);
+    let bucket_scale = RIM_BUCKETS as f32 / TAU;
 
     let half = px as f32 * 0.5;
     for y in 0..n {
@@ -327,23 +331,34 @@ pub fn rasterise(shape: &StainShape, px: u32, out: &mut [u8]) -> bool {
 
             // Elliptical body. `r` is 1 exactly on the rim.
             let r = m::sqrt((u / a) * (u / a) + (v / b) * (v / b));
-            let mut cover = if r >= reach_bound {
+            let mut cover = if r >= bounds.all {
                 0.0
             } else {
-                let theta = m::atan2(v / b.max(1.0e-6), u / a.max(1.0e-6));
                 let mut rim = 1.0f32;
-                for k in 0..spines {
-                    let mut d = m::abs(theta - spine_angle[k]);
-                    if d > PI {
-                        d = TAU - d;
+                let mut outside = false;
+                if spines > 0 {
+                    let theta = m::atan2(v / b.max(1.0e-6), u / a.max(1.0e-6));
+                    let bucket = (((theta + PI) * bucket_scale) as usize).min(RIM_BUCKETS - 1);
+                    if r >= bounds.rim[bucket] {
+                        outside = true;
+                    } else {
+                        let mut reaching = bounds.spines[bucket];
+                        while reaching != 0 {
+                            let k = reaching.trailing_zeros() as usize;
+                            reaching &= reaching - 1;
+                            let mut d = m::abs(theta - spine_angle[k]);
+                            if d > PI {
+                                d = TAU - d;
+                            }
+                            let arg = -(d * d) / (2.0 * spine_width[k] * spine_width[k]);
+                            if arg < -17.0 {
+                                continue;
+                            }
+                            rim += spine_reach[k] * m::exp(arg);
+                        }
                     }
-                    let arg = -(d * d) / (2.0 * spine_width[k] * spine_width[k]);
-                    if arg < -17.0 {
-                        continue;
-                    }
-                    rim += spine_reach[k] * m::exp(arg);
                 }
-                if r >= rim {
+                if outside || r >= rim {
                     0.0
                 } else {
                     let t = (1.0 - r / rim).clamp(0.0, 1.0);
@@ -355,8 +370,11 @@ pub fn rasterise(shape: &StainShape, px: u32, out: &mut [u8]) -> bool {
             // Satellites: small discs beyond the rim at the spine angles, because a satellite IS a
             // spine tip that pinched off. Placing them anywhere else would make them look like a
             // second, unrelated spray.
-            for &(sx, sy, rad) in satellite.iter().take(sats) {
+            for &(sx, sy, rad, skip) in satellite.iter().take(sats) {
                 let (ddx, ddy) = (u - sx, v - sy);
+                if ddx * ddx + ddy * ddy >= skip {
+                    continue;
+                }
                 let dd = m::sqrt(ddx * ddx + ddy * ddy);
                 if dd < rad {
                     let t = (1.0 - dd / rad).clamp(0.0, 1.0);
