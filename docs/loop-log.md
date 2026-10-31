@@ -395,3 +395,115 @@ uncommitted `examples/two_balloons.rs`, `src/balloon.rs` and `tests/zz_probe.rs`
 5. **The horror-film items from iteration 0** (arterial spray, pooling and drying, wound sheen, fracture debris), each
    needing `magick` installed first (absent on big_mac). `vfx` on Bevy 0.20 is still blocked on `bevy_hanabi`
    (newest `0.19.0`).
+
+## Iteration 4 — 2026-10-31 — the preset's default throw lands where the spatter was measured (AG-143)
+
+**Item and why it ranked first.** The bug recorded in this log since iteration 0 and first in the backlog of iterations 1
+to 3: `preset::tests::a_wound_stains_the_floor_beneath_it` was red (`nothing landed on the floor`, `src/preset.rs`), the
+one thing between this loop and its first green gate. The order is a bug issue, then a bug already recorded in the log,
+then `consumer` issues, then other enhancement issues, so it beat #8 (an enhancement). Skipped, not blocked: #8,
+`#[non_exhaustive]` on the error enums, the Bevy 0.19 citation sweep, the horror-film items. No `consumer` issue is open.
+The acceptance was iteration 0's: green **with the test unchanged, a fix in `src/`**; it is.
+
+**Diagnosis, measured before any change.** A probe in `throw_spray` (removed) printed the test's wound: an impact of radius
+0.03 m at `(0, 0.9, 0.3)`, seven droplets launched at `13.6, 8.3, 39.6, 8.3, 27.8, 22.6, 36.6` m/s, landing at `z = 4.79,
+4.58, 43.47, 1.83, ...` on a floor whose half-width is 1.5 m. Nothing lands on a three-metre floor because
+`GoreDials::default()` is `BloodSettings::default()`, whose `spatter_speed_scale` is `1.0`: the paper's launch speeds
+landed by `droplet::landing`, a drag-free parabola. A chest-height wound (area 0.02 m², 48 droplets) lands 1.50 to 54.99 m
+out, median 4.83 m, 21 of 48 within 4 m. `BloodSettings`' own doc said "Expect to lower it" and every demo lowers it by
+hand; the two-line inclusion did not. The assertion was right and the fixture is the demos' own.
+
+**What changed** (`6bfce57` research, `bfbb14a` code, `b8d1f46` docs): `GoreDials::default()` ships
+`blood.spatter_speed_scale = GORE_SPATTER_SPEED_SCALE` (`0.25`, public in `preset`), the default wound now lands
+0.59 to 5.11 m out, median 1.55 m, 47 of 48 within 4 m, the 0.25 to 4 m field Comiskey, Yarin & Attinger measured
+their stains over although the droplets left at 8 to 40 m/s (air drag). `BloodSettings::default()` keeps `1.0`; no
+bloodstain golden moved. **Found by measuring, not by reading: the scale must compress the flight to a floor and nothing
+else.** The first version scaled the casts too and `capture_skinned --through` frame 195 showed the wall's stipple at
+two thirds the size and nearly one size (median diameter 5.3 to 3.4 px on one side of the body, 4.9 to 3.7 on the
+other; p90 over p10 of the diameters 6.65 to 3.92 and 4.55 to 1.52; Ref 1's is 8.1), because the stamp's floor of 1.5
+texels clamps the small end. `throw_spray` now casts every droplet from the paper's launch speed
+(`spatter_speed_scale: 1.0` for the cast) and lands the uncaught ones on a floor with the dial's scale; the wall is
+pixel-identical to before. Two tests: `the_default_throw_lands_inside_the_field_the_spatter_was_measured_over`
+(>= 95 % of 48 droplets in 0.25 to 4 m, farthest under 8 m; the paper's own settings put the median past 4 m and the
+farthest past 40 m) and `the_flight_scale_leaves_a_wall_as_it_was` (**fails first**: it failed, with `left != right`,
+against a build that casts at the scaled speed, and passes on the shipped one). The bug's own test is the third.
+
+**Assumed decision (owner may override):** options (a) change `BloodSettings::default()` to `0.25`: breaks four frozen
+goldens and makes the paper's constants lie; (b) change only the test's fixture (a 60 m floor): leaves every default
+`GorePlugin` with an empty floor, and iteration 0 asked for a fix in `src/`; (c) the preset states the scale,
+`BloodSettings` keeps the paper's number. Picked (c), and picked "flight only" over "all speeds" for the reason above.
+No issue exists for it, so it is recorded here and in the commit body. A caller who authored the dial (`0.25`, or
+`gore_tier`'s `0.12`) keeps its floor exactly and now gets walls, cloth and skin sized at the paper's speed.
+
+**Sources** (`docs/research/spray-reach.md`): physics, Comiskey, Yarin & Attinger 2018
+(`doi:10.1103/physrevfluids.3.063901`), quoted through `distill_search`: stains measured on "a butcher paper substrate
+strip (0.41 × 4 m²) ... binned from 25–400 cm", droplets at "40 m/s ... forward ... 8 m/s [back]", and "the initially
+slower, larger droplets fly further than the initially faster, smaller ones". Reference set, kept under `/tmp/c4/refs/`
+and cited by URL only: Ref 1 `commons.wikimedia.org/wiki/File:Blood_Spatter_Texture_-_FREE.jpg` (CC BY 2.0, wall spray, fresh
+stain sRGB `(161, 60, 46)`, 632 stains, p90/p10 of diameters 8.1); Ref 2 `.../File:2023_Blutstropfen_Wischspur.jpg` (CC0,
+drops, `(172, 54, 30)`); Ref 3 `.../File:Calculating_the_area_of_origin_of_a_blood_splatter.jpg` (CC BY-SA 4.0); Ref 4
+`filmhounds.co.uk/2023/04/17/gory-groovy-the-splatter-of-evil-dead/` (*Evil Dead*, press still, film `(150, 37, 30)`); Ref 5
+`variety.com/2024/artisans/news/terrifier-3-kills-art-the-clown-1236177913/` (*Terrifier 3*, dried flecks `(56, 29, 21)`); Ref
+6 `ilovesplatter.com/2013/04/05/evil-dead-2013/`. Technique: *Dead Island 2*'s FLESH system (Motionographer, AusGamers) and the
+jittered-ray cone of the open-source Minecraft "gore" mod. `distill_search` for a game-gore technique source returned only
+SIGGRAPH 2011 slide headings; the `catalog_recent` re-scan (limit 200) found nothing in a domain (the window is the bulk
+embed of the SIGGRAPH course notes, already in `corpus.md`); `system_status` and `scribe_health` healthy.
+
+**Critique and verdict** (`/tmp/c4/critique.md`, `cmp_top359.png`, `cmp_topthrough359.png`, `cmp_wall_zoom.png`, all removed
+with `/tmp/c4`). Against Ref 1 and Ref 2: (1) the floor now takes 9 stains in the top-down view (`capture_skinned --eye
+0,4.2,0.3 --at 0,0,0`, frame 359; none before), but each is a ragged blob of about 10 cm (p10 1.1 px, p90 23.6 px, max
+25 px) where Refs 1 and 2 show round stains of a few millimetres to two centimetres in their hundreds: wrong size by about
+5 times, wrong count by about 10; that is the sheet blob `stain_radius` (2 to 12 cm) the floor has always stamped, now
+visible by default; (2) the blood in the frame is `(127, 63, 67)`, pinker and darker than Ref 1 `(161, 60, 46)` and Ref 4
+`(150, 37, 30)`, which this item did not touch; (3) **a second round** built the floor on `hard_stain`, as walls and skin
+have been since 0.5.62: 7 dots of about 2 cm (236 red pixels against 1,536), the right size and sparse, because a 3.5 cm
+crater throws `pi r^2 * 2400 = 9` droplets. It changes every caller's floor look, which the bug did not ask for, and is no
+more legible until the count is decided, so it is **parked, not shipped**: branch `loop/iter-4-floor-stains`, commit
+`bffcbe8`. Verdict: **spray reach GREAT** against its validation targets (the bug's test green and unchanged, 47 of 48
+droplets in the measured field, the wall pixel-identical, every golden untouched, every digest stable); **floor stain look
+NOT YET**, unchanged by this item, backlog item 1.
+
+**Numbers.**
+
+- *Reproducibility* (`capture_preset` and `capture_skinned` variants, each twice, before and after, all pairs equal):
+  `preset` `b7721708304df85f` to `8a10edd6f39c51d8`; default `ac9ee874ea09f208` to `9677d79de848daaa`; `--break`
+  `1fdc02e938a7404a` to `baa76e5ee1e0f626`; `--shirt` `9bc536185df82588` to `2c86f87087d1e03a`; `--through`
+  `0e4493510865f8b6` to `890512dd64b645ea`; `--guard` `5acf242d8eeb9360` to `555fc5022db246a1`; `--blows`
+  `ac9ee874ea09f208` to `9677d79de848daaa` (the default again, issue #8's blind spot); `--stroll` `8ebe761bcc8b4d83`
+  and `--quiet` `f83a631a7426808d` unchanged, as they take no hit. `--eye 0,4.2,0.3 --at 0,0,0` prints the digest it
+  printed without it. The bench digest `0x4366a8b64352c85a` is unchanged. Moved on purpose, by a floor that now takes spray.
+- *Pixels* (every fifth frame, before against after): `preset` differs from frame 35 in a 168 by 92 patch at its lower
+  edge; `skinned`, `--through`, `--guard`, `--break` and `--shirt` are pixel-identical (their camera does not see the floor
+  in front of the body). `docs/DEMOS.md` says which committed clips predate this and cannot be re-cut here (`vfx` does not
+  build on Bevy 0.20, ImageMagick is absent).
+- *Locks*: `hash_f32_is_frozen`, `the_spatter_model_is_frozen`, `the_stain_placement_is_frozen` and the rest of section 3's
+  twelve pass untouched inside the 352 lib tests. `tests/wetmap.rs` (mass) 13 pass; the wetmap passes were not touched.
+- *Bench* (`bench_carnage`, before and after alternated in the same minute, host load 8 to 10): `carnage_frame_ms` median of
+  five stable runs 1.04537 before, 1.05201 after (+0.6 %); `carnage_p99_ms` 29.62 before, 29.06 after (-1.9 %). One
+  earlier alternated set ran at load 10 to 11 and read 2.50 to 2.54 ms on both sides. The bench never calls the preset.
+- *Gate*, in the loop's order, on the code that ships (`bfbb14a`; the docs commit changed no `src/` line): `cargo build`
+  rc 0, 50 s; `cargo build --release` rc 0, 147 s; `cargo test --no-fail-fast` rc 0, 2322 s: **352 lib tests pass, 0 fail**
+  (350 and the two new; the red one is green) and every integration binary passes (`cross_section_plugin` 2,
+  `expressive_range` 3, `fault_modes` 7, `laceration_plugin` 4, `leaf` 3, `origin` 3, `qa_roster` 4, `readme` 4, `skeleton`
+  13, `tear` 9, `viscera` 19, `wetmap` 13) and the doctests (8 passed, 5 ignored); `cargo build --examples` rc 0. After the
+  docs commit: `readme`, `leaf`, `qa_roster` and the three locks re-run green. Not run: rustfmt (the repository is not
+  rustfmt-clean, the lesson of iteration 2), `tools/qa.sh` (no sheets without ImageMagick).
+
+**Found, not fixed:** `capture_skinned` and `capture_preset` never see the floor in front of the body, so their frames
+cannot show the spray this item moves; `--eye 0,4.2,0.3 --at 0,0,0` does, and is how it was judged.
+
+### Ranked backlog for iteration 5
+
+1. **The floor's stain look and the droplet count**, together. Parked: branch `loop/iter-4-floor-stains` (`bffcbe8`, floors on
+   `hard_stain`, 7 dots of 2 cm), adopt it on a new branch. The count is the real gap: a wound throws `area * 2400`
+   droplets, 9 for a bullet-sized crater, against hundreds of stains per 4 m strip in Comiskey et al. Research the count
+   (and a stipple or mist population on canvases), then judge the top-down frame against Refs 1 and 2, and the colour
+   `(127, 63, 67)` against `(161, 60, 46)`.
+2. **#8: a fold for flaymap and dermis canvases** in `capture_preset` and `capture_skinned` (`DermisCanvas::digest`, `flay=`
+   and `dermis=`), so the reproducibility gate sees craters, bruises and burns; `--blows` still prints the default digest.
+3. **`#[non_exhaustive]` on `SkeletalRefusal` (and the other public error enums)**: free until a release has them. See the
+   Release line below.
+4. **A Bevy 0.19 citation sweep** (`CLAUDE.md`, `docs/wetmap.md`, `docs/flaymap.md`, `tests/wetmap.rs`, `tests/viscera.rs`,
+   examples): re-point each to the 0.20 source after checking the cited line.
+5. **The horror-film items from iteration 0** (arterial spray, pooling and drying, wound sheen, fracture debris), each needing
+   `magick` installed first. `vfx` on Bevy 0.20 is still blocked on `bevy_hanabi` (newest `0.19.0`).
