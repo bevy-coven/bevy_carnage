@@ -241,6 +241,183 @@ fn blood_dried(uv: vec2<f32>) -> f32 {
     return 1.0 - wet / max(weight, 1.0e-6);
 }
 
+// **How a film dries in space** (`docs/research/drying-front.md`). A film is not one age: it dries at its contact line first and the front
+// goes in (Smith, Nicloux & Brutin 2020: "the rim dries first. Then this drying front propagates towards the centre of the pool"), and the
+// dried zone cracks at right angles to the front, at a spacing that goes with the film's thickness. The canvas stays the authority and
+// carries one age for a whole stamp; this reads the film's own extent, as `crater_light` reads a crater's, and draws the age that
+// follows from it. Nothing here is read back, and no table, canvas or digest depends on it.
+//
+// **How much sooner the rim dries than the middle**: the age a fragment is drawn at is `age * (1 + 3) - 3 * reach`, so at an age of one
+// quarter the rim is at one half and the middle at none, and at an age of one every part of the film is dry, as the CPU's walk has it.
+// This crate's own number.
+const FRONT_LEAD: f32 = 2.5;
+// **How far in from its edge a film's colour is ahead of its age**: 30 mm, a black rim 1.5 to 2 cm wide on a pool 3.6 cm across at the
+// half dry (Smith et al. 2020, Fig. 12). A film further from its edge than this dries as a whole. This crate's own number.
+const FRONT_REACH_MM: f32 = 30.0;
+// Under this age a film is fresh and the front is not looked for.
+const FRONT_MIN_AGE: f32 = 0.02;
+// **How fast the middle of a film goes through its colour walk, against the clock**: 0.4. Oxidation under a skin of dried blood is slow
+// (oxygen has to get in), and the middle of a pool stays red and wet until the front reaches it (Smith et al. 2020, Fig. 12, S.IV: a wet red
+// middle in a black rim). At an age of one every part of the film has walked the whole way. This crate's own number.
+const INTERIOR_RATE: f32 = 0.4;
+// **The crust at the rim of a dried deep film**: the outermost `CRUST_REACH` (0.3 of the front's reach, 9 mm) is darkened by `CRUST_DARK`
+// (0.45 of its linear light). A film of a pool's depth has its solids carried to its contact line as it dries (the coffee ring: Brutin et al.
+// 2011) and the rim of Ref Q's strokes and of Smith et al.'s pool are the darkest part of each. Not on a thin film. This crate's own numbers.
+const CRUST_REACH: f32 = 0.4;
+const CRUST_DARK: f32 = 0.6;
+const FRONT_DIRS: u32 = 6u;
+const FRONT_STEPS: u32 = 7u;
+// The distances from the edge of the eight directions are joined by a p-norm minimum (a smooth minimum: a hard one draws a star).
+const FRONT_NORM_P: f32 = 4.0;
+const FRONT_EPS: f32 = 0.05;
+
+// **The cracks**: about 4 mm apart in a film of a pool's depth (Smith et al. 2020, Fig. 12: about forty round a pool 20 cm
+// round), wider in a deeper film ("the separation between them depends on the thickness of the sample"), 0.35 mm wide, in a film
+// whose drawn age is past `CRAQUELURE_ONSET` (`bloodstain::dry`'s own 0.72) and which is deeper than a fifth of the canvas's. A crack
+// narrower than a pixel is drawn a pixel wide, and cracks closer than `CRACK_MIN_PX` pixels are not drawn at all. This crate's own numbers.
+const CRACK_SPACING_MM: f32 = 12.0;
+const CRACK_WIDTH_MM: f32 = 0.35;
+const CRACK_ONSET: f32 = 0.72;
+const CRACK_MIN_PX: f32 = 2.0;
+
+// How far a film runs from `uv` along `dir`, `x`, as a share of `FRONT_REACH_MM`: `0` at once at its edge, `1` when it runs on past the
+// reach; and `y`, the deepest the film is on the way. Seven samples of the wet map at steps that are close together near `uv` and far
+// apart beyond; the run ends where the film is under half of its depth at `uv`, placed by interpolating between the two samples that
+// bracket it.
+fn film_run(uv: vec2<f32>, dir: vec2<f32>, reach_uv: f32, core: f32) -> vec2<f32> {
+    var run = 1.0;
+    var deepest = core;
+    var prev_t = 0.0;
+    var prev_f = 1.0;
+    var found = false;
+    for (var k = 0u; k < FRONT_STEPS; k = k + 1u) {
+        let s = f32(k + 1u) / f32(FRONT_STEPS);
+        let t = pow(s, 1.8);
+        let c = textureSampleLevel(wet_map, flesh_sampler, uv + dir * (t * reach_uv), 0.0).r;
+        let f = clamp(c / max(core, WET_EDGE), 0.0, 1.0);
+        if !found && f < 0.5 {
+            let q = (prev_f - 0.5) / max(prev_f - f, 1.0e-4);
+            run = mix(prev_t, t, q);
+            found = true;
+        }
+        if !found {
+            deepest = max(deepest, c);
+        }
+        prev_t = t;
+        prev_f = f;
+    }
+    return vec2<f32>(run, deepest);
+}
+
+// **How far from its edge a fragment of film is**, `x`: `0` at the edge to `1` at `FRONT_REACH_MM` and beyond, the nearest of six directions
+// by a smooth minimum; and `y`, how deep the film is where it is deepest within the reach, which is the film's own depth where the fragment is at its
+// edge and the canvas's falloff has thinned it (a spline's foot is a texel or two wide). `y` is over zero: it is also the flag that this was
+// computed.
+fn film_front(uv: vec2<f32>, core: f32, mm_per_uv: f32) -> vec2<f32> {
+    let reach_uv = FRONT_REACH_MM / max(mm_per_uv, 1.0e-6);
+    var norm = 0.0;
+    var plateau = core;
+    for (var i = 0u; i < FRONT_DIRS; i = i + 1u) {
+        let a = f32(i) * (2.0 * PI / f32(FRONT_DIRS));
+        let dir = vec2<f32>(cos(a), sin(a));
+        let r = film_run(uv, dir, reach_uv, core);
+        norm = norm + pow(r.x + FRONT_EPS, -FRONT_NORM_P);
+        plateau = max(plateau, r.y);
+    }
+    // What the smooth minimum comes to when the film runs on in every direction, so that "far from any edge" is exactly `1`.
+    let full = pow(f32(FRONT_DIRS) * pow(1.0 + FRONT_EPS, -FRONT_NORM_P), -1.0 / FRONT_NORM_P) - FRONT_EPS;
+    let reach = clamp((pow(norm, -1.0 / FRONT_NORM_P) - FRONT_EPS) / full, 0.0, 1.0);
+    return vec2<f32>(reach, max(plateau, 1.0e-3));
+}
+
+// A hash of a lattice point, two floats in `[0, 1]` (PCG, Jarzynski and Olano 2020): integer arithmetic, so the same on every GPU.
+fn hash22(p: vec2<i32>) -> vec2<f32> {
+    var v = vec2<u32>(bitcast<u32>(p.x), bitcast<u32>(p.y)) * 1664525u + vec2<u32>(1013904223u);
+    v.x = v.x + v.y * 1664525u;
+    v.y = v.y + v.x * 1664525u;
+    v = v ^ (v >> vec2<u32>(16u));
+    v.x = v.x + v.y * 1664525u;
+    v.y = v.y + v.x * 1664525u;
+    v = v ^ (v >> vec2<u32>(16u));
+    return vec2<f32>(v & vec2<u32>(0xFFFFu)) / 65535.0;
+}
+
+// `x`: how far `q` is from the nearest border between two cells of a jittered lattice, in cells; `y`: a number in `[0, 1]` that belongs to
+// that border and not to `q`, the same on both sides of it.
+fn crack_cells(q: vec2<f32>) -> vec2<f32> {
+    let n = vec2<i32>(floor(q));
+    let f = q - floor(q);
+    var near_d = 8.0;
+    var near_r = vec2<f32>(0.0);
+    var near_id = vec2<i32>(0);
+    for (var j = -1; j <= 1; j = j + 1) {
+        for (var i = -1; i <= 1; i = i + 1) {
+            let g = vec2<i32>(i, j);
+            let r = vec2<f32>(g) + 0.1 + 0.8 * hash22(n + g) - f;
+            let d = dot(r, r);
+            if d < near_d {
+                near_d = d;
+                near_r = r;
+                near_id = n + g;
+            }
+        }
+    }
+    var edge = 8.0;
+    var own = 1.0;
+    for (var j = -1; j <= 1; j = j + 1) {
+        for (var i = -1; i <= 1; i = i + 1) {
+            let g = near_id + vec2<i32>(i, j);
+            let r = vec2<f32>(g - n) + 0.1 + 0.8 * hash22(g) - f;
+            let diff = r - near_r;
+            let len2 = dot(diff, diff);
+            if len2 > 1.0e-5 {
+                let d = dot(0.5 * (near_r + r), diff) * inverseSqrt(len2);
+                if d < edge {
+                    edge = d;
+                    own = min(hash22(near_id).x, hash22(g).x);
+                }
+            }
+        }
+    }
+    return vec2<f32>(edge, own);
+}
+
+// A smooth value noise in `[0, 1]` over the lattice's points: which patches of a film have cracked.
+fn patch_noise(p: vec2<f32>) -> f32 {
+    let i = vec2<i32>(floor(p));
+    let f = p - floor(p);
+    let u = f * f * (3.0 - 2.0 * f);
+    let a = hash22(i).x;
+    let b = hash22(i + vec2<i32>(1, 0)).x;
+    let c = hash22(i + vec2<i32>(0, 1)).x;
+    let d = hash22(i + vec2<i32>(1, 1)).x;
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// **How much of a crack a fragment of a dried film is on**, `[0, 1]`. `age` is the age it is drawn at, `front` what `film_front` found. A dried
+// film of a pool's depth crazes into plates (the cracks "follow the drying front", and "the separation between them depends on the
+// thickness of the sample": Smith et al. 2020), so the cracks are the borders of a jittered lattice whose cell is `CRACK_SPACING_MM` wide in a
+// film of a pool's depth and wider in a deeper one, in patches, in mm on the surface so that the size does not depend on the canvas.
+fn dried_crack(uv: vec2<f32>, front: vec2<f32>, age: f32, mm_per_uv: f32, mm_per_px: f32) -> f32 {
+    let cell = CRACK_SPACING_MM;
+    let gate = smoothstep(CRACK_ONSET, CRACK_ONSET + 0.12, age)
+        * smoothstep(0.2, 0.4, front.y)
+        * smoothstep(CRACK_MIN_PX, 6.0 * CRACK_MIN_PX, cell / max(mm_per_px, 1.0e-6));
+    if gate <= 0.0 {
+        return 0.0;
+    }
+    let here = uv * mm_per_uv;
+    let v = crack_cells(here / cell);
+    let half_w = 0.5 * max(CRACK_WIDTH_MM, 0.7 * mm_per_px) / cell;
+    let aa = 0.5 * mm_per_px / cell;
+    let line = 1.0 - smoothstep(half_w - aa, half_w + aa, v.x);
+    // A film cracks in patches, and not every border of a plate is a crack.
+    let p = here / (cell * 9.0);
+    let cracked = smoothstep(0.45, 0.65, 0.65 * patch_noise(p) + 0.35 * patch_noise(p * 2.7 + vec2<f32>(17.0, 5.0)));
+    let present = smoothstep(0.15, 0.3, v.y);
+    return line * cracked * present * gate;
+}
+
 // **The normal of a surface lifted above the one at `N`**, given how fast the lift changes across the
 // screen (`dh`, world units per pixel in x and y), so it needs no tangents (Mikkelsen, "Bump Mapping
 // Unparametrized Surfaces on the GPU", 2010). Derivatives: call it only in uniform control flow.
@@ -314,6 +491,9 @@ fn fragment(
     var film_cn = pbr_input.clearcoat_N; // and of the coat on it
     var film_dh = vec2<f32>(0.0);        // how fast the film's surface rises across the screen
     var flay_mm_per_uv = 0.0;            // the flaymap's size on the body, for a crater's walls
+    var mm_per_px = 0.0;                 // how big a pixel is on the surface, and
+    var mm_per_uv = 0.0;                 // how big the canvas is, for the drying front: both zero where it cannot be taken (the prepass)
+    var front = vec2<f32>(0.0);          // where an aged film is in its drying: `film_front`, `y` zero when not looked for
 @if(VERTEX_UVS_A) {
     if (flags & FLAG_WET) != 0u {
         // Smooth inside, and its rim drawn crisp at `WET_EDGE`: a film's edge is a line, and the
@@ -324,8 +504,16 @@ fn fragment(
         let aa = max(fwidth(w.r), 1.0e-4);
         amount = w.r * clamp((w.r - WET_EDGE) / aa + 0.5, 0.0, 1.0);
         wetness = w.a;
+@if(!PREPASS_PIPELINE) {
+        // Taken here, in uniform control flow, for the drying front and its cracks: a derivative cannot be taken under `amount > 0.0`.
+        mm_per_px = length(fwidth(pbr_input.world_position.xyz)) * flesh.sss.y;
+        mm_per_uv = mm_per_px / max(length(fwidth(in.uv)), 1.0e-9);
+}
         if amount > 0.0 {
             dried = blood_dried(in.uv);
+            if dried > FRONT_MIN_AGE && mode != MODE_CLOTH && mm_per_uv > 0.0 {
+                front = film_front(in.uv, w.r, mm_per_uv);
+            }
         }
 @if(!PREPASS_PIPELINE) {
         // **A film has a surface.** Its depth, smooth to its second derivative, is a height above
@@ -474,7 +662,21 @@ fn fragment(
     if amount > 0.0 {
         let depth_mm = amount * flesh.wet.z;
         let base = pbr_input.material.base_color.rgb;
-        pbr_input.material.base_color = vec4<f32>(blood_over(base, depth_mm, dried), pbr_input.material.base_color.a);
+        // **The age the film is drawn at is its own, not its stamp's** (`film_front`): the rim is ahead of the middle, and where it is
+        // ahead it is matte. Under `FRONT_MIN_AGE`, in the prepass and on cloth it is the canvas's age, as it was.
+        var age = dried;
+        var crack = 0.0;
+        var crust = 0.0;
+        if front.y > 0.0 {
+            age = max(dried * INTERIOR_RATE, clamp(dried * (1.0 + FRONT_LEAD) - FRONT_LEAD * front.x, 0.0, 1.0));
+            wetness = wetness * (1.0 - smoothstep(0.0, 0.5, age - dried));
+            crack = dried_crack(in.uv, front, age, mm_per_uv, mm_per_px);
+            // The dried rim of a deep film is a crust, darker than the film it bounds (the coffee ring).
+            crust = smoothstep(0.5, 1.0, age) * (1.0 - smoothstep(0.0, CRUST_REACH, front.x)) * smoothstep(0.1, 0.3, front.y);
+        }
+        // A crack shows what the blood lies on.
+        let blood = mix(blood_over(base, depth_mm, age), base * 0.6, 0.4 * crack) * (1.0 - CRUST_DARK * crust);
+        pbr_input.material.base_color = vec4<f32>(blood, pbr_input.material.base_color.a);
         // A wet film smooths whatever it lies on; a dried one is matte again.
         pbr_input.material.perceptual_roughness = mix(pbr_input.material.perceptual_roughness, wet_rough, wetness * pool);
         pbr_input.N = film_n;

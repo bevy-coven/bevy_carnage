@@ -43,6 +43,21 @@
 //! that have blood**: through the spline it falls to zero at the rim of every drop and a fresh
 //! one would wear a brown ring. No texture, sampler or uniform is added. `docs/research/dry-blood.md`.
 //!
+//! **Blood dries from its edge in, and a dried crust cracks** (0.8.5). A pool is stamped in one tick, so every texel of it carries one age
+//! and it went brown as a whole, a decal changing colour; a pool of blood dries at its contact line first and the front goes in
+//! (Smith, Nicloux & Brutin 2020, `doi:10.1038/s41598-020-65465-4`), a black rim round a red, wet middle, cracked at right angles to the
+//! front once it is dry. For blood with an age over `FRONT_MIN_AGE` the shader reads the film's own extent, as `crater_light` reads
+//! a crater's: six directions, each at seven distances out to `FRONT_REACH_MM` (30 mm), the run of film in each ending where it is under half of
+//! its depth, joined by a smooth minimum into how far the fragment is from the film's edge, `0` at it and `1` at the reach or beyond. The age
+//! the colour walk is drawn at is then the rim's: `age * (1 + FRONT_LEAD) - FRONT_LEAD * reach`, never under `INTERIOR_RATE` (0.4) of the
+//! canvas's own, so at an age of a quarter the rim is at half its walk and the middle at a tenth, and at an age of one every part of
+//! the film is at the end of it, the CPU's own endpoint; the rim is matte where it leads the wetness byte, and the outermost `CRUST_REACH` of
+//! a deep film is darkened (the coffee ring: Brutin et al. 2011). A dried film of a pool's depth is crazed in patches into plates `CRACK_SPACING_MM`
+//! (12 mm) wide, the borders of a jittered lattice drawn in millimetres on the surface, 0.35 mm wide or a pixel, showing the surface the blood
+//! lies on, and faded out where plates are under 2 to 12 pixels across. Nothing here is read back, no table, canvas, uniform or binding
+//! is added, and no digest moves: the recorders print what they printed. Dried blood costs 42 more taps of the wet map a pixel (and the
+//! lattice where it cracks); fresh blood costs none. `docs/research/drying-front.md`.
+//!
 //! **A film has a surface** (0.5.47). The film's depth, read from the wet map as a cubic B-spline,
 //! is a height above what it lies on, drawn `FILM_RELIEF` (6) times its depth because a meniscus is
 //! far narrower than a canvas texel, and that height tilts the shading normal and the coat's, by
