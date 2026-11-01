@@ -1166,8 +1166,8 @@ is the `--dry` knob, committed. Left, not mine and not deleted: the branches `lo
 
 ## Iteration 10 — 2026-11-01 — an exit wound is torn, an entrance is round (AG-149)
 
-**Item and why it ranked first.** `gh issue list` is empty (no bug, no `consumer` request); `git branch --list 'wiggum/parked-*'` finds nothing (the only parked tree on this clone is
-`loop/iter-4-floor-stains`, adopted in iteration 6); `origin/loop-stats`' last audit row (pass 16, `v0.8.3`) has nothing `missing`. `catalog_recent` (limit 200): nothing in a domain (psychology and
+**Item and why it ranked first.** `gh issue list` is empty (no bug, no `consumer` request); `git branch --list 'wiggum/parked-*'` finds nothing (the `loop/iter-N` branches are earlier passes', none parked
+by the driver); `origin/loop-stats`' last audit row (pass 16, `v0.8.3`) has nothing `missing`. `catalog_recent` (limit 200): nothing in a domain (psychology and
 relationships bulk, `sig2024_*` and `sig2026_*` rendering titles), so no `Research: corpus` commit; `system_status` healthy. Sanctuary (cloned and read, removed) consumes
 `fracture_skeleton`, `BondGraph::islands` and the region queries, and hand-rolls nothing around the preset. Ranked from iteration 9's backlog and what this pass looked at:
 (1) **blood runs as rivulets, not a curtain** (built, measured, reverted: below); (2) the dried colour's hue and rim (a shader term, a 38-minute cold wasm build to check); (3) the wall spray's size spread
@@ -1206,7 +1206,7 @@ Tom Savini ("A wound has to read true, not just wet"). Technique: Vlachos, *Rend
 a texture, so every exit is one star; here it is a function of the place).
 
 **Critique and verdict** (`/tmp/c10/compare-exit.png`, `docs/media/exit.png`; the scratch is removed). **The torn exit margin: GREAT for what it fixes.** Frame 125 and 300 of `capture_skinned --through`, the back
-(entrance) and the front (exit), 0.8.3 and now: the entrance is byte-identical in both builds (two pixels of 40 000 differ by 2 of 765, the GPU); the 0.8.3 exit was a circle a bit wider than the entrance, now it is a
+(entrance) and the front (exit), 0.8.3 and now: the entrance is the same in both builds (byte-identical at frame 300; two pixels of 400 000 differ by at most 2 of 765 at frame 125, the GPU); the 0.8.3 exit was a circle a bit wider than the entrance, now it is a
 notched hub with five splits, the longest 2.4 radii, bent and rippled, raw red on the skin, and at frame 300 they stand out of the run of blood below them. Beside the exit plate (Ref 1) it reads as the same
 thing at a glance: a hub and splits of different lengths radiating all round, against Ref 2's one small round hole. **Not great, named, and not this item**: against Ref 1 the hub is a big dark disc (the exit is 1.6 times
 the entrance's radius) where the plate's is a speck; the splits are one or two texels (3.5 mm) wide with a stair-stepped edge at 3x and have no raised, everted lip (Ref 3, the moulage, has chunky torn flesh); and
@@ -1246,3 +1246,17 @@ same `CARGO_TARGET_DIR` left the uplinked example from the worktree and "Finishe
    with no new state. A shader term and a WebGL2 check.
 4. **A heavy wound on a wall** (11 ms a hit, 12 ms a tick at 45 hits of 8 cm): stamp each droplet at the tick it arrives.
 5. **`digest=` for a body that breaks**, `#[non_exhaustive]` on the error enums, the Bevy 0.19 citation sweep; `vfx` on Bevy 0.20 still waits on `bevy_hanabi`.
+
+**Merged tree and release.** `origin/main` had not moved (`18da8b1`): merged `loop/iter-10` into it (`eaf0586`, `--no-ff`), so the merged tree is the tree the gate ran on (the 471-test run above) plus the log. The release commit
+(`d9a77e4`, `release: v0.8.4`: the changelog, `Cargo.toml` and `Cargo.lock`, the Status and a `0.8.4` section in `docs/guide/history.md`, which `tests/readme.rs` reads; the README's `"0.8"` install line already names the
+minor, and its compatibility row said `0.6 – 0.7` since 0.8.0 and now says `0.6 – 0.8`) was checked with `cargo test --release --test readme --test leaf` (7 passed), `cargo build` rc 0 and a `cargo publish --dry-run` from the clean
+tree. `cargo semver-checks check-release --baseline-version 0.8.3 --only-explicit-features --features serde,flesh` (367 s): 202 checks pass, 58 skip, "no semver update required", so a PATCH. `main` pushed
+(`18da8b1..d9a77e4`) and `loop/iter-10` with it; **released `0.8.4`** (https://crates.io/crates/bevy_carnage/0.8.4, tag `v0.8.4` at `d9a77e4`; the crates.io API answers `0.8.4`, not yanked, created
+2026-11-01T09:52Z). The log's own last commit follows the tag, so it is not in the published package.
+
+**Cleanup.** Removed, all mine: `/tmp/c10` (6.0 GB: the references, baseline and after frames of every variant, the bench binary and the baseline `capture_skinned` built from `18da8b1`, a Pillow, NumPy and SciPy venv, the
+clone of Sanctuary, the gate's logs), `/tmp/c10-semver` (468 MB), `target/package` in the clone's cache (9 MB), and the worktree `~/c10_base` (`git worktree remove`, plain; it was built into the clone's own
+`CARGO_TARGET_DIR`, which is why the next build there needed a touched source). The throwaway `tests/zz_runs.rs` (the rivulet probe and the torn-cost timer) was deleted before the first commit that carries source. `df`: 83 G free
+before (01:11) and 72 G after (the builds took the rest of the 11 G; `/tmp` freed 6.5 G of it). Left, not mine and not deleted: the branches `loop/iter-1`, `loop/iter-1b`, `loop/iter-2`, `loop/iter-3`, `loop/iter-4` (merged),
+`loop/iter-4-floor-stains`, `loop/iter-5`, `loop/iter-6`, `loop/iter-7`, `loop/iter-8` and `loop/iter-9` (merged), and other loops' `/tmp` directories (`/tmp/c1`, `/tmp/c12-1`, `/tmp/c12-2`, `/tmp/c12-3`, `/tmp/c-0.25`,
+`/tmp/c-0.3`, `/tmp/ca0.0`). Mine and kept: `loop/iter-10` (merged, pushed). `git worktree list` shows the clone alone.
