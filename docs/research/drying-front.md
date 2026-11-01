@@ -64,35 +64,52 @@ computes of what the canvas says, never read back.
 
 ## Model adopted
 
-Two terms in `flesh.wesl`, for blood with a drying age over zero, and none in any table, canvas or digest:
+Three terms in `flesh.wesl`, for blood with a drying age over `FRONT_MIN_AGE` (0.02: about 0.6 s at the shipped 30 s), and none in any table, canvas
+or digest. Fresh blood, the prepass and cloth take the code they always took.
 
-1. **The front.** The age a fragment's colour and gloss are drawn at is `local = clamp(age * (1 + LEAD) - LEAD * reach, 0, 1)`, with `age`
-   the canvas's `blood_dried` and `reach` the fragment's distance from the film's edge as a share of `FRONT_REACH_MM`, `0` at the rim and
-   `1` at that far or further. `local >= age` at the rim and `local <= age` inside: at `age` `0` it is `0` everywhere, at `age` `1` it is
-   `1` everywhere (the CPU's endpoints, so a fully dried film is the colour it always was and a fresh one is the colour it always was), and between them the
-   rim has dried before the middle. Gloss follows: a texel's coat is cut by how far `local` has got ahead of the canvas's own wetness, so the
-   dry rim is matte while the middle still shines.
-   The distance is taken the way `crater_light` already reads a canvas: eight directions, each out to `FRONT_STEPS` texel distances, the first
-   at which the film is under half its own depth, interpolated.
-2. **The cracks.** Where `local` is past `CRAQUELURE_ONSET` (0.72, `bloodstain::dry`'s own number) and the film is thick enough to crack, lines
-   at right angles to the edge, spaced `CRACK_SPACING_MM` at the film's plateau and proportionally wider in a thicker film, each with its own
-   length (hashed), drawn as a thin line where the substrate shows. A fade by the pixel footprint keeps a crack that is under two pixels wide from
-   shimmering.
+1. **The front.** The age a fragment's colour is drawn at is `age = max(INTERIOR_RATE * canvas, clamp(canvas * (1 + LEAD) - LEAD * reach, 0, 1))`, with
+   `canvas` the canvas's own age (`blood_dried`) and `reach` the fragment's distance from the film's edge as a share of `FRONT_REACH_MM`, `0` at the
+   rim and `1` at that far or further. At `canvas` `0` it is `0` everywhere, at `1` it is `1` everywhere (the CPU's endpoints: a fully dried film is the
+   colour it always was, and a fresh one is the colour it always was); between, the rim has dried and the middle has not: **the middle's colour
+   walk runs at `INTERIOR_RATE` of the clock** (oxygen has to get in under a dried skin; Smith et al.'s S.IV has a red middle in a black rim), the
+   rim's at the front. The first version let the middle lag the whole way and a half-dried pool went pink in the middle; with `max` against 0.4 of
+   the clock the middle is the red-brown of the first stop, not fresh. Gloss follows: the coat is cut by how far the drawn age has got ahead of the
+   canvas's, so the dry rim is matte while the middle still shines.
+   `reach` is how the shader reads a canvas it does not own: six directions, each sampled seven times out to `FRONT_REACH_MM` at distances
+   `(k/7)^1.8` of it (close together near the fragment), the run of film in a direction ending where the wet map is under half of its depth at the
+   fragment, placed by interpolating between the two samples that bracket it, the six joined by a smooth minimum (p-norm, p = 4: a hard minimum
+   draws a star). It is read in millimetres on the surface (`fwidth` of the world position over `fwidth` of the UV), so the same look holds on a
+   3.5 mm skin, a 6 mm wall and a 12 mm floor.
+2. **The crust.** The outermost `CRUST_REACH` of the front's reach in a film deeper than a fifth of the canvas's is darkened (`CRUST_DARK`) and drawn
+   at the film's **full depth** (the deepest the film is within the reach), not the thin foot the canvas's spline gives its edge: the contact line
+   is pinned and the solids are carried out to it (the coffee ring), so the rim of a thick film is as dark as a thick film. A drop (a film under a
+   fifth of the canvas's depth) has no crust.
+3. **The cracks.** Where the drawn age is past `CRAQUELURE_ONSET` (0.72, `bloodstain::dry`'s own number) and the film is deeper than a fifth of the canvas's, the
+   borders of a jittered lattice of cells `CRACK_SPACING_MM` wide, in millimetres on the surface, are cracks 0.35 mm wide (a pixel at least), drawn as
+   the surface the blood lies on showing through, in patches (two octaves of value noise over the lattice, so a pool is cracked here and whole
+   there) and faded out where the plates are under twelve pixels across and gone under two. **A first version read the lattice at the nearest point of the
+   edge, so that every crack ran in from the rim at right angles to it, as Ref 1's do; the normal the six directions give is too noisy where the film
+   is deep and the cracks scrambled into swirls (contour lines of the estimate), so the plates are read where the fragment is.** The radial look is
+   named in `## Deviations`. A lattice whose cell followed the film's depth (the quote above: spacing goes with thickness) drew a seam where the
+   depth estimate steps, so the cell is constant.
 
 What is **not** here and is named: the colours (`SRGB_MET`, `SRGB_HEMI` and the aged table stay: `the_flesh_tables_are_frozen` and
-`the_aged_blood_table_is_frozen` pass untouched); the coffee ring's thickening of the rim itself (a canvas change, which would move every wet digest);
-a CPU drying front (a distance transform per tick, its own item with its own conservation proof).
+`the_aged_blood_table_is_frozen` pass untouched); a CPU drying front (a distance transform per tick, its own item with its own conservation
+proof and every wet digest moving); the radial cracks of Ref 1 (above); a coffee ring on a drop.
 
 ## Parameters
 
 | Parameter | Value | Provenance |
 |---|---|---|
-| `FRONT_LEAD` | 3 | **Design default.** The front's width is `1 / LEAD` of the reach: Ref 1's red-to-black edge is 0.6 cm of a 2 cm band. |
-| `FRONT_REACH_MM` | 30 | **Tuned.** Ref 1: a black rim 1.5 to 2 cm wide on a pool 3.6 cm across at the half dry. A pool wider than twice this dries in its middle last, together. |
-| `FRONT_STEPS` | 1, 2, 4, 8, 16 texels | **Design default**, the geometric series `crater_light` uses. |
-| `CRACK_SPACING_MM` | 4 | **Tuned** to Ref 1 (about 40 cracks round a perimeter of about 20 cm, read off the figure). Spacing grows with the film's thickness (the quote above: not a measured law of this crate's own). |
-| crack onset | `local` 0.72 | `bloodstain::dry::CRAQUELURE_ONSET`, the crate's own number. |
-| thin film does not crack | amount under 0.25 of the canvas depth | **Design default**: a film below a critical thickness does not crack (Smith et al., Pauchard et al. cited there); the number is this crate's own. |
+| `FRONT_LEAD` | 2.5 | **Design default**, tuned by eye against Ref 1: the front's width is `1 / (1 + LEAD)` of the reach. At 4 it was a thinner, sharper line and no better. |
+| `FRONT_REACH_MM` | 30 | **Tuned.** Ref 1: a dried rim 1.5 to 2 cm wide on a pool 3.6 cm across at the half dry. A pool wider than twice this dries in its middle last, together. |
+| `INTERIOR_RATE` | 0.4 | **Design default.** 1.0 (no lag) lost the red middle; 0 made the middle of a pool at an age of a half the colour of fresh blood. |
+| `FRONT_DIRS`, `FRONT_STEPS` | 6, 7 | **Design default**: the eight by five first tried drew stair-steps at the texel on a 3.5 mm canvas; seven steps at `(k/7)^1.8` are under a texel apart within 12 mm of the rim. 42 taps. |
+| `CRUST_REACH`, `CRUST_DARK` | 0.4, 0.6 | **Tuned** to Ref 1's black rim and Ref Q's darkest borders. |
+| `CRACK_SPACING_MM` | 12 | **Tuned for legibility.** Ref 1 has 4 to 6 mm on a pool 5 cm across; 12 mm is read from a metre or two at 1080p. |
+| `CRACK_WIDTH_MM`, `CRACK_MIN_PX` | 0.35, 2 | Ref 1's hairlines; a pixel at least; under two pixels of plate not drawn. |
+| crack onset | drawn age 0.72 | `bloodstain::dry::CRAQUELURE_ONSET`, the crate's own number. |
+| thin film does not crack | plateau under 0.2 of the canvas's depth | **Design default**: a film under a critical thickness does not crack (Smith et al., Pauchard et al., cited there); the number is this crate's own. |
 
 ## Validation targets
 
@@ -114,6 +131,9 @@ a CPU drying front (a distance transform per tick, its own item with its own con
 
 - `Appearance::rim` and `Appearance::craquelure` were read by nothing. The shader now follows their intent with its own spatial terms; the CPU
   values are unchanged and still the reference for a caller who draws blood elsewhere.
+- **The cracks are plates, not the radial cracks of Ref 1.** The estimate of the edge's direction that the six directions give is not smooth enough to
+  carry cracks at right angles to it (swirls: tried and removed). A reader who wants Ref 1's radial cracks needs a distance field the canvas does not
+  keep: a CPU item.
 - A film of one age no longer draws as one colour: a caller who compared `appearance()` against a screenshot of a *pool* will see the rim lead it.
   There is no setting that restores the flat pool (one path per feature).
 
