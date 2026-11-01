@@ -58,6 +58,10 @@ pub struct Strand {
     /// One flag per segment. Set when the segment's strain passes [`STRAND_TEAR_STRAIN`]; never
     /// cleared, so a tear cannot heal and the sim cannot oscillate between torn and whole.
     torn: Vec<bool>,
+    /// **The strand's own seed for how it looks**, never for how it moves: `0` unless [`Self::with_seed`] set it. It is
+    /// not folded into [`Self::digest`] and nothing in the solver reads it, so it can change the render without
+    /// changing a single node. [`crate::viscera::spill`] sets it from its own seed, so the same spill is lumpy in the same places on every run.
+    seed: u32,
 }
 
 impl Strand {
@@ -86,7 +90,7 @@ impl Strand {
             at += heading * rest_len;
             pos.push(at);
         }
-        Self { prev: pos.clone(), pos, rest_len, radius, torn: vec![false; segments] }
+        Self { prev: pos.clone(), pos, rest_len, radius, torn: vec![false; segments], seed: 0 }
     }
 
     /// Lay a straight strand of `segments` segments from `from`, along `dir`.
@@ -111,7 +115,7 @@ impl Strand {
         for i in 0..=segments {
             pos.push(from + axis * (rest_len * i as f32));
         }
-        Self { prev: pos.clone(), pos, rest_len, radius, torn: vec![false; segments] }
+        Self { prev: pos.clone(), pos, rest_len, radius, torn: vec![false; segments], seed: 0 }
     }
 
     /// The node positions, in the crate's canonical order.
@@ -124,6 +128,20 @@ impl Strand {
     #[inline]
     pub fn radius(&self) -> f32 {
         self.radius
+    }
+
+    /// The same strand with its look seeded by `seed`: where its lumps fall. See [`crate::viscera::tube_mesh`].
+    /// A strand built by hand has seed `0`.
+    #[inline]
+    pub fn with_seed(mut self, seed: u32) -> Self {
+        self.seed = seed;
+        self
+    }
+
+    /// The seed [`Self::with_seed`] set, `0` if none was.
+    #[inline]
+    pub fn seed(&self) -> u32 {
+        self.seed
     }
 
     /// **FNV-1a over the node positions' `f32::to_bits()`, in node order.**

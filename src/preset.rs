@@ -58,7 +58,7 @@ use bevy::transform::helper::TransformHelper;
 use crate::cross_section::{CrossSectionPlugin, CrossSectionSettings, Layers, Region};
 use crate::flaymap::{BoneExposed, FlayCanvas, FlaySettings, FlaymapPlugin, Layer};
 use crate::laceration::{Gape, Laceration, LacerationBed, LacerationClock, LacerationPlugin, Tension};
-use crate::viscera::{GUT_ROUGHNESS, Mesentery, Strand, ViscSettings, VisceraPlugin, VisceraSystems, gut_image, spill, tube_mesh};
+use crate::viscera::{GUT_ROUGHNESS, Mesentery, Strand, ViscSettings, VisceraPlugin, VisceraSystems, gut_image, soaked_tube, spill};
 use crate::wetmap::{Print, StainShape, WetCanvas, WetSettings, WetmapPlugin};
 use crate::bloodstain::{BloodSettings, Wound as BloodWound, WoundKind, wound_seed};
 
@@ -3798,7 +3798,7 @@ fn take_hits(
             };
             for strand in strands {
                 let anchors = (0..strand.nodes().len() as u32).step_by(4).map(|i| (i, at_world)).collect();
-                let tube = meshes.add(tube_mesh(&strand, 8));
+                let tube = meshes.add(soaked_tube(&strand, 8, visc.floor_y));
                 commands.spawn((
                     Mesh3d(tube),
                     MeshMaterial3d(gut_material.clone()),
@@ -4846,16 +4846,21 @@ fn fly(dials: Res<GoreDials>, time: Res<Time<Fixed>>, mut pieces: Query<(&mut Fl
     }
 }
 
-/// Rebuild each gut's tube from its strand after the solver moved it.
-fn retube(mut meshes: ResMut<Assets<Mesh>>, guts: Query<(&Mesh3d, &Strand), With<Gut>>) {
+/// Rebuild each gut's tube from its strand after the solver moved it: where it is, how it lies on the floor and how soaked it is.
+fn retube(mut meshes: ResMut<Assets<Mesh>>, visc: Option<Res<ViscSettings>>, guts: Query<(&Mesh3d, &Strand), With<Gut>>) {
+    // Without the solver's settings nothing has moved a strand, and there is no floor to lie on.
+    let Some(visc) = visc else { return };
     for (mesh, strand) in &guts {
         if let Some(mut m) = meshes.get_mut(&mesh.0) {
-            let fresh = tube_mesh(strand, 8);
+            let fresh = soaked_tube(strand, 8, visc.floor_y);
             if let Some(VertexAttributeValues::Float32x3(pos)) = fresh.attribute(Mesh::ATTRIBUTE_POSITION) {
                 m.insert_attribute(Mesh::ATTRIBUTE_POSITION, pos.clone());
             }
             if let Some(VertexAttributeValues::Float32x3(n)) = fresh.attribute(Mesh::ATTRIBUTE_NORMAL) {
                 m.insert_attribute(Mesh::ATTRIBUTE_NORMAL, n.clone());
+            }
+            if let Some(VertexAttributeValues::Float32x4(c)) = fresh.attribute(Mesh::ATTRIBUTE_COLOR) {
+                m.insert_attribute(Mesh::ATTRIBUTE_COLOR, c.clone());
             }
         }
     }

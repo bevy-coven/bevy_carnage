@@ -60,11 +60,13 @@ if let Some(first) = strands.first() {
 
 ## What it deliberately does not do
 
-**It never spawns.** `tube_mesh` hands back a `Mesh`; choosing the material, the handle and the parent is the caller's job. What the tube should look like is offered, not imposed: `gut_image()` hands back a texture for the tube's own `UV_0` (since 0.5.41) — a salmon-pink serosa with the mesentery's fat along the tethered side, faint straight vessels round the wall from it, the end that left the wound bloodied and smears dragged along the rest — to put in a material's base colour with a white factor, at `GUT_ROUGHNESS` (0.3). Drawn in the blood pool's own red, every spill read as red tubing lying in it.
+**It never spawns.** `tube_mesh` hands back a `Mesh`; choosing the material, the handle and the parent is the caller's job. What the tube should look like is offered, not imposed: `gut_image()` hands back a texture for the tube's own `UV_0` (since 0.5.41) — a salmon-pink serosa with the mesentery's fat along the tethered side, faint straight vessels round the wall from it, the end that left the wound bloodied and smears dragged along the rest — to put in a material's base colour with a white factor, at `GUT_ROUGHNESS` (0.3). Drawn in the blood pool's own red, every spill read as red tubing lying in it; and a clean pink wall was as wrong the other way, paler than the blood it lay in.
+
+**A spilled strand is lumpy, slumped where it lies and soaked in blood (0.8.6).** `tube_mesh` draws each ring at the strand's radius times two sines along its length (`LUMP_MAJOR`, `LUMP_MINOR`), their phases from `Strand::seed`, which `spill` sets per strand from its own seed (a strand laid by hand has seed `0`; the seed is not in `digest()` and nothing in the solver reads it). `soaked_tube(strand, sides, floor_y)` is the same mesh with two more things that need the floor: a ring that lies on it is squashed to `SLUMP_SQUASH` of its height and widened to keep its area, and every vertex carries `ATTRIBUTE_COLOR`, the tint of a venous blood film over the pale wall (`soak_tint`, from `bloodstain::spectral`'s Kubelka–Munk, so no blood colour is authored) at the node's `soak`: the coat the wound left (`exp(-arc / WOUND_REACH_M)`, restarting at any tear), contact with the floor, and a patchy base so the coat is thick in one place and a smear in the next. The material multiplies it into `gut_image()`. All of it is outside every digest.
 
 **Strands do not collide with each other, or with anything but the floor.** Self-collision on a coiling rope is the expensive half of this problem and it needs a broadphase the caller almost certainly already owns.
 
-**It knows nothing about blood.** A rope solver has no business importing a rheology crate; `tests/leaf.rs` enforces that.
+**The solver knows nothing about blood.** A rope solver has no business importing a rheology crate: nothing in `solver`, `strand` or `spill` does. Only the cosmetic `look` module reads the colour of a blood film from `bloodstain::spectral`, for `soak_tint`.
 
 ## Papers
 
@@ -79,13 +81,13 @@ if let Some(first) = strands.first() {
 
 **System sets** — `VisceraSystems`. Everything the plugin runs is in it: order a mesh rebuild `.after(VisceraSystems)` and an anchor move `.before(VisceraSystems)`.
 
-**Components** — `Strand` (private state; `Strand::new` lays a straight strand, `Strand::curved` one that turns segment by segment; `nodes()`, `radius()`, `digest()`), `Mesentery` (`anchors`, `tear_strain`, `torn`, all public).
+**Components** — `Strand` (private state; `Strand::new` lays a straight strand, `Strand::curved` one that turns segment by segment; `with_seed()`, `seed()`, `nodes()`, `radius()`, `digest()`), `Mesentery` (`anchors`, `tear_strain`, `torn`, all public).
 
 **Resource** — `ViscSettings` (`substeps`, `iterations`, `gravity`, `damping`, `compliance_stretch`, `compliance_bend`, `floor_y`, `max_strands`).
 
-**Functions** — `step`, `spill`, `tube_mesh`, `gut_image`. All four are plain functions over plain data and none of them needs an `App`. `spill` lays each strand draped and meandering rather than straight: it leaves the wound along its heading, turns toward the floor within about a quarter of its length, and hangs in a slow S, because a strand laid straight read as a rigid rod until gravity sagged it.
+**Functions** — `step`, `spill`, `tube_mesh`, `soaked_tube`, `soak`, `soak_tint`, `gut_image`. All of them are plain functions over plain data and none of them needs an `App`. `spill` lays each strand draped and meandering rather than straight: it leaves the wound along its heading, turns toward the floor within about a quarter of its length, and hangs in a slow S, because a strand laid straight read as a rigid rod until gravity sagged it.
 
-**Constants** — `FIXED_HZ`, `FIXED_DT`, `MAX_NODES`, `MAX_SEGMENTS`, `MAX_ANCHORS`, `MIN_REST_LEN`, `MIN_SIDES`, `MAX_SIDES`, `SPILL_SEGMENTS`, `SPILL_REST_LEN`, `SPILL_RADIUS`, `SPILL_CONE`, `STRAND_TEAR_STRAIN`, `DEFAULT_TEAR_STRAIN`, `COMPLIANCE_MESENTERY`, `GUT_ROUGHNESS`, and one `DEFAULT_*` per `ViscSettings` field.
+**Constants** — `FIXED_HZ`, `FIXED_DT`, `MAX_NODES`, `MAX_SEGMENTS`, `MAX_ANCHORS`, `MIN_REST_LEN`, `MIN_SIDES`, `MAX_SIDES`, `SPILL_SEGMENTS`, `SPILL_REST_LEN`, `SPILL_RADIUS`, `SPILL_CONE`, `STRAND_TEAR_STRAIN`, `DEFAULT_TEAR_STRAIN`, `COMPLIANCE_MESENTERY`, `GUT_ROUGHNESS`, `LUMP_MAJOR`, `LUMP_MAJOR_NODES`, `LUMP_MINOR`, `LUMP_MINOR_NODES`, `SLUMP_FADE`, `SLUMP_SQUASH`, `SOAK_BASE`, `SOAK_PATCH`, `SOAK_PATCH_M`, `WOUND_REACH_M`, `SOAK_FILM_MM`, `SOAK_STEPS`, and one `DEFAULT_*` per `ViscSettings` field.
 
 ## Examples
 

@@ -11,7 +11,7 @@ mod strand;
 mod tube;
 
 pub use plugin::{VisceraPlugin, VisceraSystems};
-pub use look::{GUT_ROUGHNESS, gut_image};
+pub use look::{GUT_ROUGHNESS, SOAK_BASE, SOAK_FILM_MM, SOAK_PATCH, SOAK_PATCH_M, SOAK_STEPS, WOUND_REACH_M, gut_image, soak, soak_tint};
 pub use settings::{
     ViscSettings, DEFAULT_COMPLIANCE_BEND, DEFAULT_COMPLIANCE_STRETCH, DEFAULT_DAMPING,
     DEFAULT_FLOOR_Y, DEFAULT_GRAVITY, DEFAULT_ITERATIONS, DEFAULT_MAX_STRANDS, DEFAULT_SUBSTEPS,
@@ -22,4 +22,4 @@ pub use strand::{
     Mesentery, Strand, DEFAULT_TEAR_STRAIN, MAX_NODES, MAX_SEGMENTS, MIN_REST_LEN,
     STRAND_TEAR_STRAIN,
 };
-pub use tube::{tube_mesh, MAX_SIDES, MIN_SIDES};
+pub use tube::{soaked_tube, tube_mesh, LUMP_MAJOR, LUMP_MAJOR_NODES, LUMP_MINOR, LUMP_MINOR_NODES, MAX_SIDES, MIN_SIDES, SLUMP_FADE, SLUMP_SQUASH};

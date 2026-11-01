@@ -8,11 +8,12 @@
 use bevy::app::{App, FixedUpdate};
 use bevy::math::Vec3;
 use bevy::mesh::Mesh;
+use bevy::mesh::VertexAttributeValues;
 use bevy_carnage::viscera::{
-    spill, step, tube_mesh, Mesentery, Strand, ViscSettings, VisceraPlugin, DEFAULT_COMPLIANCE_BEND,
+    soak, soaked_tube, spill, step, tube_mesh, Mesentery, Strand, ViscSettings, VisceraPlugin, DEFAULT_COMPLIANCE_BEND,
     DEFAULT_COMPLIANCE_STRETCH, DEFAULT_DAMPING, DEFAULT_FLOOR_Y, DEFAULT_GRAVITY,
     DEFAULT_ITERATIONS, DEFAULT_MAX_STRANDS, DEFAULT_SUBSTEPS, DEFAULT_TEAR_STRAIN, MAX_NODES,
-    SPILL_RADIUS, SPILL_REST_LEN, SPILL_SEGMENTS,
+    SOAK_BASE, SOAK_PATCH, SPILL_RADIUS, SPILL_REST_LEN, SPILL_SEGMENTS,
 };
 
 /// A wound above the floor, spilling forward and slightly up.
@@ -405,6 +406,107 @@ fn every_tube_index_addresses_a_vertex_that_exists() {
     for i in indices.iter() {
         assert!((i as u32) < count, "index {i} addresses past {count} vertices");
     }
+}
+
+/// The vertex positions of a mesh.
+fn positions(mesh: &Mesh) -> Vec<[f32; 3]> {
+    mesh.attribute(Mesh::ATTRIBUTE_POSITION).and_then(|a| a.as_float3()).map(<[_]>::to_vec).unwrap_or_default()
+}
+
+/// How far the first vertex of each ring of an eight-sided tube is from the node it is swept round.
+fn ring_radii(strand: &Strand) -> Vec<f32> {
+    let pos = positions(&tube_mesh(strand, 8));
+    strand.nodes().iter().enumerate().map(|(i, n)| pos.get(i * 9).map_or(0.0, |p| (Vec3::from(*p) - *n).length())).collect()
+}
+
+#[test]
+fn a_spilled_strand_is_lumpy_and_each_strand_is_lumpy_its_own_way() {
+    let s = ViscSettings::default();
+    let strands = spill(WOUND, EXIT, 3, SEED, &s);
+    for strand in &strands {
+        let radii = ring_radii(strand);
+        let (lo, hi) = radii.iter().fold((f32::MAX, f32::MIN), |(lo, hi), r| (lo.min(*r), hi.max(*r)));
+        assert!(
+            (hi - lo) / SPILL_RADIUS >= 0.12,
+            "a strand's radius should swing by at least 12 % of itself along its length, not {lo} to {hi}"
+        );
+        // The same strand, the same lumps.
+        assert_eq!(radii, ring_radii(strand));
+    }
+    let (a, b) = (ring_radii(&strands[0]), ring_radii(&strands[1]));
+    assert_ne!(a, b, "two strands of one spill must not lump alike");
+}
+
+#[test]
+fn the_look_of_a_strand_is_outside_its_digest() {
+    let s = ViscSettings::default();
+    let strand = &spill(WOUND, EXIT, 1, SEED, &s)[0];
+    assert_ne!(strand.seed(), 0, "spill seeds each strand's look");
+    assert_eq!(strand.digest(), strand.clone().with_seed(0xBEEF).digest(), "a seed that is not read by the solver must not move the digest");
+    assert_eq!(Strand::new(Vec3::ZERO, Vec3::Y, 4, 0.1, 0.05).seed(), 0, "a strand laid by hand has seed 0");
+}
+
+#[test]
+fn a_strand_lying_on_the_floor_is_flatter_than_it_is_wide() {
+    // Along X, resting on a floor at 0: its centre line is one radius up.
+    let radius = 0.02;
+    let strand = Strand::new(Vec3::new(0.0, radius, 0.0), Vec3::X, 8, 0.05, radius).with_seed(7);
+    let pos = positions(&soaked_tube(&strand, 16, 0.0));
+    let ring = 17;
+    // A ring in the middle: its extent up and down against its extent across.
+    let mid = &pos[4 * ring..5 * ring];
+    let (ymin, ymax) = mid.iter().fold((f32::MAX, f32::MIN), |(lo, hi), p| (lo.min(p[1]), hi.max(p[1])));
+    let (zmin, zmax) = mid.iter().fold((f32::MAX, f32::MIN), |(lo, hi), p| (lo.min(p[2]), hi.max(p[2])));
+    assert!(
+        (zmax - zmin) >= 1.2 * (ymax - ymin),
+        "a loop on the floor should be at least 1.2 times wider ({}) than tall ({})",
+        zmax - zmin,
+        ymax - ymin
+    );
+    // And the same strand up in the air is as round as the lump allows: tube_mesh never slumps.
+    let round = positions(&tube_mesh(&strand, 16));
+    let r = &round[4 * ring..5 * ring];
+    let (ry, rz) = (
+        r.iter().map(|p| p[1]).fold(f32::MIN, f32::max) - r.iter().map(|p| p[1]).fold(f32::MAX, f32::min),
+        r.iter().map(|p| p[2]).fold(f32::MIN, f32::max) - r.iter().map(|p| p[2]).fold(f32::MAX, f32::min),
+    );
+    assert!((rz / ry - 1.0).abs() < 0.05, "tube_mesh must stay round: {ry} tall, {rz} wide");
+}
+
+#[test]
+fn a_strand_off_the_floor_is_the_same_mesh_with_a_tint() {
+    let s = ViscSettings::default();
+    let strand = &spill(WOUND, EXIT, 1, SEED, &s)[0];
+    // Nothing of it is within reach of a floor that far below.
+    let (bare, soaked) = (tube_mesh(strand, 8), soaked_tube(strand, 8, -50.0));
+    assert_eq!(positions(&bare), positions(&soaked));
+    assert_eq!(bare.indices().map(|i| i.iter().collect::<Vec<_>>()), soaked.indices().map(|i| i.iter().collect::<Vec<_>>()));
+    assert!(bare.attribute(Mesh::ATTRIBUTE_COLOR).is_none(), "tube_mesh draws no tint");
+    let Some(VertexAttributeValues::Float32x4(colours)) = soaked.attribute(Mesh::ATTRIBUTE_COLOR) else {
+        panic!("soaked_tube must carry ATTRIBUTE_COLOR as four floats");
+    };
+    assert_eq!(colours.len(), soaked.count_vertices(), "one tint per vertex, caps included");
+    assert!(colours.iter().all(|c| c[3] == 1.0 && c[..3].iter().all(|v| (0.0..=1.0).contains(v))));
+    // Deterministic.
+    assert_eq!(positions(&soaked), positions(&soaked_tube(strand, 8, -50.0)));
+}
+
+#[test]
+fn a_strand_is_soaked_at_its_wound_in_the_pool_and_least_between() {
+    // Hanging straight down from 3 m: only the wound end and the patchy base.
+    let hanging = Strand::new(Vec3::new(0.0, 3.0, 0.0), Vec3::NEG_Y, SPILL_SEGMENTS, SPILL_REST_LEN, SPILL_RADIUS).with_seed(11);
+    let hang = soak(&hanging, 0.0);
+    assert_eq!(hang.len(), hanging.nodes().len());
+    assert!(hang[0] >= 0.99, "the wound end is fully coated: {}", hang[0]);
+    let far = *hang.last().unwrap_or(&1.0);
+    let ceiling = SOAK_BASE * (1.0 + SOAK_PATCH);
+    assert!(far <= ceiling + 1.0e-4, "the far end hangs in the air, so it is the patchy base at most ({far} > {ceiling})");
+    assert!(hang.iter().all(|v| (0.0..=1.0).contains(v)));
+
+    // The same length lying on the floor: every node is in the pool.
+    let lying = Strand::new(Vec3::new(0.0, SPILL_RADIUS, 0.0), Vec3::X, SPILL_SEGMENTS, SPILL_REST_LEN, SPILL_RADIUS).with_seed(11);
+    let low = soak(&lying, 0.0);
+    assert!(low.iter().all(|v| *v >= 0.8), "a strand lying on the floor is soaked to at least four fifths everywhere: {low:?}");
 }
 
 // ---------------------------------------------------------------------------------------------

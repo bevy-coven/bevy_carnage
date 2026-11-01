@@ -19,7 +19,12 @@ use bevy::asset::RenderAssetUsages;
 use bevy::image::{Image, ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
+use std::sync::LazyLock;
+
+use crate::bloodstain::spectral::{self, Film};
 use crate::viscera::hash::{hash_pair, hash_unit};
+use crate::viscera::strand::Strand;
+use crate::viscera::tube::contact;
 
 /// Texels round the wall. A 20 mm tube is 126 mm round, so 2 mm a texel.
 const AROUND: u32 = 64;
@@ -40,8 +45,100 @@ const BLOOD: [f32; 3] = [0.40, 0.05, 0.07];
 const VESSELS: u32 = 56;
 
 /// **How rough a spilled strand's wall is**: `0.3`, wet serosa — glossy, but a curved tube's highlight
-/// stays a streak rather than a mirror. This crate's own number.
+/// stays a streak rather than a mirror. This crate's own number. Iteration 12 tried `0.15` and `0.10` under the preset's camera and measured no more
+/// highlight (`docs/research/guts.md`); the flesh shader draws a clear coat only from a wet canvas, which a strand has none of, so a sharper glint is a
+/// shader item, and the glints a strand now has are its lumps catching the light.
 pub const GUT_ROUGHNESS: f32 = 0.3;
+
+/// **How soaked a node is at the least, on average**, `[0, 1]`: a spilled strand is slick with blood wherever it hangs, in patches ([`SOAK_PATCH`]).
+/// **Tuned by eye** against `docs/research/guts.md` (Ref D1: even the far end of the pulled bowel is red), not measured.
+pub const SOAK_BASE: f32 = 0.5;
+/// **How much of [`SOAK_BASE`] swings along the strand**: the base is `SOAK_BASE * (1 + SOAK_PATCH * (2n - 1))`, `n` in `[0, 1]` a smooth noise of the
+/// arc length on a wavelength of [`SOAK_PATCH_M`]. Blood on a wall is thick in one place and a smear in the next; a strand soaked to one tone along
+/// its length read as red tubing. **Tuned**, `docs/research/guts.md` (Ref D1, T1).
+pub const SOAK_PATCH: f32 = 0.5;
+/// The wavelength of [`SOAK_PATCH`], metres of bowel: 12 cm, a hand's width.
+pub const SOAK_PATCH_M: f32 = 0.12;
+/// **How far along the bowel from the wound the blood that left it still coats the wall**, metres: the soak falls as `exp(-arc / reach)`. The
+/// blood runs down a strand from where it came out; 0.30 m is a third of a spilled strand. **Tuned**, `docs/research/guts.md`.
+pub const WOUND_REACH_M: f32 = 0.30;
+/// **The thickness of the blood film a fully soaked node wears**, mm: 0.35, between a smear (0.05) and a drip (0.5), `spectral::Film`'s own
+/// range. The film is `SOAK_FILM_MM * soak^3`: venous blood is opaque in green by about 0.04 mm, so on a linear scale nine tenths of the range would be the
+/// same dark red, and a cube spends it where the colour changes. **Tuned** against Ref D1's dark pockets, `docs/research/guts.md`.
+pub const SOAK_FILM_MM: f32 = 0.35;
+/// How many entries the tint table holds from a bare node to a fully soaked one; between them it is interpolated.
+pub const SOAK_STEPS: usize = 17;
+
+/// A smooth noise in `[0, 1]` of `x` on a unit lattice, a pure function of `seed`.
+fn patch(seed: u32, x: f32) -> f32 {
+    let (cell, frac) = (x.floor(), x - x.floor());
+    let corner = |k: f32| hash_unit(hash_pair(seed ^ 0x50AC, k as i64 as u32));
+    let t = frac * frac * (3.0 - 2.0 * frac);
+    corner(cell) + (corner(cell + 1.0) - corner(cell)) * t
+}
+
+/// **How soaked each node of `strand` is in blood**, `[0, 1]`, one per node, for a strand resting on a floor at `floor_y`.
+///
+/// `max` of three terms: the patchy base ([`SOAK_BASE`], [`SOAK_PATCH`]), the coat the wound left (`exp(-arc / WOUND_REACH_M)`, `arc` the length of bowel from
+/// the wound end, which is node `0` **and the first node after any tear**: a torn end is itself a wound), and contact with the floor (the strand lies in the
+/// pool the wound made; four fifths of a full soak at the least). Cosmetic and a pure function of the nodes and [`Strand::seed`]: nothing here reads a canvas,
+/// a clock or an asset.
+pub fn soak(strand: &Strand, floor_y: f32) -> Vec<f32> {
+    let nodes = strand.nodes();
+    let radius = strand.radius();
+    let mut out = Vec::with_capacity(nodes.len());
+    let mut arc = 0.0_f32;
+    // How far along the bowel from node 0, tears and all: where the patches fall does not restart at a tear.
+    let mut along = 0.0_f32;
+    let mut before: Option<bevy::math::Vec3> = None;
+    for (i, node) in nodes.iter().enumerate() {
+        if let Some(prev) = before {
+            let step = (*node - prev).length();
+            along += step;
+            // The wound end restarts the arc: the node after a tear is a new wound, and a strand that was never torn walks on.
+            arc = if i > 0 && strand.segment_torn(i - 1) { 0.0 } else { arc + step };
+        }
+        before = Some(*node);
+        let n = patch(strand.seed(), along / SOAK_PATCH_M);
+        let base = SOAK_BASE * (1.0 + SOAK_PATCH * (2.0 * n - 1.0));
+        let coat = (-arc / WOUND_REACH_M).exp();
+        let lying = if radius > 0.0 { contact((node.y - floor_y) / radius) * (0.8 + 0.2 * n) } else { 0.0 };
+        out.push(base.max(coat).max(lying).clamp(0.0, 1.0));
+    }
+    out
+}
+
+/// **What a node soaked `soak` multiplies the material's texture by**, linear RGBA, alpha `1`.
+///
+/// The colour of a venous film of `SOAK_FILM_MM * soak^3` over a mid-grey substrate, `bloodstain::spectral`'s Kubelka–Munk over Bosschaart's tables,
+/// divided by the substrate alone and per channel: what a vertex colour must multiply a texture by to be that film over it. No blood colour is
+/// authored here. A table of [`SOAK_STEPS`] entries, built once; a `soak` between two is interpolated, outside `[0, 1]` clamped, and `NaN` is `0`.
+pub fn soak_tint(soak: f32) -> [f32; 4] {
+    let table = &*TINT_TABLE;
+    let at = if soak.is_finite() { soak.clamp(0.0, 1.0) } else { 0.0 } * (SOAK_STEPS - 1) as f32;
+    let (lo, frac) = (at.floor() as usize, at.fract());
+    let hi = (lo + 1).min(SOAK_STEPS - 1);
+    let pick = |k: usize| table.get(k).copied().unwrap_or([1.0; 3]);
+    let (a, b) = (pick(lo), pick(hi));
+    [a[0] + (b[0] - a[0]) * frac, a[1] + (b[1] - a[1]) * frac, a[2] + (b[2] - a[2]) * frac, 1.0]
+}
+
+/// The tint of each of [`SOAK_STEPS`] soaks, from bare to fully soaked: a venous film's linear colour over the grey substrate, over the substrate's.
+static TINT_TABLE: LazyLock<[[f32; 3]; SOAK_STEPS]> = LazyLock::new(|| {
+    let base = spectral::linear_srgb(&Film::venous(0.0));
+    let mut t = [[1.0_f32; 3]; SOAK_STEPS];
+    for (k, entry) in t.iter_mut().enumerate() {
+        let x = k as f32 / (SOAK_STEPS - 1) as f32;
+        let film = spectral::linear_srgb(&Film::venous(SOAK_FILM_MM * x * x * x));
+        for c in 0..3 {
+            let (f, b) = (film.get(c).copied().unwrap_or(0.0), base.get(c).copied().unwrap_or(1.0));
+            if let Some(e) = entry.get_mut(c) {
+                *e = if b > 1.0e-6 { (f / b).clamp(0.0, 1.0) } else { 1.0 };
+            }
+        }
+    }
+    t
+});
 
 /// **The texture a spilled strand wears**: `64 × 384` `Rgba8UnormSrgb`, repeating round the wall,
 /// for the tube's `UV_0`. Hand it to a material's base colour with a white factor.
@@ -155,5 +252,39 @@ mod tests {
         let seam = (0..rows).map(|r| step(r, w - 1, 0)).sum::<f32>() / rows as f32;
         let inner = (0..rows).map(|r| (1..w).map(|x| step(r, x - 1, x)).sum::<f32>() / (w - 1) as f32).sum::<f32>() / rows as f32;
         assert!(seam <= 1.5 * inner, "the seam steps {seam} on average where neighbours step {inner}");
+    }
+
+    /// **A soaked node is redder and darker than a bare one, and more soak never lightens it.** The tint is a venous film over a grey substrate divided by
+    /// the substrate, so a bare node is white (it multiplies nothing) and a soaked one passes red and almost no green or blue. Red and the luminance never
+    /// rise with the soak; blue alone is allowed to (it creeps up by a hundredth as the film saturates, which is what the spectral tables do).
+    #[test]
+    fn the_tint_of_blood_only_darkens_and_reddens() {
+        assert_eq!(soak_tint(0.0), [1.0, 1.0, 1.0, 1.0], "a bare node multiplies the texture by nothing");
+        let luminance = |t: [f32; 4]| 0.2126 * t[0] + 0.7152 * t[1] + 0.0722 * t[2];
+        let mut last = soak_tint(0.0);
+        for k in 1..=100 {
+            let t = soak_tint(k as f32 / 100.0);
+            assert!(t[0] <= last[0] + 1.0e-6, "red lightened at soak {}", k as f32 / 100.0);
+            assert!(luminance(t) <= luminance(last) + 1.0e-6, "the tint lightened at soak {}", k as f32 / 100.0);
+            last = t;
+        }
+        let full = soak_tint(1.0);
+        assert!(full[0] > 3.0 * full[1] && full[0] > 3.0 * full[2], "a soaked node passes red and little else: {full:?}");
+        assert_eq!(soak_tint(f32::NAN), soak_tint(0.0), "a node with no soak is bare, not a guess");
+        assert_eq!(soak_tint(7.0), soak_tint(1.0));
+        assert_eq!(soak_tint(-1.0), soak_tint(0.0));
+    }
+
+    /// **The soak's patches are a smooth function of where along the bowel they are.** A step between neighbouring nodes larger than a fifth of the
+    /// patchy range would be a visible seam in a coat.
+    #[test]
+    fn the_patches_of_a_coat_are_smooth_along_the_bowel() {
+        let mut last = patch(7, 0.0);
+        for k in 1..=2000 {
+            let now = patch(7, k as f32 * 0.01);
+            assert!((now - last).abs() < 0.1, "the patch noise jumped {} in one hundredth of a cell", (now - last).abs());
+            assert!((0.0..=1.0).contains(&now));
+            last = now;
+        }
     }
 }

@@ -621,6 +621,16 @@ A pool of blood dries at its contact line first and the front goes in (Smith, Ni
 
 Not done, named: a dried drop (a film under a fifth of the canvas's depth) is still one dark tone with no ring and no crack; the cracks are plates, not the radial cracks of the reference pool (`docs/research/drying-front.md`, `## Deviations`).
 
+### `capture_preset` — guts that are soaked, lumpy and slumped
+
+![Two columns labelled 0.8.5 and now, frames 96 to 260 of the preset: the body breaks and its guts hang from the torso, fall and lie in the pool; on the left they are clean salmon-pink tubes of one radius, on the right they are dark, blood-soaked, lumpy, with small glints, and they lie flattened in the pool](media/guts.gif)
+
+A torso hit that reaches muscle spills strands of bowel, and until 0.8.6 they were drawn as clean salmon-pink tubes of one radius, paler than the pool they fell in (a strand pixel of luminance 115 against the pool's 67 in the 0.8.5 frame 200; the *Day of the Dead* gut pull is red, `docs/research/guts.md`, Ref D1). `viscera::soaked_tube` draws each strand with a lumpy radius, flattened where it lies on the floor and tinted by the blood film it is soaked in (the colour of a venous film over the pale wall, `bloodstain::spectral`, thickest at the wound end and wherever it lies in the pool, patchy between). The clip is `capture_preset`, frames 96–260 every second, the two columns the same script on 0.8.5 and on 0.8.6. **No digest moves**: `capture_preset`, `capture_entrails` and all eight `capture_skinned` variants print what they printed in 0.8.5, twice each.
+
+![Two rows, 0.8.5 and now, six columns (frames 124 to 200): the guts hanging from the torso, falling, and lying in the pool, clean pink above and dark red below](media/guts.png)
+
+Not done, named: the heap of a pile is still three or four strands (a hit spills five, and the pieces of the body lie over some); organ blobs, slime strings and a strand that dries are the next items (`docs/research/guts.md`, `## Deviations`).
+
 ## `tiers` — the player's violence setting
 
 ![The same scripted scene three times side by side: at the stylised tier a yellow spark marks each shot and nothing bleeds; at the blood tier the wounds bleed and pool on the floor and the body stays standing; at blood and gore the body comes apart and the guts spill](tiers.gif)

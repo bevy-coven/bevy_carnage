@@ -62,7 +62,8 @@ pub fn spill(from: Vec3, dir: Vec3, count: u32, seed: u32, s: &ViscSettings) -> 
         let side = heading.cross(radial).try_normalize().unwrap_or(u);
         let phase = TAU * hash_unit(hash_pair(seed, k * 3 + 0x5A1D));
         let turn = |i: usize| Vec3::NEG_Y * SPILL_DRAPE + side * (SPILL_WANDER * (phase + SPILL_WANDER_RATE * i as f32).sin());
-        out.push(Strand::curved(mouth, heading, SPILL_SEGMENTS, SPILL_REST_LEN, SPILL_RADIUS, turn));
+        // The look's seed is the strand's own, from the same hash: two strands of one spill do not lump alike, and one spill lumps alike on every run.
+        out.push(Strand::curved(mouth, heading, SPILL_SEGMENTS, SPILL_REST_LEN, SPILL_RADIUS, turn).with_seed(hash_pair(seed, k * 3 + 0x1C0D)));
     }
     out
 }
