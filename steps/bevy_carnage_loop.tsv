@@ -4958,3 +4958,545 @@ pass	seq	phase	kind	category	tool	start	seconds	detail
 17	566	ship	tool	todo	todo	2026-11-01T09:53:30Z	0.0	Dropping the reverted rivulet probe task
 17	567	ship	tool	todo	todo	2026-11-01T09:53:30Z	0.0	Dropping the reverted rivulet test task
 17	568	ship	model	model		2026-11-01T09:53:30Z	14.1	
+18	1	orient	model	model		2026-11-01T09:54:23Z	5.8	
+18	2	orient	tool	phase mark	bash	2026-11-01T09:54:29Z	3.3	Orienting: marking phase, git state, last audit :: python3 ~/.local/share/wiggum/steps.py mark orient; cd /Users/ladvien/bevy_carnage_loop && git status --short | head; git branch --show-current; git log --oneli
+18	3	orient	tool	github	bash	2026-11-01T09:54:29Z	3.3	Triage issues, parked branches, log headings :: cd /Users/ladvien/bevy_carnage_loop && wc -l docs/loop-log.md && grep -n '^## Iteration' docs/loop-log.md | tail -5; gh issue list --repo bevy-coven/bevy_carnag
+18	4	orient	model	model		2026-11-01T09:54:32Z	5.2	
+18	5	orient	tool	github	bash	2026-11-01T09:54:37Z	1.5	Check audit header and issue list reachability :: cd /Users/ladvien/bevy_carnage_loop && git show origin/loop-stats:steps/bevy_carnage_loop-audit.tsv | head -2; gh issue list --repo bevy-coven/bevy_carnage --st
+18	6	orient	tool	read files	read	2026-11-01T09:54:37Z	1.5	Reading newest iteration log and backlog :: docs/loop-log.md:1167-1262
+18	7	orient	model	model		2026-11-01T09:54:39Z	7.0	
+18	8	orient	tool	cargo build	bash	2026-11-01T09:54:46Z	0.0	[launched bg_1] Building release examples (baseline) :: cd /Users/ladvien/bevy_carnage_loop && mkdir -p /tmp/c11/before && git rev-parse HEAD && (uptime) && df -h . | tail -1 && cargo build --release --examples 2>&1 
+18	9	orient	tool	git	bash	2026-11-01T09:54:46Z	0.3	Worktrees, corpus note, docs listing :: cd /Users/ladvien/bevy_carnage_loop && git worktree list; tail -50 docs/research/corpus.md | head -60; ls docs/research docs/media | head -80
+18	10	orient	model	model		2026-11-01T09:54:46Z	5.1	
+18	11	orient	tool	github	bash	2026-11-01T09:54:51Z	2.6	Reading grimoire F12 issue and family list :: cd /Users/ladvien/bevy_carnage_loop && gh issue view 108 --repo bevy-coven/bevy_grimoire 2>&1 | head -120; gh issue list -R bevy-coven/bevy_grimoire --label fam
+18	12	orient	tool	edit files	write	2026-11-01T09:54:54Z	11.0	Preflight home-still status :: xd://mcp__home_still_system_status
+18	13	orient	model	model		2026-11-01T09:55:05Z	5.5	
+18	14	orient	tool	shell	bash	2026-11-01T09:55:10Z	0.5	Looking for CLI path to filter catalog_recent :: hs --help 2>&1 | head -30; hs catalog --help 2>&1 | head -30
+18	15	orient	model	model		2026-11-01T09:55:11Z	5.6	
+18	16	orient	tool	eval	eval	2026-11-01T09:55:16Z	8.0	{"language": "py", "code": "import json,re\nr = await tool.mcp__home_still_catalog_recent({\"limit\":200})\ns = r if isinstance(r,str) else json.dumps(r)\nprint
+18	17	orient	model	model		2026-11-01T09:55:24Z	4.2	
+18	18	orient	tool	eval	eval	2026-11-01T09:55:28Z	0.0	{"language": "py", "code": "print(list(r.keys()))\nfor k,v in r.items():\n print(k, type(v), (len(v) if hasattr(v,'__len__') else v))\nrows = [v for v in r.valu
+18	19	orient	model	model		2026-11-01T09:55:28Z	4.0	
+18	20	orient	tool	eval	eval	2026-11-01T09:55:32Z	0.0	{"language": "py", "code": "t = r['text']\nd = json.loads(t) if t.lstrip().startswith(('{','[')) else None\nprint(t[:300] if d is None else type(d))\nif d is no
+18	21	orient	model	model		2026-11-01T09:55:33Z	3.4	
+18	22	orient	tool	eval	eval	2026-11-01T09:55:36Z	0.1	{"language": "py", "code": "kw = re.compile(r'blood|bloodstain|wound|\\bskin\\b|\\bgore|fractur|splatter|spatter|droplet|rheolog|haemodynam|hemodynam|subsurface
+18	23	orient	model	model		2026-11-01T09:55:36Z	9.9	
+18	24	orient	tool	search	grep	2026-11-01T09:55:46Z	0.1	Locating bleed and wells code :: src/preset.rs
+18	25	orient	tool	read files	read	2026-11-01T09:55:46Z	0.1	Reading rivulets note :: docs/research/rivulets.md
+18	26	orient	model	model		2026-11-01T09:55:46Z	4.1	
+18	27	orient	tool	read files	read	2026-11-01T09:55:50Z	0.1	Viewing current preset still :: docs/media/preset.png
+18	28	orient	tool	read files	read	2026-11-01T09:55:50Z	1.4	Viewing dried still :: docs/media/dried.png
+18	29	orient	model	model		2026-11-01T09:55:51Z	11.7	
+18	30	orient	tool	read files	read	2026-11-01T09:56:03Z	0.0	Reading dry-blood research note :: docs/research/dry-blood.md
+18	31	orient	model	model		2026-11-01T09:56:03Z	14.6	
+18	32	orient	tool	search	grep	2026-11-01T09:56:18Z	0.0	Locating blood aging code in the shader :: src/flesh/flesh.wesl
+18	33	orient	tool	shell	bash	2026-11-01T09:56:18Z	0.1	Listing modules and webgl2 check script :: cd /Users/ladvien/bevy_carnage_loop && ls src src/flesh src/bloodstain 2>/dev/null | head -60; wc -l src/bloodstain/dry.rs; cat tools/webgl2/check.sh | head -60
+18	34	orient	model	model		2026-11-01T09:56:18Z	2.6	
+18	35	orient	tool	shell	bash	2026-11-01T09:56:21Z	0.1	Checking wasm cache and shader blood sections :: cd /Users/ladvien/bevy_carnage_loop && ls ~/.cache/bevy_carnage_webgl2 2>&1 | head; du -sh ~/.cache/bevy_carnage_webgl2/target 2>&1 | tail -1; grep -n "aged\|bl
+18	36	orient	model	model		2026-11-01T09:56:21Z	4.5	
+18	37	orient	tool	read files	read	2026-11-01T09:56:25Z	0.1	Reading dry.rs colour walk :: src/bloodstain/dry.rs:1-200
+18	38	orient	model	model		2026-11-01T09:56:25Z	5.5	
+18	39	orient	tool	wait: build	wait	2026-11-01T09:56:31Z	794.1	Waiting for baseline release examples build
+18	40	orient	model	model		2026-11-01T10:09:45Z	6.5	
+18	41	orient	tool	phase mark	bash	2026-11-01T10:09:51Z	0.4	Copy baseline binaries and read capture_skinned options :: cd /Users/ladvien/bevy_carnage_loop && python3 ~/.local/share/wiggum/steps.py mark orient; mkdir -p /tmp/c11/before/bin && for b in capture_skinned capture_pres
+18	42	orient	model	model		2026-11-01T10:09:52Z	5.8	
+18	43	orient	tool	shell	bash	2026-11-01T10:09:57Z	60.0	[launched bg_2] Baseline captures: default, through dry, through wet :: cd /tmp/c11/before && B=/tmp/c11/before/bin && ( $B/capture_skinned --out skin_default > skin_default.txt 2>&1 & $B/capture_skinned --through --floor 512 --dry 
+18	44	orient	model	model		2026-11-01T10:10:57Z	4.4	
+18	45	orient	tool	wait: clip	wait	2026-11-01T10:11:02Z	25.1	Waiting for baseline captures
+18	46	orient	model	model		2026-11-01T10:11:27Z	2.3	
+18	47	orient	tool	read files	read	2026-11-01T10:11:29Z	0.2	Viewing default frame 200 :: /tmp/c11/before/skin_default/frame0200.png
+18	48	orient	tool	read files	read	2026-11-01T10:11:29Z	0.2	Viewing through-dry final frame :: /tmp/c11/before/skin_through_dry/frame0359.png
+18	49	orient	model	model		2026-11-01T10:11:29Z	9.8	
+18	50	orient	tool	shell	bash	2026-11-01T10:11:39Z	24.7	Close-up chest wound captures wet and dry :: cd /tmp/c11/before && B=/tmp/c11/before/bin && ( $B/capture_skinned --eye 0.0,1.3,0.75 --at 0.0,1.25,0.0 --out close_wet > close_wet.txt 2>&1 & $B/capture_skinn
+18	51	orient	model	model		2026-11-01T10:12:04Z	2.7	
+18	52	orient	tool	clip record/render	bash	2026-11-01T10:12:07Z	0.3	Check image tools :: cd /tmp/c11/before && which magick convert ffmpeg sips 2>&1 | head; python3 -c "import PIL; print(PIL.__version__)" 2>&1
+18	53	orient	tool	read files	read	2026-11-01T10:12:07Z	0.3	Close-up wet frame 200 :: /tmp/c11/before/close_wet/frame0200.png
+18	54	orient	model	model		2026-11-01T10:12:07Z	8.1	
+18	55	orient	tool	read files	read	2026-11-01T10:12:15Z	0.2	Close-up dried frame 359 :: /tmp/c11/before/close_dry/frame0359.png
+18	56	orient	model	model		2026-11-01T10:12:15Z	21.1	
+18	57	orient	tool	shell	bash	2026-11-01T10:12:36Z	0.0	Reading README for feature inventory :: cd /Users/ladvien/bevy_carnage_loop && wc -l README.md docs/guide/*.md && sed -n 1,140p README.md
+18	58	orient	model	model		2026-11-01T10:12:36Z	14.7	
+18	59	orient	tool	read files	read	2026-11-01T10:12:51Z	0.0	Reading shader blood sampling :: src/flesh.wesl:60-300
+18	60	orient	model	model		2026-11-01T10:12:51Z	6.9	
+18	61	orient	tool	search	grep	2026-11-01T10:12:58Z	0.0	Finding skin canvas size knobs :: src/preset.rs
+18	62	orient	model	model		2026-11-01T10:12:58Z	30.0	
+18	63	orient	tool	read files	read	2026-11-01T10:13:28Z	0.2	Viewing through-wet frame 200 :: /tmp/c11/before/skin_through_wet/frame0200.png
+18	64	orient	model	model		2026-11-01T10:13:28Z	7.2	
+18	65	orient	tool	github	bash	2026-11-01T10:13:35Z	60.0	[launched bg_3] Shallow clone consumers to see how they use carnage :: cd /tmp/c11 && (gh repo clone Ladvien/sanctuary sanctuary -- --depth 1 -q 2>&1 | tail -1; gh repo clone bevy-coven/bevy_grimoire grimoire -- --depth 1 -q 2>&1 |
+18	66	orient	model	model		2026-11-01T10:14:35Z	3.4	
+18	67	orient	tool	wait: other	wait	2026-11-01T10:14:39Z	18.3	Waiting for consumer clones
+18	68	orient	model	model		2026-11-01T10:14:57Z	3.5	
+18	69	orient	tool	shell	bash	2026-11-01T10:15:01Z	0.0	Sanctuary carnage usage and recent notes :: cd /tmp/c11/sanctuary && grep -n "carnage" src/siege/writhe.rs src/siege/remains.rs | head -40; grep -n "bevy_carnage" Cargo.toml docs/decisions/0270*.md | head
+18	70	orient	tool	shell	bash	2026-11-01T10:15:01Z	0.0	Grimoire carnage usage and notes :: cd /tmp/c11/grimoire && grep -n "carnage" docs/loop/focus.md crates/bevy_grimoire_mapper/src/family_host.rs | head -30; grep -rn "carnage" docs/loop/log.md | ta
+18	71	orient	model	model		2026-11-01T10:15:01Z	5.7	
+18	72	orient	tool	shell	bash	2026-11-01T10:15:06Z	0.0	Read Sanctuary decision 0366 and carnage mentions :: cd /tmp/c11/sanctuary && sed -n 1,60p docs/decisions/0366-the-risen-wear-a-corpse-not-bone.md | cut -c1-500; grep -n "carnage" docs/design/gameplay-loops.md doc
+18	73	orient	model	model		2026-11-01T10:15:07Z	10.6	
+18	74	orient	tool	shell	bash	2026-11-01T10:15:17Z	0.0	Reading skeleton.rs module docs :: cd /Users/ladvien/bevy_carnage_loop && wc -l src/skeleton.rs docs/research/skeleton.md tests/skeleton.rs && sed -n 1,140p src/skeleton.rs
+18	75	orient	model	model		2026-11-01T10:15:17Z	23.8	
+18	76	orient	tool	shell	bash	2026-11-01T10:15:41Z	0.0	Where fracture_skeleton is used; implementation :: cd /Users/ladvien/bevy_carnage_loop && grep -rn "fracture_skeleton\|SkeletalRefusal" src --include=*.rs | grep -v "^src/skeleton.rs" | head -20; sed -n 140,300p
+18	77	orient	model	model		2026-11-01T10:15:41Z	4.8	
+18	78	orient	tool	read files	read	2026-11-01T10:15:46Z	0.0	Reading skeleton research note :: docs/research/skeleton.md
+18	79	orient	model	model		2026-11-01T10:15:46Z	33.1	
+18	80	orient	tool	shell	bash	2026-11-01T10:16:19Z	0.0	Find how the preset breaks a skinned body :: cd /Users/ladvien/bevy_carnage_loop && grep -n "Breakable\|fn break_\|GoreFractured\|fracture_mesh\|fracture_skinned\|fn split_skinned\|Part::\|proxy" src/prese
+18	81	orient	model	model		2026-11-01T10:16:19Z	4.4	
+18	82	orient	tool	read files	read	2026-11-01T10:16:23Z	0.1	Reading GoreBreakable doc :: src/preset.rs:1700-1780
+18	83	orient	tool	read files	read	2026-11-01T10:16:23Z	0.1	Reading skinned break throw code :: src/preset.rs:4290-4400
+18	84	orient	model	model		2026-11-01T10:16:23Z	39.2	
+18	85	orient	tool	shell	bash	2026-11-01T10:17:03Z	0.0	Reading proxy API surface :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,80p src/proxy.rs; grep -n "pub fn\|pub struct\|pub enum" src/proxy.rs src/tree.rs src/bake.rs src/soup.rs src/me
+18	86	orient	model	model		2026-11-01T10:17:03Z	18.0	
+18	87	orient	tool	edit files	write	2026-11-01T10:17:21Z	5.5	Search corpus for drying blood deposit morphology :: xd://mcp__home_still_distill_search
+18	88	orient	model	model		2026-11-01T10:17:26Z	42.0	
+18	89	orient	tool	shell	bash	2026-11-01T10:18:08Z	0.0	How the shader is embedded; features :: cd /Users/ladvien/bevy_carnage_loop && grep -n "wesl\|embedded_asset\|load_internal\|ShaderRef\|shader_defs" src/flesh.rs | head -20; cat /tmp/c11/before/skin_d
+18	90	orient	model	model		2026-11-01T10:18:08Z	15.6	
+18	91	orient	tool	read files	read	2026-11-01T10:18:24Z	0.0	Reading shader fragment body :: src/flesh.wesl:297-555
+18	92	orient	model	model		2026-11-01T10:18:24Z	40.1	
+18	93	orient	tool	shell	bash	2026-11-01T10:19:04Z	0.0	Reading webgl2 harness prerequisites :: cd /Users/ladvien/bevy_carnage_loop && sed -n 60,200p tools/webgl2/check.sh
+18	94	orient	model	model		2026-11-01T10:19:04Z	6.7	
+18	95	orient	tool	shell	bash	2026-11-01T10:19:11Z	0.6	Check webgl2 harness prerequisites on this host :: ls "/Applications/Google Chrome.app/Contents/MacOS/" 2>&1 | head -2; node --version; rustup target list --installed; df -h / | tail -1
+18	96	orient	model	model		2026-11-01T10:19:11Z	2.6	
+18	97	orient	tool	shell	bash	2026-11-01T10:19:14Z	0.0	Warm the WebGL2 cache on the baseline tree (verifies harness) :: cd /Users/ladvien/bevy_carnage_loop && tools/webgl2/check.sh . 12 2>&1 | tail -25
+18	98	orient	model	model		2026-11-01T10:19:14Z	2.6	
+18	99	orient	tool	shell	bash	2026-11-01T10:19:17Z	0.0	[launched bg_4] Warm the WebGL2 cache on the baseline tree (verifies harness) :: cd /Users/ladvien/bevy_carnage_loop && tools/webgl2/check.sh . 12 2>&1 | tail -25
+18	100	orient	model	model		2026-11-01T10:19:17Z	6.2	
+18	101	research	tool	phase mark	bash	2026-11-01T10:19:23Z	0.7	Mark research phase :: python3 ~/.local/share/wiggum/steps.py mark research
+18	102	research	tool	web	web_search	2026-11-01T10:19:23Z	11.6	Physics source for dried blood drop morphology :: dried blood drop coffee ring dark rim cracks close-up Brutin pattern formation in drying drops of blood
+18	103	research	tool	web	web_search	2026-11-01T10:19:23Z	11.6	Reference photos of dried blood pools :: Wikimedia Commons dried blood pool floor crime scene photograph dark brown crust cracked
+18	104	research	model	model		2026-11-01T10:19:35Z	6.5	
+18	105	research	tool	read files	read	2026-11-01T10:19:41Z	0.4	Reading Brutin drying blood drop paper :: https://arxiv.org/pdf/1010.2510
+18	106	research	tool	read files	read	2026-11-01T10:19:41Z	1.0	Wikimedia Commons file search dried blood :: https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=dried+blood&srnamespace=6&format=json&srlimit=30
+18	107	research	model	model		2026-11-01T10:19:42Z	4.9	
+18	108	research	tool	shell	bash	2026-11-01T10:19:47Z	2.8	Locate reference-image search tool :: cd /Users/ladvien/bevy_carnage_loop && ls ~/.omp/agent 2>/dev/null | head; grep -rl "search_reference_images" ~/.omp 2>/dev/null | head -3
+18	109	research	tool	read files	read	2026-11-01T10:19:47Z	2.8	List available tool devices (golem?) :: xd://
+18	110	research	model	model		2026-11-01T10:19:50Z	6.3	
+18	111	research	tool	shell	bash	2026-11-01T10:19:56Z	10.2	Query Commons categories for blood reference photos :: cd /tmp/c11 && mkdir -p refs && for cat in "Category:Bloodstains" "Category:Blood_stains" "Category:Dried_blood" "Category:Blood_spatter" "Category:Bloodstain_p
+18	112	research	model	model		2026-11-01T10:20:06Z	11.3	
+18	113	research	tool	shell	bash	2026-11-01T10:20:18Z	6.2	Download candidate reference photos with licences :: cd /tmp/c11/refs && get() { t="$1"; out="$2"; url=$(curl -s -G "https://commons.wikimedia.org/w/api.php" --data-urlencode "action=query" --data-urlencode "title
+18	114	research	model	model		2026-11-01T10:20:24Z	2.9	
+18	115	research	tool	read files	read	2026-11-01T10:20:27Z	3.2	Viewing Ref: blood on the sidewalk :: /tmp/c11/refs/r1_sidewalk.jpg
+18	116	research	tool	read files	read	2026-11-01T10:20:27Z	4.0	Viewing Ref: Blood (Flickr CC BY-SA) :: /tmp/c11/refs/r2_blood.jpg
+18	117	research	model	model		2026-11-01T10:20:31Z	6.9	
+18	118	research	tool	shell	bash	2026-11-01T10:20:38Z	60.0	[launched bg_5] Create image analysis venv :: cd /tmp/c11 && python3 -m venv venv && ./venv/bin/pip install -q pillow numpy scipy 2>&1 | tail -2; ./venv/bin/python -c "import PIL, numpy, scipy; print('ok')"
+18	119	research	model	model		2026-11-01T10:21:38Z	5.7	
+18	120	research	tool	web	web_search	2026-11-01T10:21:44Z	12.1	Practical-effects source on dried blood look :: practical effects dried blood old blood aged crusted dark brown makeup Tom Savini "dried blood" fresh vs old technique film
+18	121	research	tool	web	web_search	2026-11-01T10:21:44Z	12.1	Horror film aftermath dried blood stills :: Evil Dead 2013 cabin set blood-soaked walls floor dried blood dark film still behind the scenes
+18	122	research	bg	shell	bash	2026-11-01T10:20:49Z	67.0	bg_5 completed: python3 -m venv venv && ./venv/bin/pip install -q pillow numpy scipy 2>&1 | tail -2; ./venv/bin/python -c "import PIL...
+18	123	research	model	model		2026-11-01T10:21:56Z	7.7	
+18	124	research	tool	shell	bash	2026-11-01T10:22:04Z	3.0	Resolve exact Commons titles for dried-blood refs :: cd /tmp/c11/refs && curl -s -G "https://commons.wikimedia.org/w/api.php" --data-urlencode "action=query" --data-urlencode "list=prefixsearch" --data-urlencode "
+18	125	research	model	model		2026-11-01T10:22:07Z	5.8	
+18	126	research	tool	shell	bash	2026-11-01T10:22:12Z	6.8	Download three more dried-blood references :: cd /tmp/c11/refs && get() { t="$1"; out="$2"; url=$(curl -s -G "https://commons.wikimedia.org/w/api.php" --data-urlencode "action=query" --data-urlencode "title
+18	127	research	model	model		2026-11-01T10:22:19Z	3.1	
+18	128	research	tool	read files	read	2026-11-01T10:22:22Z	4.6	Viewing Ref: blood on sand the day after (Paris) :: /tmp/c11/refs/r3_cambodge.jpg
+18	129	research	tool	read files	read	2026-11-01T10:22:22Z	4.6	Viewing Ref Q: dried handprint on tile :: /tmp/c11/refs/rQ_handprint.jpg
+18	130	research	model	model		2026-11-01T10:22:27Z	11.5	
+18	131	research	tool	shell	bash	2026-11-01T10:22:38Z	1.3	Zoom crop of dried wall spatter :: cd /tmp/c11 && cat > crop.py <<'EOF' import sys from PIL import Image src, out, x, y, w, h, scale = sys.argv[1], sys.argv[2], *map(int, sys.argv[3:8]) im = Imag
+18	132	research	model	model		2026-11-01T10:22:40Z	2.6	
+18	133	research	tool	read files	read	2026-11-01T10:22:42Z	0.1	View zoomed dried wall spatter :: /tmp/c11/before/crop_wall_dry.png
+18	134	research	model	model		2026-11-01T10:22:42Z	10.0	
+18	135	research	tool	shell	bash	2026-11-01T10:22:52Z	6.6	Measure blood colour stats on refs and captures :: cd /tmp/c11 && cat > stats.py <<'EOF' import sys, numpy as np from PIL import Image def stats(path, box=None, test=None): im = np.asarray(Image.open(path).conve
+18	136	research	model	model		2026-11-01T10:22:59Z	6.3	
+18	137	research	tool	shell	bash	2026-11-01T10:23:05Z	3.8	Measure blood colour stats on wall region only :: cd /tmp/c11 && ./venv/bin/python stats.py before/skin_through_dry/frame0359.png 175 40 125 250; ./venv/bin/python stats.py before/skin_through_wet/frame0200.png
+18	138	research	model	model		2026-11-01T10:23:09Z	31.5	
+18	139	research	tool	shell	bash	2026-11-01T10:23:41Z	0.1	Survey flesh.rs public API and blood table :: cd /Users/ladvien/bevy_carnage_loop && grep -n "pub fn \|pub const \|fn aged_blood_lut\|BLOOD_ROW0\|AGE_KNOT" src/flesh.rs | head -60
+18	140	research	model	model		2026-11-01T10:23:41Z	5.8	
+18	141	research	tool	shell	bash	2026-11-01T10:23:46Z	0.0	Read blood_lut and aged_blood_lut layouts :: cd /Users/ladvien/bevy_carnage_loop && sed -n 580,630p src/flesh.rs
+18	142	research	model	model		2026-11-01T10:23:46Z	29.0	
+18	143	research	tool	shell	bash	2026-11-01T10:24:15Z	60.0	[launched bg_6] Openverse search for cracked dried blood photos :: cd /tmp/c11/refs && for q in "dried blood pool cracked" "dried blood crust cracks" "dried blood floor"; do echo "== $q"; curl -s -G "https://api.openverse.org/v
+18	144	research	model	model		2026-11-01T10:25:15Z	5.6	
+18	145	research	tool	shell	bash	2026-11-01T10:25:21Z	3.6	Commons search for dried blood floor photos :: cd /tmp/c11/refs && for q in "dried blood" "blood pool floor" "bloodstain floor crime scene" "blood crust"; do echo "== $q"; curl -s -G "https://commons.wikimed
+18	146	research	model	model		2026-11-01T10:25:25Z	7.6	
+18	147	research	tool	shell	bash	2026-11-01T10:25:32Z	1.9	Find figure URLs in the open-access Smith 2020 paper :: cd /tmp/c11/refs && curl -sL "https://www.nature.com/articles/s41598-020-65465-4" | grep -o 'https://media.springernature.com/[^"]*s41598-020-65465-4/MediaObjec
+18	148	research	model	model		2026-11-01T10:25:34Z	3.7	
+18	149	research	tool	shell	bash	2026-11-01T10:25:38Z	1.9	Download Smith 2020 figures (CC BY 4.0) :: cd /tmp/c11/refs && B="https://media.springernature.com/lw1200/springer-static/image/art%3A10.1038%2Fs41598-020-65465-4/MediaObjects/41598_2020_65465_Fig"; for 
+18	150	research	model	model		2026-11-01T10:25:40Z	3.2	
+18	151	research	tool	read files	read	2026-11-01T10:25:43Z	0.6	View Smith 2020 Fig 1: drying pool time-lapse :: /tmp/c11/refs/r6_smith_fig1.png
+18	152	research	tool	read files	read	2026-11-01T10:25:43Z	0.9	View Smith 2020 Fig 12 :: /tmp/c11/refs/r6_smith_fig12.png
+18	153	research	bg	shell	bash	2026-11-01T10:24:19Z	84.6	bg_6 completed: for q in "dried blood pool cracked" "dried blood crust cracks" "dried blood floor"; do echo "== $q"; curl -s -G "http...
+18	154	research	model	model		2026-11-01T10:25:44Z	67.4	
+18	155	research	tool	shell	bash	2026-11-01T10:26:51Z	1.1	Measure Smith 2020 Fig 12 rim and interior colours :: cd /tmp/c11 && ./venv/bin/python - <<'EOF' from PIL import Image import numpy as np im = np.asarray(Image.open('refs/r6_smith_fig12.png').convert('RGB')).astype
+18	156	research	model	model		2026-11-01T10:26:53Z	10.7	
+18	157	research	tool	web	web_search	2026-11-01T10:27:03Z	9.8	Technique source for dried blood in shipping games :: game blood shader dried blood crust cracks wet to dry transition decal technique GDC dismemberment "dried"
+18	158	research	model	model		2026-11-01T10:27:13Z	7.4	
+18	159	research	tool	shell	bash	2026-11-01T10:27:21Z	0.8	Fetch Lagarde wet-surface page for a verbatim quote :: curl -sL "https://seblagarde.wordpress.com/2013/04/14/water-drop-3b-physically-based-wet-surfaces/" | python3 -c " import sys,re,html t=sys.stdin.read() t=re.su
+18	160	research	model	model		2026-11-01T10:27:21Z	62.7	
+18	161	research	tool	edit files	write	2026-11-01T10:28:24Z	0.0	Writing the drying-front research note :: /Users/ladvien/bevy_carnage_loop/docs/research/drying-front.md
+18	162	research	model	model		2026-11-01T10:28:24Z	9.9	
+18	163	research	tool	shell	bash	2026-11-01T10:28:34Z	1.4	Fix unverifiable claims and commit research note :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' import re p='docs/research/drying-front.md' s=open(p).read() s=s.replace("Sci. Rep. 10, 8598 (2020)","S
+18	164	research	model	model		2026-11-01T10:28:36Z	122.6	
+18	165	research	tool	git	bash	2026-11-01T10:30:38Z	0.6	Create iteration branch; read shader header :: cd /Users/ladvien/bevy_carnage_loop && git checkout -q -b loop/iter-11 && git branch --show-current && sed -n 1,58p src/flesh.wesl
+18	166	research	model	model		2026-11-01T10:30:39Z	89.1	
+18	167	research	tool	edit files	edit	2026-11-01T10:32:08Z	0.0	Insert drying-front and crack helpers after blood_dried :: [src/flesh.wesl#1181] PUT >242: + +// **How a film dries in space** (`docs/research/drying-front.md`). A film is not one age: it dries at its contact line first
+18	168	research	model	model		2026-11-01T10:32:08Z	6.4	
+18	169	research	tool	read files	read	2026-11-01T10:32:14Z	0.0	Re-read fragment variable declarations and wet block :: src/flesh.wesl:455-490
+18	170	research	model	model		2026-11-01T10:32:14Z	10.4	
+18	171	research	tool	edit files	edit	2026-11-01T10:32:25Z	0.0	Declare front vars; compute pixel sizes; compute front for aged blood :: [src/flesh.wesl#8580] PUT 468.=468: + var flay_mm_per_uv = 0.0; // the flaymap's size on the body, for a crater's walls + var mm_per_px = 0.0; // how big a pixe
+18	172	research	model	model		2026-11-01T10:32:25Z	4.3	
+18	173	research	tool	search	grep	2026-11-01T10:32:29Z	0.0	Locate compositing block :: src/flesh.wesl
+18	174	research	model	model		2026-11-01T10:32:29Z	4.9	
+18	175	research	tool	read files	read	2026-11-01T10:32:34Z	0.1	Read compositing block for edit :: src/flesh.wesl:634-655
+18	176	research	model	model		2026-11-01T10:32:34Z	7.0	
+18	177	research	tool	edit files	edit	2026-11-01T10:32:41Z	0.0	Composite blood at the front-adjusted age, matte rim, cracks show the surface :: [src/flesh.wesl#0FA0] PUT 637.=645: + if amount > 0.0 { + let depth_mm = amount * flesh.wet.z; + let base = pbr_input.material.base_color.rgb; + // **The age th
+18	178	research	model	model		2026-11-01T10:32:41Z	6.1	
+18	179	build	tool	phase mark	bash	2026-11-01T10:32:48Z	0.0	[launched bg_7] Build capture_skinned with the new shader :: cd /Users/ladvien/bevy_carnage_loop && python3 ~/.local/share/wiggum/steps.py mark build && time cargo build --release --example capture_skinned 2>&1 | tail -3
+18	180	build	model	model		2026-11-01T10:32:48Z	9.7	
+18	181	build	tool	search	grep	2026-11-01T10:32:57Z	0.0	Check tests that read the shader source :: src/flesh.rs
+18	182	build	model	model		2026-11-01T10:32:57Z	4.2	
+18	183	build	tool	wait: build	wait	2026-11-01T10:33:01Z	60.6	Waiting for capture_skinned build
+18	184	build	model	model		2026-11-01T10:34:02Z	5.8	
+18	185	build	tool	shell	bash	2026-11-01T10:34:08Z	60.0	[launched bg_8] Run new shader on dried variants; check shader errors :: mkdir -p /tmp/c11/after/bin && cp $CARGO_TARGET_DIR/release/examples/capture_skinned /tmp/c11/after/bin/capture_skinned && cd /tmp/c11/after && B=/tmp/c11/after
+18	186	build	model	model		2026-11-01T10:35:08Z	2.2	
+18	187	build	tool	wait: clip	wait	2026-11-01T10:35:10Z	63.5	Waiting for capture run
+18	188	build	model	model		2026-11-01T10:36:14Z	4.7	
+18	189	build	tool	read files	read	2026-11-01T10:36:18Z	0.5	View after: through-dry final frame :: /tmp/c11/after/through_dry/frame0359.png
+18	190	build	tool	read files	read	2026-11-01T10:36:18Z	0.5	View after: close dried chest wound :: /tmp/c11/after/close_dry/frame0359.png
+18	191	build	model	model		2026-11-01T10:36:19Z	9.8	
+18	192	build	tool	shell	bash	2026-11-01T10:36:29Z	1.0	Side by side zoom of dried runs before/after :: cd /tmp/c11 && ./venv/bin/python - <<'EOF' from PIL import Image a = Image.open('before/close_dry/frame0359.png').convert('RGB').crop((330,100,490,470)) b = Ima
+18	193	build	model	model		2026-11-01T10:36:30Z	2.9	
+18	194	build	tool	read files	read	2026-11-01T10:36:33Z	1.0	View runs before/after zoomed :: /tmp/c11/cmp_runs_dry.png
+18	195	build	model	model		2026-11-01T10:36:34Z	20.3	
+18	196	build	tool	shell	bash	2026-11-01T10:36:54Z	0.8	Compare dried floor pools before/after :: cd /tmp/c11 && cat > cmp.py <<'EOF' import sys from PIL import Image # usage: cmp.py a.png b.png out.png x y w h scale a,b,out = sys.argv[1:4] x,y,w,h,s = map(i
+18	197	build	model	model		2026-11-01T10:36:55Z	2.6	
+18	198	build	tool	read files	read	2026-11-01T10:36:57Z	0.4	View pool comparison :: /tmp/c11/cmp_pools.png
+18	199	build	model	model		2026-11-01T10:36:58Z	47.8	
+18	200	build	tool	cargo build	bash	2026-11-01T10:37:45Z	60.0	[launched bg_9] Iterate: rim leads only, 6x7 samples, softer lead; rebuild :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' import re p='src/flesh.wesl' s=open(p).read() s=s.replace("const FRONT_LEAD: f32 = 3.0;","const FRONT_L
+18	201	build	model	model		2026-11-01T10:38:45Z	5.8	
+18	202	build	tool	shell	bash	2026-11-01T10:38:51Z	0.1	Prepare runner script; find scene geometry :: cat > /tmp/c11/run.sh <<'EOF' #!/bin/bash # usage: run.sh <bin> <outdir> <name> [args...] -> <outdir>/<name>/frame*.png and <outdir>/<name>.txt bin=$1; out=$2; 
+18	203	build	model	model		2026-11-01T10:38:51Z	2.9	
+18	204	build	tool	wait: build	wait	2026-11-01T10:38:54Z	10.4	Waiting for rebuild
+18	205	build	model	model		2026-11-01T10:39:05Z	6.0	
+18	206	build	tool	shell	bash	2026-11-01T10:39:11Z	0.0	[launched bg_10] Render dried and mid-dry variants with the revised shader :: cp $CARGO_TARGET_DIR/release/examples/capture_skinned /tmp/c11/after/bin/capture_skinned; cd /tmp/c11/after && B=/tmp/c11/after/bin/capture_skinned; ( /tmp/c11/
+18	207	build	model	model		2026-11-01T10:39:11Z	2.8	
+18	208	build	tool	wait: clip	wait	2026-11-01T10:39:14Z	193.2	Waiting for renders
+18	209	build	model	model		2026-11-01T10:42:27Z	3.6	
+18	210	build	tool	read files	read	2026-11-01T10:42:30Z	0.7	View floor close-up dried (after) :: /tmp/c11/after/a_floor_dry/frame0359.png
+18	211	build	tool	read files	read	2026-11-01T10:42:30Z	0.8	View floor close-up mid-dry (after) :: /tmp/c11/after/a_floor_mid/frame0359.png
+18	212	build	model	model		2026-11-01T10:42:31Z	6.1	
+18	213	build	tool	shell	bash	2026-11-01T10:42:37Z	0.2	Find default camera and sheet position :: cd /Users/ladvien/bevy_carnage_loop && grep -n "eye\|Camera\|looking_at\|Transform::from_xyz" examples/capture_skinned.rs | head -20; grep -n "sheet\|Plane3d::n
+18	214	build	model	model		2026-11-01T10:42:38Z	7.4	
+18	215	build	tool	shell	bash	2026-11-01T10:42:45Z	60.0	[launched bg_11] Re-aim floor close-up camera :: cd /tmp/c11/after && B=/tmp/c11/after/bin/capture_skinned; ( /tmp/c11/run.sh $B /tmp/c11/after a_floor_dry --through --floor 512 --dry 120 --eye 0.3,1.0,1.0 --a
+18	216	build	model	model		2026-11-01T10:43:45Z	4.5	
+18	217	build	tool	shell	bash	2026-11-01T10:43:49Z	1.5	Compare revised runs vs baseline :: cd /tmp/c11 && ./venv/bin/python cmp.py before/close_dry/frame0359.png after/a_close_dry/frame0359.png cmp_runs_dry2.png 330 100 160 370 3
+18	218	build	model	model		2026-11-01T10:43:51Z	2.7	
+18	219	build	tool	read files	read	2026-11-01T10:43:54Z	1.5	View revised runs comparison :: /tmp/c11/cmp_runs_dry2.png
+18	220	build	model	model		2026-11-01T10:43:55Z	7.2	
+18	221	build	tool	wait: clip	wait	2026-11-01T10:44:02Z	31.9	Waiting for floor close-up renders
+18	222	build	model	model		2026-11-01T10:44:34Z	3.4	
+18	223	build	tool	read files	read	2026-11-01T10:44:38Z	0.7	View floor dried close-up :: /tmp/c11/after/a_floor_dry/frame0359.png
+18	224	build	tool	read files	read	2026-11-01T10:44:38Z	0.8	View floor mid-dry close-up :: /tmp/c11/after/a_floor_mid/frame0359.png
+18	225	build	model	model		2026-11-01T10:44:38Z	7.9	
+18	226	build	tool	shell	bash	2026-11-01T10:44:46Z	0.1	Check capture_preset options :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,40p examples/capture_preset.rs; grep -n "arg(\"--\|flag(\"--" examples/capture_preset.rs examples/common/mod.rs 
+18	227	build	model	model		2026-11-01T10:44:46Z	7.0	
+18	228	build	tool	cargo build	bash	2026-11-01T10:44:53Z	0.0	[launched bg_12] Build and run capture_preset before/after :: cd /Users/ladvien/bevy_carnage_loop && cargo build --release --example capture_preset 2>&1 | tail -1 && cp $CARGO_TARGET_DIR/release/examples/capture_preset /tm
+18	229	build	model	model		2026-11-01T10:44:53Z	8.4	
+18	230	build	tool	shell	bash	2026-11-01T10:45:02Z	0.1	See how stroll spill is painted :: cd /Users/ladvien/bevy_carnage_loop && grep -n "spill\|StainShape\|paint_" examples/capture_skinned.rs | head -30
+18	231	build	model	model		2026-11-01T10:45:02Z	5.6	
+18	232	build	tool	read files	read	2026-11-01T10:45:08Z	0.1	Read spill placement :: examples/capture_skinned.rs:210-235
+18	233	build	model	model		2026-11-01T10:45:08Z	8.6	
+18	234	build	tool	wait: clip	wait	2026-11-01T10:45:16Z	123.7	Waiting for preset captures
+18	235	build	model	model		2026-11-01T10:47:20Z	6.8	
+18	236	build	tool	shell	bash	2026-11-01T10:47:27Z	0.0	[launched bg_13] Render big spill pool at mid and fully dried, before and after :: cd /tmp/c11/after && B=/tmp/c11/after/bin/capture_skinned; ( /tmp/c11/run.sh $B /tmp/c11/after a_spill_mid --stroll --floor 512 --dry 900 --eye 0.7,0.75,0.1 --a
+18	237	build	tool	read files	read	2026-11-01T10:47:27Z	1.0	View preset final frame with new shader :: /tmp/c11/after/p_default/frame0359.png
+18	238	build	model	model		2026-11-01T10:47:28Z	5.5	
+18	239	build	tool	wait: clip	wait	2026-11-01T10:47:33Z	232.1	Waiting for spill renders
+18	240	build	model	model		2026-11-01T10:51:25Z	4.4	
+18	241	build	tool	shell	bash	2026-11-01T10:51:30Z	4.1	Build spill comparison sheets :: cd /tmp/c11 && for f in 100 200 300 359; do ./venv/bin/python cmp.py before/b_spill_mid/frame0$f.png after/a_spill_mid/frame0$f.png cmp_spill_mid_$f.png 0 0 800
+18	242	build	model	model		2026-11-01T10:51:34Z	3.3	
+18	243	build	tool	read files	read	2026-11-01T10:51:37Z	1.1	View dried spill before/after :: /tmp/c11/cmp_spill_dry.png
+18	244	build	tool	read files	read	2026-11-01T10:51:37Z	1.1	View mid-dry spill before/after :: /tmp/c11/cmp_spill_mid_300.png
+18	245	build	model	model		2026-11-01T10:51:38Z	12.5	
+18	246	build	tool	shell	bash	2026-11-01T10:51:51Z	1.1	Zoom into mid-dry spill pool edge :: cd /tmp/c11 && ./venv/bin/python cmp.py before/b_spill_mid/frame0300.png after/a_spill_mid/frame0300.png cmp_spill_zoom.png 300 180 190 150 4
+18	247	build	model	model		2026-11-01T10:51:52Z	3.0	
+18	248	build	tool	read files	read	2026-11-01T10:51:55Z	0.8	View zoomed spill edge :: /tmp/c11/cmp_spill_zoom.png
+18	249	build	model	model		2026-11-01T10:51:56Z	40.1	
+18	250	build	tool	cargo build	bash	2026-11-01T10:52:36Z	0.0	[launched bg_14] Debug build: visualise reach, age, crack as RGB :: cd /Users/ladvien/bevy_carnage_loop && cp src/flesh.wesl /tmp/c11/flesh.wesl.good && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() old=" let blood = mix
+18	251	build	model	model		2026-11-01T10:52:36Z	12.4	
+18	252	build	tool	wait: clip	wait	2026-11-01T10:52:48Z	171.6	Waiting for debug render
+18	253	build	model	model		2026-11-01T10:55:40Z	3.0	
+18	254	build	tool	read files	read	2026-11-01T10:55:43Z	0.6	View debug visualisation of reach/age/crack :: /tmp/c11/after/d_spill/frame0359.png
+18	255	build	model	model		2026-11-01T10:55:44Z	35.5	
+18	256	build	tool	cargo build	bash	2026-11-01T10:56:19Z	0.0	[launched bg_15] Interior lag, crust ring, wider cracks; render spill far and near :: cd /Users/ladvien/bevy_carnage_loop && cp /tmp/c11/flesh.wesl.good src/flesh.wesl && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() old=""" var age = dri
+18	257	build	model	model		2026-11-01T10:56:19Z	4.4	
+18	258	build	tool	wait: clip	wait	2026-11-01T10:56:24Z	196.8	Waiting for spill renders (revised)
+18	259	build	model	model		2026-11-01T10:59:40Z	3.8	
+18	260	build	tool	read files	read	2026-11-01T10:59:44Z	0.7	View near dried spill (cracks) :: /tmp/c11/after/a_spill_near/frame0359.png
+18	261	build	tool	read files	read	2026-11-01T10:59:44Z	0.8	View near mid-dry spill :: /tmp/c11/after/a_spill_near_mid/frame0359.png
+18	262	build	model	model		2026-11-01T10:59:45Z	62.9	
+18	263	build	tool	cargo build	bash	2026-11-01T11:00:48Z	0.0	[launched bg_16] Fix crack gate using plateau depth; thin lines; render near spill :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() # film_run returns (run, deepest) old=s[s.index("// How far a film 
+18	264	build	model	model		2026-11-01T11:00:48Z	3.6	
+18	265	build	tool	wait: clip	wait	2026-11-01T11:00:51Z	199.7	Waiting for near-spill renders
+18	266	build	model	model		2026-11-01T11:04:11Z	3.6	
+18	267	build	tool	read files	read	2026-11-01T11:04:15Z	0.7	View near dried spill after crack fix :: /tmp/c11/after/a_spill_near/frame0359.png
+18	268	build	tool	read files	read	2026-11-01T11:04:15Z	0.7	View near mid-dry spill after fix :: /tmp/c11/after/a_spill_near_mid/frame0359.png
+18	269	build	model	model		2026-11-01T11:04:15Z	27.6	
+18	270	build	tool	cargo build	bash	2026-11-01T11:04:43Z	0.1	[launched bg_17] Sparser, subtler cracks; render near and close spill :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() a=s.index(" let deep = smoothstep(0.7, 1.0, front.x);") b=s.index("
+18	271	build	model	model		2026-11-01T11:04:43Z	3.0	
+18	272	build	tool	wait: clip	wait	2026-11-01T11:04:46Z	191.6	Waiting for renders
+18	273	build	model	model		2026-11-01T11:07:58Z	3.6	
+18	274	build	tool	read files	read	2026-11-01T11:08:01Z	0.7	View near dried spill, sparse cracks :: /tmp/c11/after/a_spill_near/frame0359.png
+18	275	build	tool	read files	read	2026-11-01T11:08:01Z	0.7	View close dried spill :: /tmp/c11/after/a_spill_close/frame0359.png
+18	276	build	model	model		2026-11-01T11:08:02Z	25.0	
+18	277	build	tool	cargo build	bash	2026-11-01T11:08:27Z	0.0	[launched bg_18] Patchy connected cracks; render near, close, rim views :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() # add patch_noise before dried_crack's doc comment marker="// **How
+18	278	build	model	model		2026-11-01T11:08:27Z	4.7	
+18	279	build	tool	wait: clip	wait	2026-11-01T11:08:32Z	153.2	Waiting for renders
+18	280	build	model	model		2026-11-01T11:11:05Z	3.6	
+18	281	build	tool	read files	read	2026-11-01T11:11:09Z	0.0	View close dried spill with patchy cracks :: /tmp/c11/after/a_spill_close/frame0359.png
+18	282	build	tool	read files	read	2026-11-01T11:11:09Z	0.1	View rim of dried spill :: /tmp/c11/after/a_spill_edge/frame0359.png
+18	283	build	model	model		2026-11-01T11:11:09Z	5.1	
+18	284	build	tool	shell	bash	2026-11-01T11:11:14Z	0.1	Read shader compile error :: cd /tmp/c11/after && grep -i "error" a_spill_close.txt | head -5 | cut -c1-600
+18	285	build	model	model		2026-11-01T11:11:14Z	7.1	
+18	286	build	tool	cargo build	bash	2026-11-01T11:11:21Z	0.0	[launched bg_19] Rename reserved word patch; rebuild and render :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's/let patch = smoothstep/let cracked = smoothstep/; s/return line \* patch \* runs_here/return line * cracked * r
+18	287	build	model	model		2026-11-01T11:11:21Z	3.0	
+18	288	build	tool	wait: clip	wait	2026-11-01T11:11:24Z	193.4	Waiting for renders
+18	289	build	model	model		2026-11-01T11:14:37Z	3.6	
+18	290	build	tool	read files	read	2026-11-01T11:14:41Z	0.7	View close dried spill (patchy cracks) :: /tmp/c11/after/a_spill_close/frame0359.png
+18	291	build	tool	read files	read	2026-11-01T11:14:41Z	0.7	View rim of dried spill :: /tmp/c11/after/a_spill_edge/frame0359.png
+18	292	build	model	model		2026-11-01T11:14:42Z	25.4	
+18	293	build	tool	shell	bash	2026-11-01T11:15:07Z	0.4	Simplify cracks to patchy plates; drop noisy radial mapping :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() # film_front: drop the inward vector a=s.index("// **How far from i
+18	294	build	model	model		2026-11-01T11:15:08Z	7.9	
+18	295	build	tool	cargo build	bash	2026-11-01T11:15:16Z	0.0	[launched bg_20] Rebuild and render simplified cracks :: cd /Users/ladvien/bevy_carnage_loop && cargo build --release --example capture_skinned 2>&1 | tail -1 && cp $CARGO_TARGET_DIR/release/examples/capture_skinned /
+18	296	build	model	model		2026-11-01T11:15:16Z	3.3	
+18	297	build	tool	wait: clip	wait	2026-11-01T11:15:19Z	152.8	Waiting for renders
+18	298	build	model	model		2026-11-01T11:17:52Z	4.7	
+18	299	build	tool	shell	bash	2026-11-01T11:17:56Z	0.1	Read shader error and composite block :: cd /tmp/c11/after && grep -i "error" a_spill_close.txt | head -3 | cut -c1-500; cd /Users/ladvien/bevy_carnage_loop && sed -n 640,690p src/flesh.wesl
+18	300	build	model	model		2026-11-01T11:17:56Z	7.7	
+18	301	build	tool	shell	bash	2026-11-01T11:18:04Z	1.0	Restore accidentally removed lifted_normal and crater_light :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' import subprocess orig = subprocess.check_output(['git','show','HEAD:src/flesh.wesl']).decode() a = ori
+18	302	build	model	model		2026-11-01T11:18:05Z	8.0	
+18	303	build	tool	cargo build	bash	2026-11-01T11:18:13Z	0.0	[launched bg_21] Rebuild with restored functions and render :: cd /Users/ladvien/bevy_carnage_loop && cargo build --release --example capture_skinned 2>&1 | tail -1 && cp $CARGO_TARGET_DIR/release/examples/capture_skinned /
+18	304	build	model	model		2026-11-01T11:18:13Z	2.9	
+18	305	build	tool	wait: clip	wait	2026-11-01T11:18:16Z	199.9	Waiting for renders
+18	306	build	model	model		2026-11-01T11:21:36Z	3.9	
+18	307	build	tool	read files	read	2026-11-01T11:21:40Z	0.7	View close dried spill (plates) :: /tmp/c11/after/a_spill_close/frame0359.png
+18	308	build	tool	read files	read	2026-11-01T11:21:40Z	0.7	View near dried spill (plates) :: /tmp/c11/after/a_spill_near/frame0359.png
+18	309	build	model	model		2026-11-01T11:21:41Z	16.2	
+18	310	build	tool	cargo build	bash	2026-11-01T11:21:57Z	0.0	[launched bg_22] Constant crack cell; rebuild; render :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() s=s.replace(" let cell = CRACK_SPACING_MM * clamp(front.y / CRACK_R
+18	311	build	model	model		2026-11-01T11:21:57Z	3.3	
+18	312	build	tool	wait: clip	wait	2026-11-01T11:22:00Z	202.6	Waiting for renders
+18	313	build	model	model		2026-11-01T11:25:23Z	4.0	
+18	314	build	tool	read files	read	2026-11-01T11:25:27Z	0.7	View close dried spill, constant cells :: /tmp/c11/after/a_spill_close/frame0359.png
+18	315	build	tool	read files	read	2026-11-01T11:25:27Z	0.7	View near dried spill, constant cells :: /tmp/c11/after/a_spill_near/frame0359.png
+18	316	build	model	model		2026-11-01T11:25:27Z	13.7	
+18	317	build	tool	cargo build	bash	2026-11-01T11:25:41Z	0.0	[launched bg_23] Tone cracks down; render :: date -u; cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() s=s.replace("const CRACK_SPACING_MM: f32 = 9.0;","const CR
+18	318	build	model	model		2026-11-01T11:25:41Z	3.3	
+18	319	build	tool	wait: clip	wait	2026-11-01T11:25:44Z	190.4	Waiting for renders
+18	320	build	model	model		2026-11-01T11:28:55Z	4.5	
+18	321	build	tool	read files	read	2026-11-01T11:28:59Z	0.7	View close dried spill (toned cracks) :: /tmp/c11/after/a_spill_close/frame0359.png
+18	322	build	tool	read files	read	2026-11-01T11:28:59Z	0.7	View near dried spill (toned cracks) :: /tmp/c11/after/a_spill_near/frame0359.png
+18	323	build	model	model		2026-11-01T11:29:00Z	14.6	
+18	324	build	tool	cargo build	bash	2026-11-01T11:29:15Z	0.0	[launched bg_24] Two-octave crack patches; render :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() old=" let cracked = smoothstep(0.45, 0.65, patch_noise(here / (cell
+18	325	build	model	model		2026-11-01T11:29:15Z	11.1	
+18	326	build	tool	wait: clip	wait	2026-11-01T11:29:26Z	191.2	Waiting for renders
+18	327	build	model	model		2026-11-01T11:32:37Z	4.2	
+18	328	build	tool	read files	read	2026-11-01T11:32:41Z	0.9	View close dried spill (fbm patches) :: /tmp/c11/after/a_spill_close/frame0359.png
+18	329	build	tool	read files	read	2026-11-01T11:32:41Z	0.9	View dried spill rim (crust ring) :: /tmp/c11/after/a_spill_edge/frame0359.png
+18	330	build	model	model		2026-11-01T11:32:42Z	14.4	
+18	331	build	tool	cargo build	bash	2026-11-01T11:32:57Z	0.0	[launched bg_25] Widen crack LOD fade; render :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() old=" * smoothstep(CRACK_MIN_PX, 2.0 * CRACK_MIN_PX, cell / max(mm_
+18	332	build	model	model		2026-11-01T11:32:57Z	11.7	
+18	333	build	tool	wait: clip	wait	2026-11-01T11:33:08Z	177.9	Waiting for renders
+18	334	build	model	model		2026-11-01T11:36:06Z	4.0	
+18	335	build	tool	read files	read	2026-11-01T11:36:10Z	0.7	View near dried spill after LOD fade change :: /tmp/c11/after/a_spill_near/frame0359.png
+18	336	build	tool	read files	read	2026-11-01T11:36:10Z	0.7	View close dried spill after LOD fade change :: /tmp/c11/after/a_spill_close/frame0359.png
+18	337	build	model	model		2026-11-01T11:36:11Z	9.5	
+18	338	build	tool	shell	bash	2026-11-01T11:36:21Z	0.0	[launched bg_26] Render mid-dry (0.6, 0.8) spill before/after :: cd /tmp/c11 && ( /tmp/c11/run.sh /tmp/c11/after/bin/capture_skinned /tmp/c11/after a_mid08 --stroll --floor 512 --dry 450 --eye 0.3,0.4,-0.45 --at 0.0,0.0,-0.86
+18	339	build	model	model		2026-11-01T11:36:21Z	2.9	
+18	340	build	tool	wait: clip	wait	2026-11-01T11:36:23Z	222.5	Waiting for mid-dry renders
+18	341	build	model	model		2026-11-01T11:40:06Z	4.0	
+18	342	build	tool	read files	read	2026-11-01T11:40:10Z	0.6	View 0.8-age spill before/after :: /tmp/c11/cmp_mid08.png
+18	343	build	tool	read files	read	2026-11-01T11:40:10Z	0.6	View 0.6-age spill before/after :: /tmp/c11/cmp_mid06.png
+18	344	build	model	model		2026-11-01T11:40:11Z	21.2	
+18	345	build	tool	cargo build	bash	2026-11-01T11:40:32Z	0.0	[launched bg_27] INTERIOR_RATE 0.4; re-render mid-dry :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's/^const INTERIOR_RATE: f32 = 0.6;/const INTERIOR_RATE: f32 = 0.4;/; s/goes through its colour walk, against the 
+18	346	build	model	model		2026-11-01T11:40:32Z	9.6	
+18	347	build	tool	wait: clip	wait	2026-11-01T11:40:42Z	133.6	Waiting for renders
+18	348	build	model	model		2026-11-01T11:42:55Z	3.0	
+18	349	build	tool	read files	read	2026-11-01T11:42:58Z	0.4	View 0.8-age spill (interior rate 0.4) :: /tmp/c11/cmp_mid08.png
+18	350	build	tool	read files	read	2026-11-01T11:42:58Z	0.4	View 0.6-age spill (interior rate 0.4) :: /tmp/c11/cmp_mid06.png
+18	351	build	model	model		2026-11-01T11:42:59Z	11.8	
+18	352	build	tool	shell	bash	2026-11-01T11:43:10Z	0.0	[launched bg_28] Run recorder matrix: baseline once, new twice :: mkdir -p /tmp/c11/m && cp $CARGO_TARGET_DIR/release/examples/capture_skinned /tmp/c11/after/bin/capture_skinned && cd /tmp/c11/m && cat > jobs.txt <<'EOF' befor
+18	353	build	model	model		2026-11-01T11:43:10Z	11.3	
+18	354	build	tool	shell	bash	2026-11-01T11:43:22Z	0.1	Read changelog head and media list format :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,40p CHANGELOG.md | cut -c1-260; grep -n "dried\|dries" docs/preset.md | head -10; sed -n 1,40p docs/media/README
+18	355	build	model	model		2026-11-01T11:43:22Z	12.5	
+18	356	build	tool	shell	bash	2026-11-01T11:43:34Z	0.1	Find docs that describe dried blood to update :: cd /Users/ladvien/bevy_carnage_loop && sed -n 25,60p src/flesh.rs | cut -c1-220; grep -n "dries\|dried\|drying" docs/guide/*.md docs/DEMOS.md docs/gallery.md 2>
+18	357	build	model	model		2026-11-01T11:43:34Z	5.8	
+18	358	build	tool	wait: clip	wait	2026-11-01T11:43:40Z	481.4	Waiting for recorder matrix
+18	359	build	model	model		2026-11-01T11:51:42Z	6.9	
+18	360	build	tool	shell	bash	2026-11-01T11:51:48Z	4.4	Compare frames before/after across variants :: cd /tmp/c11 && ./venv/bin/python - <<'EOF' import numpy as np from PIL import Image def diff(a,b): A=np.asarray(Image.open(a).convert('RGB')).astype(int); B=np.
+18	361	build	model	model		2026-11-01T11:51:53Z	12.2	
+18	362	build	tool	shell	bash	2026-11-01T11:52:05Z	19.9	Render shipped-default close-up wound over time :: cd /tmp/c11 && /tmp/c11/run.sh /tmp/c11/after/bin/capture_skinned /tmp/c11/after a_close_wet --eye 0.0,1.3,0.75 --at 0.0,1.25,0.0 && for f in 200 260 330 359; d
+18	363	build	bg	shell	bash	2026-11-01T10:19:42Z	5563.3	bg_4 completed: tools/webgl2/check.sh . 12 2>&1 | tail -25
+18	364	build	model	model		2026-11-01T11:52:25Z	6.9	
+18	365	build	tool	read files	read	2026-11-01T11:52:32Z	0.5	View default wound at frame 260 before/after :: /tmp/c11/cmp_wet_260.png
+18	366	build	tool	read files	read	2026-11-01T11:52:32Z	0.5	View default wound at frame 359 before/after :: /tmp/c11/cmp_wet_359.png
+18	367	build	model	model		2026-11-01T11:52:32Z	10.6	
+18	368	build	tool	shell	bash	2026-11-01T11:52:43Z	0.7	Build pool-front comparison sheet against Ref 1 :: cd /tmp/c11 && ./venv/bin/python - <<'EOF' from PIL import Image, ImageDraw def tile(img, w, h, label): im = img.convert('RGB'); im.thumbnail((w,h), Image.LANCZ
+18	369	build	model	model		2026-11-01T11:52:44Z	2.4	
+18	370	build	tool	read files	read	2026-11-01T11:52:46Z	0.5	View pool-front comparison sheet :: /tmp/c11/compare-pool-front.png
+18	371	build	model	model		2026-11-01T11:52:47Z	11.1	
+18	372	build	tool	shell	bash	2026-11-01T11:52:58Z	0.6	Sample rim and interior colours of the drying pool :: cd /tmp/c11 && ./venv/bin/python - <<'EOF' import numpy as np from PIL import Image im = np.asarray(Image.open('after/a_mid08/frame0359.png').convert('RGB')).as
+18	373	build	model	model		2026-11-01T11:52:58Z	22.4	
+18	374	build	tool	cargo build	bash	2026-11-01T11:53:21Z	0.0	[launched bg_29] Darker crust; re-render pool and runs :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's/^const CRUST_REACH: f32 = 0.3;/const CRUST_REACH: f32 = 0.4;/; s/^const CRUST_DARK: f32 = 0.45;/const CRUST_DAR
+18	375	build	model	model		2026-11-01T11:53:21Z	7.8	
+18	376	build	tool	read files	read	2026-11-01T11:53:29Z	0.0	Read flesh.rs doc insertion point :: src/flesh.rs:38-50
+18	377	build	model	model		2026-11-01T11:53:29Z	10.2	
+18	378	build	tool	edit files	edit	2026-11-01T11:53:39Z	0.0	Document the drying front and cracks in the flesh module docs :: [src/flesh.rs#B1D5] PUT >45: +//! **Blood dries from its edge in, and a dried crust cracks** (0.8.5). A pool is stamped in one tick, so every texel of it carrie
+18	379	build	model	model		2026-11-01T11:53:39Z	14.4	
+18	380	build	model	model		2026-11-01T11:53:53Z	3.9	
+18	381	build	tool	wait: clip	wait	2026-11-01T11:53:57Z	40.9	Waiting for crust re-render
+18	382	build	model	model		2026-11-01T11:54:38Z	17.0	
+18	383	build	tool	read files	read	2026-11-01T11:54:55Z	0.4	View pool after darker crust :: /tmp/c11/cmp_mid08.png
+18	384	build	tool	read files	read	2026-11-01T11:54:55Z	0.7	View dried runs after darker crust :: /tmp/c11/cmp_runs_dry3.png
+18	385	build	model	model		2026-11-01T11:54:56Z	13.2	
+18	386	build	model	model		2026-11-01T11:55:09Z	34.7	
+18	387	build	tool	shell	bash	2026-11-01T11:55:44Z	1.4	Compare wall spatter in shipped default clip :: cd /tmp/c11 && ./venv/bin/python cmp.py m/before/through/frame0359.png m/after1/through/frame0359.png cmp_wall_default.png 250 40 260 230 3 && ./venv/bin/python
+18	388	build	model	model		2026-11-01T11:55:45Z	2.3	
+18	389	build	tool	read files	read	2026-11-01T11:55:47Z	0.6	View wall spatter default before/after :: /tmp/c11/cmp_wall_default.png
+18	390	build	model	model		2026-11-01T11:55:48Z	13.5	
+18	391	build	tool	shell	bash	2026-11-01T11:56:02Z	0.6	Sample colour profile from rim to middle :: cd /tmp/c11 && ./venv/bin/python - <<'EOF' import numpy as np from PIL import Image im = np.asarray(Image.open('after/a_mid08/frame0359.png').convert('RGB')).as
+18	392	build	model	model		2026-11-01T11:56:02Z	20.3	
+18	393	build	tool	cargo build	bash	2026-11-01T11:56:22Z	0.0	[launched bg_30] Dried rim takes the deep film's colour; re-render :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() old=""" var age = dried; var crack = 0.0; var crust = 0.0; if front
+18	394	build	model	model		2026-11-01T11:56:22Z	2.2	
+18	395	build	tool	wait: clip	wait	2026-11-01T11:56:25Z	85.3	Waiting for render
+18	396	build	model	model		2026-11-01T11:57:50Z	3.9	
+18	397	build	tool	read files	read	2026-11-01T11:57:54Z	0.4	View pool with deep-colour rim :: /tmp/c11/cmp_mid08.png
+18	398	build	tool	read files	read	2026-11-01T11:57:54Z	0.7	View dried runs with deep-colour rim :: /tmp/c11/cmp_runs_dry3.png
+18	399	build	model	model		2026-11-01T11:57:55Z	17.2	
+18	400	build	tool	cargo build	bash	2026-11-01T11:58:12Z	0.0	[launched bg_31] Try a sharper front (lead 4) and compare :: cd /Users/ladvien/bevy_carnage_loop && cp src/flesh.wesl /tmp/c11/flesh.wesl.v2 && sed -i 's/^const FRONT_LEAD: f32 = 2.5;/const FRONT_LEAD: f32 = 4.0;/' src/fl
+18	401	build	model	model		2026-11-01T11:58:12Z	4.3	
+18	402	build	tool	wait: clip	wait	2026-11-01T11:58:16Z	63.4	Waiting for L=4 render
+18	403	build	model	model		2026-11-01T11:59:20Z	2.4	
+18	404	build	tool	read files	read	2026-11-01T11:59:22Z	0.4	View lead 2.5 vs 4 comparison :: /tmp/c11/cmp_l4.png
+18	405	build	model	model		2026-11-01T11:59:22Z	6.5	
+18	406	build	tool	shell	bash	2026-11-01T11:59:29Z	0.0	Restore lead 2.5; review constants and comments :: cd /Users/ladvien/bevy_carnage_loop && cp /tmp/c11/flesh.wesl.v2 src/flesh.wesl && grep -n "FRONT_LEAD: f32" src/flesh.wesl && sed -n 244,285p src/flesh.wesl
+18	407	build	model	model		2026-11-01T11:59:29Z	15.3	
+18	408	build	tool	shell	bash	2026-11-01T11:59:44Z	0.4	Rewrite shader header comments to match the final design :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() a=s.index("// **How a film dries in space**") b=s.index("// How far
+18	409	build	model	model		2026-11-01T11:59:45Z	7.6	
+18	410	build	tool	shell	bash	2026-11-01T11:59:52Z	0.2	Correct flesh.rs doc numbers :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.rs' s=open(p).read() old="canvas's own, so at an age of a quarter the rim is at half its w
+18	411	build	model	model		2026-11-01T11:59:52Z	8.0	
+18	412	build	tool	git	bash	2026-11-01T12:00:00Z	0.0	[launched bg_32] Run WebGL2 check on the final shader :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's|a black rim round a red, wet middle, cracked at right angles to the\n||' src/flesh.rs && python3 - <<'EOF' p='s
+18	413	build	model	model		2026-11-01T12:00:00Z	6.8	
+18	414	build	tool	git	bash	2026-11-01T12:00:07Z	0.5	Commit the shader implementation :: cd /Users/ladvien/bevy_carnage_loop && git add src/flesh.wesl src/flesh.rs && git commit -q -m "AG-150: blood dries from its edge in, and a dried crust cracks T
+18	415	build	model	model		2026-11-01T12:00:08Z	12.5	
+18	416	build	tool	cargo build	bash	2026-11-01T12:00:20Z	0.0	[launched bg_33] Build all release examples from the final tree :: cd /Users/ladvien/bevy_carnage_loop && cargo build --release --examples 2>&1 | tail -2 && cp $CARGO_TARGET_DIR/release/examples/capture_skinned /tmp/c11/after/b
+18	417	build	model	model		2026-11-01T12:00:20Z	6.8	
+18	418	build	tool	shell	bash	2026-11-01T12:00:27Z	0.5	See history.md head and readme test expectations :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,14p docs/guide/history.md | cut -c1-300; grep -n "history\|Status" tests/readme.rs | head -20
+18	419	build	model	model		2026-11-01T12:00:28Z	9.9	
+18	420	build	tool	shell	bash	2026-11-01T12:00:38Z	0.1	Survey preset.md headings and the DEMOS dried section :: cd /Users/ladvien/bevy_carnage_loop && grep -n "^## \|^### " docs/preset.md | head -60; sed -n 606,625p docs/DEMOS.md | cut -c1-400
+18	421	build	model	model		2026-11-01T12:00:38Z	30.1	
+18	422	build	tool	read files	read	2026-11-01T12:01:08Z	0.2	Read preset.md Known limits for an addition :: docs/preset.md:596-640
+18	423	build	model	model		2026-11-01T12:01:08Z	7.2	
+18	424	build	tool	edit files	edit	2026-11-01T12:01:15Z	0.3	Add a Known limits entry for the drying front and cracks :: [docs/preset.md#B6E0] PUT >635: +- **A dried crust cracks only where you can see it, and a drop is not ringed** (0.8.5). Blood dries from its edge in: a pool or
+18	425	build	model	model		2026-11-01T12:01:16Z	5.4	
+18	426	build	tool	wait: build	wait	2026-11-01T12:01:21Z	422.5	Waiting for examples build or WebGL2 check
+18	427	build	model	model		2026-11-01T12:08:24Z	12.1	
+18	428	build	tool	wait: build	wait	2026-11-01T12:08:36Z	31.3	Waiting for examples build
+18	429	build	model	model		2026-11-01T12:09:07Z	5.8	
+18	430	build	tool	shell	bash	2026-11-01T12:09:13Z	0.0	[launched bg_34] Final recorder matrix on the final binaries, twice each :: cd /tmp/c11/m && rm -rf after1 after2 && grep -v '^before' jobs.txt > jobs_after.txt && (cat jobs_after.txt | xargs -P 4 -L 1 ./one.sh 2>&1 | sort > matrix_fina
+18	431	build	model	model		2026-11-01T12:09:13Z	26.5	
+18	432	build	tool	shell	bash	2026-11-01T12:09:39Z	0.4	Update research note to the final model and parameters :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='docs/research/drying-front.md' s=open(p).read() a=s.index("## Model adopted") b=s.index("## Validati
+18	433	build	model	model		2026-11-01T12:09:40Z	2.5	
+18	434	build	tool	wait: other	wait	2026-11-01T12:09:42Z	226.1	Waiting for final matrix
+18	435	build	model	model		2026-11-01T12:13:28Z	6.5	
+18	436	build	tool	shell	bash	2026-11-01T12:13:35Z	0.0	[launched bg_35] Bench before/after, alternating, three times :: cd /tmp/c11 && uptime; for i in 1 2 3; do for w in before after; do /usr/bin/time -l /tmp/c11/$w/bin/bench_carnage > /tmp/c11/$w/bench_$i.txt 2> /tmp/c11/$w/ben
+18	437	build	model	model		2026-11-01T12:13:35Z	8.5	
+18	438	build	tool	wait: other	wait	2026-11-01T12:13:43Z	37.1	Waiting for bench
+18	439	build	model	model		2026-11-01T12:14:20Z	4.7	
+18	440	build	tool	shell	bash	2026-11-01T12:14:25Z	0.0	Read after-bench refusal lines :: tail -3 /tmp/c11/after/bench_1.txt | cut -c1-200; grep -h "digest" /tmp/c11/after/bench_*.txt | head -3 | cut -c1-160
+18	441	build	model	model		2026-11-01T12:14:25Z	3.0	
+18	442	build	tool	shell	bash	2026-11-01T12:14:28Z	7.5	Run after-bench directly to read its output :: cat /tmp/c11/after/bench_1.time | head -5; ls -la /tmp/c11/after/bench_*; /tmp/c11/after/bin/bench_carnage 2>&1 | tail -5 | cut -c1-200
+18	443	build	model	model		2026-11-01T12:14:36Z	11.3	
+18	444	build	tool	shell	bash	2026-11-01T12:14:47Z	0.0	[launched bg_36] Render final media sources before/after :: cd /tmp/c11 && A=/tmp/c11/after/bin/capture_skinned; B=/tmp/c11/before/bin/capture_skinned; ( /tmp/c11/run.sh $A /tmp/c11/after f_mid06 --stroll --floor 512 --d
+18	445	build	model	model		2026-11-01T12:14:47Z	10.8	
+18	446	build	tool	edit files	edit	2026-11-01T12:14:58Z	0.0	Add the changelog entry under Unreleased :: [CHANGELOG.md#0000] PUT >7: + +### Changed + +- **Blood dries from its edge in, and a dried crust cracks** (iteration 11, AG-150, `docs/research/drying-front.md
+18	447	build	model	model		2026-11-01T12:14:58Z	9.0	
+18	448	build	tool	edit files	edit	2026-11-01T12:15:07Z	0.2	Add the changelog entry under Unreleased :: [CHANGELOG.md#21DC] PUT >7: + +### Changed + +- **Blood dries from its edge in, and a dried crust cracks** (iteration 11, AG-150, `docs/research/drying-front.md
+18	449	build	model	model		2026-11-01T12:15:07Z	6.6	
+18	450	build	tool	git	bash	2026-11-01T12:15:14Z	0.9	Update README bullet for the drying front :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='README.md' s=open(p).read() old="pools on the floor and dries dark brown where it fell, a wall's spa
+18	451	build	model	model		2026-11-01T12:15:14Z	2.7	
+18	452	build	tool	wait: clip	wait	2026-11-01T12:15:17Z	76.3	Waiting for media renders
+18	453	build	model	model		2026-11-01T12:16:33Z	14.0	
+18	454	build	tool	shell	bash	2026-11-01T12:16:47Z	5.4	Compose the drying_front.png comparison sheet :: cd /tmp/c11 && ./venv/bin/python - <<'EOF' from PIL import Image, ImageDraw, ImageFont font = ImageFont.truetype('/System/Library/Fonts/Supplemental/Arial.ttf',
+18	455	build	model	model		2026-11-01T12:16:53Z	2.4	
+18	456	build	tool	read files	read	2026-11-01T12:16:55Z	0.8	Inspect the composed sheet :: /tmp/c11/drying_front.png
+18	457	build	model	model		2026-11-01T12:16:56Z	12.2	
+18	458	build	tool	clip record/render	bash	2026-11-01T12:17:08Z	13.7	Compose the drying_front GIF :: cd /tmp/c11 && mkdir -p gifsrc && rm -f gifsrc/* && ./venv/bin/python - <<'EOF' from PIL import Image, ImageDraw, ImageFont font = ImageFont.truetype('/System/L
+18	459	build	model	model		2026-11-01T12:17:22Z	5.6	
+18	460	build	tool	clip record/render	bash	2026-11-01T12:17:27Z	2.1	Check GIF size against repo norms and sample frames :: cd /Users/ladvien/bevy_carnage_loop && ls -la docs/*.gif docs/media/*.gif | awk '{print $5/1024 " KB", $9}'; cd /tmp/c11 && for n in 10 45 79; do ffmpeg -loglev
+18	461	build	model	model		2026-11-01T12:17:29Z	2.4	
+18	462	build	tool	read files	read	2026-11-01T12:17:32Z	0.3	View sampled GIF frames :: /tmp/c11/gifchk.png
+18	463	build	model	model		2026-11-01T12:17:32Z	7.6	
+18	464	build	tool	shell	bash	2026-11-01T12:17:40Z	0.0	Copy media into docs and view the last media-list rows :: cd /Users/ladvien/bevy_carnage_loop && cp /tmp/c11/drying_front.png /tmp/c11/drying_front.gif docs/media/ && sed -n 5,14p docs/media/README.md | cut -c1-1200 | 
+18	465	build	model	model		2026-11-01T12:17:40Z	16.6	
+18	466	build	tool	clip record/render	bash	2026-11-01T12:17:56Z	1.0	Write media list and DEMOS entries :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='docs/media/README.md' s=open(p).read() rows='''| `docs/media/drying_front.png` | two rows, 0.8.4 and
+18	467	build	model	model		2026-11-01T12:17:57Z	6.2	
+18	468	build	tool	git	bash	2026-11-01T12:18:04Z	0.8	Commit docs :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='CLAUDE.md' s=open(p).read() old="WGSL reserves words such as `from` and `to`)" new="WGSL reserves wo
+18	469	build	model	model		2026-11-01T12:18:04Z	5.3	
+18	470	gate	tool	phase mark	bash	2026-11-01T12:18:10Z	0.0	[launched bg_37] Run the full gate: build, release, test, examples :: cd /Users/ladvien/bevy_carnage_loop && python3 ~/.local/share/wiggum/steps.py mark gate && mkdir -p /tmp/c11/gate && for step in "build" "build --release" "test
+18	471	gate	model	model		2026-11-01T12:18:10Z	20.2	
+18	472	gate	tool	shell	bash	2026-11-01T12:18:30Z	0.7	Measure rim vs middle colour: ours vs Ref 1 :: cd /tmp/c11 && ./venv/bin/python - <<'EOF' import numpy as np from PIL import Image def lum(p): return 0.2126*p[0]+0.7152*p[1]+0.0722*p[2] for name,path in [('0
+18	473	gate	model	model		2026-11-01T12:18:31Z	23.5	
+18	474	gate	tool	shell	bash	2026-11-01T12:18:54Z	0.9	Compare dried crust vs Smith S.V close-up :: cd /tmp/c11 && ./venv/bin/python - <<'EOF' from PIL import Image im=Image.open('refs/r6_smith_fig1.png').convert('RGB'); print(im.size) w,h=im.size sv=im.crop((
+18	475	gate	model	model		2026-11-01T12:18:55Z	3.3	
+18	476	gate	tool	read files	read	2026-11-01T12:18:58Z	1.9	View crust vs Smith S.V comparison :: /tmp/c11/compare-cracks.png
+18	477	gate	model	model		2026-11-01T12:19:00Z	35.2	
+18	478	gate	tool	wait: gate	wait	2026-11-01T12:19:35Z	1458.9	Waiting for the gate to finish
+18	479	gate	model	model		2026-11-01T12:43:54Z	6.2	
+18	480	gate	tool	shell	bash	2026-11-01T12:44:01Z	0.3	Summarise gate results and locks :: cd /tmp/c11/gate && grep -h "test result" test_--no-fail-fast.log | awk '{p+=$4; f+=$6; i+=$8} END {print "passed",p,"failed",f,"ignored",i}'; grep -c "warning:
+18	481	gate	model	model		2026-11-01T12:44:01Z	7.2	
+18	482	gate	tool	shell	bash	2026-11-01T12:44:08Z	0.1	Identify the warnings in the examples build :: cd /tmp/c11/gate && grep "^warning" build_--examples.log | sort | uniq -c | sort -rn | head -8
+18	483	gate	model	model		2026-11-01T12:44:08Z	11.6	
+18	484	gate	tool	shell	bash	2026-11-01T12:44:20Z	0.4	Inspect dried_crack before the plates round :: cd /Users/ladvien/bevy_carnage_loop && cp src/flesh.wesl /tmp/c11/flesh.wesl.v3 && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() # crack_cells returns t
+18	485	gate	model	model		2026-11-01T12:44:20Z	16.1	
+18	486	gate	tool	cargo build	bash	2026-11-01T12:44:36Z	0.0	[launched bg_38] Plate tone, wider plates and cracks; render close :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flesh.wesl' s=open(p).read() a=s.index("fn dried_crack(") b=s.index("// **The normal of a surfac
+18	487	gate	model	model		2026-11-01T12:44:36Z	3.7	
+18	488	gate	tool	wait: clip	wait	2026-11-01T12:44:40Z	228.5	Waiting for v4 renders
+18	489	gate	model	model		2026-11-01T12:48:29Z	5.7	
+18	490	gate	tool	shell	bash	2026-11-01T12:48:34Z	1.1	Compare S.V, v3 cracks and v4 plates :: cd /tmp/c11 && ./venv/bin/python - <<'EOF' from PIL import Image sv=Image.open('compare-cracks.png').crop((0,0,735,522)) a=Image.open('after/f_close/frame0359.p
+18	491	gate	model	model		2026-11-01T12:48:35Z	3.2	
+18	492	gate	tool	read files	read	2026-11-01T12:48:39Z	1.0	View crack morphology comparison :: /tmp/c11/compare-cracks2.png
+18	493	gate	model	model		2026-11-01T12:48:40Z	28.0	
+18	494	gate	tool	shell	bash	2026-11-01T12:49:08Z	0.7	Restore v3 shader (committed state) :: cd /Users/ladvien/bevy_carnage_loop && cp /tmp/c11/flesh.wesl.v3 src/flesh.wesl && git status --short && git diff --stat | tail -2; echo "clean=$?"
+18	495	gate	model	model		2026-11-01T12:49:08Z	26.1	
+18	496	gate	tool	cargo test	bash	2026-11-01T12:49:34Z	0.0	Write findings and critique files :: mkdir -p /tmp/c11 && cat > /tmp/c11/findings.md <<'EOF' # Iteration 11 gore checklist (AG-150, blood dries from its edge in) - reproducibility: 8 capture_skinne
+18	497	gate	model	model		2026-11-01T12:49:34Z	10.9	
+18	498	gate	tool	shell	bash	2026-11-01T12:49:45Z	30.7	Check dried wall drops are unchanged :: cd /tmp/c11 && /tmp/c11/run.sh /tmp/c11/after/bin/capture_skinned /tmp/c11/after f_through_dry --through --floor 512 --dry 120 && ./venv/bin/python - <<'EOF' im
+18	499	gate	model	model		2026-11-01T12:50:16Z	20.2	
+18	500	gate	tool	cargo test	bash	2026-11-01T12:50:36Z	0.8	Fill in the note's results; commit :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='docs/research/drying-front.md' s=open(p).read() old="and that the front is what a viewer reads as co
+18	501	gate	model	model		2026-11-01T12:50:37Z	6.6	
+18	502	gate	tool	shell	bash	2026-11-01T12:50:44Z	19.8	Retry bench timing alternating before/after :: uptime; for i in 1 2; do /usr/bin/time -l /tmp/c11/after/bin/bench_carnage > /tmp/c11/after/bench_b$i.txt 2> /tmp/c11/after/bench_b$i.time; echo "after $i: $(gr
+18	503	gate	model	model		2026-11-01T12:51:03Z	5.7	
+18	504	gate	tool	shell	bash	2026-11-01T12:51:09Z	44.1	More alternating bench runs for a before/after timing :: for i in 3 4 5; do for w in before after; do /usr/bin/time -l /tmp/c11/$w/bin/bench_carnage > /tmp/c11/$w/bench_c$i.txt 2> /tmp/c11/$w/bench_c$i.time; echo "$w 
+18	505	gate	model	model		2026-11-01T12:51:53Z	70.7	
+18	506	log	tool	phase mark	bash	2026-11-01T12:53:04Z	1.0	Append iteration 11 log entry and commit :: cd /Users/ladvien/bevy_carnage_loop && python3 ~/.local/share/wiggum/steps.py mark log && cat >> docs/loop-log.md <<'EOF' ## Iteration 11 — 2026-11-01 — blood d
+18	507	log	model	model		2026-11-01T12:53:05Z	8.3	
+18	508	log	tool	shell	bash	2026-11-01T12:53:13Z	0.1	Confirm warnings are linker-only :: cd /tmp/c11/gate && grep "^warning" test_--no-fail-fast.log | sed 's/(example "[a-z_]*")/(example X)/; s/(test "[a-z_]*")/(test X)/' | sort | uniq -c | sort -rn
+18	509	log	model	model		2026-11-01T12:53:13Z	7.8	
+18	510	ship	tool	phase mark	bash	2026-11-01T12:53:21Z	5.9	Push branch and merge into main :: cd /Users/ladvien/bevy_carnage_loop && python3 ~/.local/share/wiggum/steps.py mark ship && git fetch -q origin && git status -sb | head -3 && git push -u origin
+18	511	ship	model	model		2026-11-01T12:53:27Z	7.7	
+18	512	ship	tool	git	bash	2026-11-01T12:53:35Z	0.4	See what the previous release commit changed :: cd /Users/ladvien/bevy_carnage_loop && git show d9a77e4 --stat | tail -12; git show d9a77e4 -- docs/guide/history.md | head -30 | cut -c1-250; grep -n "^version
+18	513	ship	model	model		2026-11-01T12:53:35Z	7.7	
+18	514	ship	tool	shell	bash	2026-11-01T12:53:43Z	0.0	[launched bg_39] Run cargo semver-checks against 0.8.4 :: cd /Users/ladvien/bevy_carnage_loop && CARGO_TARGET_DIR=/tmp/c11-semver cargo semver-checks check-release --baseline-version 0.8.4 --only-explicit-features --fe
+18	515	ship	tool	shell	bash	2026-11-01T12:53:43Z	0.0	[launched bg_40] Merged-tree gate: builds and the readme/leaf tests :: cd /Users/ladvien/bevy_carnage_loop && for step in "build" "build --release" "test --release --test readme --test leaf"; do s=$(date +%s); cargo $step > /tmp/c1
+18	516	ship	model	model		2026-11-01T12:53:43Z	9.7	
+18	517	ship	tool	wait: gate	wait	2026-11-01T12:53:52Z	80.7	Waiting for merged gate and semver check
+18	518	ship	model	model		2026-11-01T12:55:13Z	5.3	
+18	519	ship	tool	push gate	bash	2026-11-01T12:55:18Z	2.2	Push merged main :: cd /Users/ladvien/bevy_carnage_loop && git push origin main 2>&1 | tail -2
+18	520	ship	model	model		2026-11-01T12:55:20Z	3.0	
+18	521	ship	tool	wait: other	wait	2026-11-01T12:55:23Z	313.7	Waiting for semver-checks
+18	522	ship	model	model		2026-11-01T13:00:37Z	12.3	
+18	523	release	tool	phase mark	bash	2026-11-01T13:00:50Z	60.1	[launched bg_41] Release commit for 0.8.5 and a publish dry-run :: cd /Users/ladvien/bevy_carnage_loop && python3 ~/.local/share/wiggum/steps.py mark release && python3 - <<'EOF' import re # Cargo.toml p='Cargo.toml'; s=open(p)
+18	524	release	model	model		2026-11-01T13:01:50Z	4.0	
+18	525	release	tool	wait: release	wait	2026-11-01T13:01:54Z	246.1	Waiting for release dry-run
+18	526	release	model	model		2026-11-01T13:06:00Z	4.6	
+18	527	release	tool	push gate	bash	2026-11-01T13:06:04Z	0.0	[launched bg_42] Push release commit and publish to crates.io :: cd /Users/ladvien/bevy_carnage_loop && git status --short && git push origin main 2>&1 | tail -1 && cargo publish 2>&1 | tail -4
+18	528	release	model	model		2026-11-01T13:06:04Z	2.6	
+18	529	release	tool	wait: release	wait	2026-11-01T13:06:07Z	22.3	Waiting for publish
+18	530	release	model	model		2026-11-01T13:06:29Z	3.4	
+18	531	release	tool	push gate	bash	2026-11-01T13:06:33Z	2.6	Tag, push the tag, confirm the crate resolves :: cd /Users/ladvien/bevy_carnage_loop && git tag -a v0.8.5 -m v0.8.5 && git push origin v0.8.5 2>&1 | tail -1 && cargo info bevy_carnage@0.8.5 2>&1 | head -4; git
+18	532	release	model	model		2026-11-01T13:06:35Z	4.6	
+18	533	release	tool	shell	bash	2026-11-01T13:06:40Z	0.6	Confirm 0.8.5 on the crates.io API :: curl -s -A "bevy_carnage_loop (cthomasbrittain@hotmail.com)" https://crates.io/api/v1/crates/bevy_carnage/0.8.5 | python3 -c "import sys,json; d=json.load(sys.s
+18	534	release	model	model		2026-11-01T13:06:40Z	14.0	
+18	535	release	tool	git	bash	2026-11-01T13:06:54Z	3.3	Inventory cleanup candidates :: cd /Users/ladvien/bevy_carnage_loop && git worktree list; du -sh ~/.cache/bevy_carnage_webgl2 /tmp/c11 /tmp/c11-semver 2>/dev/null; df -h . | tail -1; ls -d /tm
+18	536	release	model	model		2026-11-01T13:06:58Z	7.4	
+18	537	release	tool	shell	bash	2026-11-01T13:07:05Z	19.0	Remove this pass's scratch and package dir :: rm -rf /tmp/c11 /tmp/c11-semver /Users/ladvien/target/bevy_carnage-loop/package; df -h /Users/ladvien/bevy_carnage_loop | tail -1; ls -d /tmp/c11* 2>&1 | head -
+18	538	release	model	model		2026-11-01T13:07:24Z	14.5	
+18	539	log	tool	phase mark	bash	2026-11-01T13:07:38Z	2.9	Append the release and cleanup log; push :: cd /Users/ladvien/bevy_carnage_loop && python3 ~/.local/share/wiggum/steps.py mark log && cat >> docs/loop-log.md <<'EOF' **Merged tree and release.** `origin/m
+18	540	log	model	model		2026-11-01T13:07:41Z	28.1	
+18	541	log	tool	learn	learn	2026-11-01T13:08:10Z	0.1	Record durable lessons from iteration 11
+18	542	log	model	model		2026-11-01T13:08:10Z	12.8	
