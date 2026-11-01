@@ -923,3 +923,110 @@ cache; `df`: 14 G free before, 20 G after. The volume is at 98 %: the clone's ow
 was made (the baseline built into the shared cache). Left, not mine and not deleted: the branches `loop/iter-1`, `loop/iter-1b`, `loop/iter-2`, `loop/iter-3`, `loop/iter-4`
 (merged), `loop/iter-4-floor-stains`, `loop/iter-5` (merged), `loop/iter-6` (merged), and other loops' `/tmp` directories (969 entries). Mine and kept: `loop/iter-7`
 (merged, pushed).
+
+## Iteration 8 — 2026-10-31 — a drop is drawn at the size it is: round, crisp, and not diffused into a diamond (AG-147)
+
+**Item and why it ranked first.** `gh issue list` is empty (no bug, no `consumer` request); the only `WIP(pass 7, parked)` commit
+(`2ed4559`) is iteration 1's `tools/qa.sh` work, adopted then; `git fetch origin loop-stats` showed the last audit with nothing
+`missing`. Ranked from iteration 7's backlog: (1) the heavy wound on a wall still costing more than a frame, whose levers all move
+pixels, (2) the wall stipple's look beside Ref 1, (3) `digest=` for a body that breaks, (4) `#[non_exhaustive]` on the error enums,
+(5) the horror-film items (no ImageMagick on this host; a Pillow venv stood in). Picked (2), and it turned out to contain (1): what
+looked like "the floor's texel" (iteration 6) and "the shader's edge on a few texels" (iteration 7) was **the canvas's own data**,
+and the fix is a CPU primitive that is also five to ten times cheaper than the stamp it replaces for a small drop. Not a shader
+change, so no WebGL2 re-check: `flesh.wesl` and `flesh_prepass.wesl` are byte for byte as they were.
+
+**What was measured before any change** (`docs/research/drop-edge.md`; a scratch dump of the floor's CPU canvas from
+`capture_skinned`, reverted). Frame 359 of `capture_skinned --eye 0.0,1.5,3.1 --at 0,0,1.3 --floor 512`: 56 components of blood on the
+floor, 39 of them 32 to 62 texels, **each a diamond with a flat top**: a speck painted with a centre of 255 and flanks of 145 had
+diffused, by the pass that rounds `spread_rate / 4 · difference` to a byte from a difference of 25, to a peak of 77 and steps of 26, 23,
+16, 7 along its middle row. The wall of `--through` (512): 180 components, median 50 texels, peak 83 of 255, the same plateau. And the
+other half, in a Python model of the shader's reading (cubic B-spline, edge at 4 %): a speck of 1.2 texels across is *drawn* 3.0 across,
+one of 2.0 drawn 4.1, one of 3.0 drawn 5.6, with roundness 0.24, 0.11, 0.05.
+
+**What changed** (`d75642d` research, `3ad443c` code and tests, `07302ab` docs):
+
+- `WetCanvas::paint_cone(uv, semi, direction, tick)`: the canvas under a droplet's stain holds `DETAIL_EDGE − CONE_SLOPE · d`, `d` the
+  signed distance (first order) of a texel's centre from the ellipse's edge. A linear field is reproduced exactly by the cubic
+  B-spline the shader reads through, so the line it draws at 4 % *is* the stain's ellipse: Green, "Improved alpha-tested
+  magnification" (Valve, SIGGRAPH 2007), "if we store the signed distance ... bilinear filtering will produce a piece-wise linear
+  approximation of the original shape boundary", for a stain instead of a glyph. `CONE_SLOPE 0.09` is 23 of 255, **under the 25 the
+  spread pass rounds to a byte**, so a cone is a fixed point of the tick. `CONE_LIFT` (0.15 · (1.85 − r)² texels) is a fit to the
+  spline's smoothing of the rim, measured at nine radii and sixteen offsets. `CONE_MIN_SEMI 0.7`, `CONE_MAX_SEMI 4`.
+- `paint_drop` draws every droplet a floor, a wall **or a skin** takes under **eight** texels across (`FINE_TEXELS` was four) with it. A
+  wall and a skin never took a speck: each droplet there was a stamp with 24 spines, under two texels wide on a stain that size.
+  A cloth keeps its blob (its weave and `Soaking` read it). `paint_speck` and its four tests stay; the preset no longer calls it.
+- Six contract tests (`a_cone_is_drawn_at_the_size_it_was_given_and_round`, `..._an_ellipse_along_its_direction`,
+  `..._does_not_creep_while_it_dries` (with the substrate soaking nothing, 600 ticks under both gravities leave every byte as
+  painted), `..._is_reproducible_and_is_placed_finely`, `..._too_small_to_draw_is_drawn_at_the_least`, `..._refuses_nonsense_and_is_clipped_at_the_edge`).
+  Their first run failed twice and the tolerances were widened to what the Rust measured at a radius of one texel (area within 15 %
+  and a quarter out of round there; 5 % and a fifth from a radius of 1.5), and the creep test was rewritten after it found that
+  the *substrate's soak* (below), not the spread, was what shrank a cone.
+- **An existing test helper's measure changed (assumed decision, owner may override).** `preset::tests::stains_on` counted a stain at
+  32 of 255, a level only a diffused plateau reached, so `a_shot_leaves_a_fan_of_drops_on_the_floor_not_a_few_blobs` counted 2 stains
+  where the frame shows dozens. It counts at the draw edge (`DETAIL_EDGE`) now; every assertion in that test (15 stains, four times the
+  mist-free count, none wider than 12 cm) is as it was. The alternative that would have kept the helper, a floor of 512 texels by
+  default, is 8 MiB a floor and was recorded in iteration 6 as a caller's call. Commit `3ad443c` says so.
+
+**Sources.** Physics: Comiskey, Yarin & Attinger 2018 (`doi:10.1103/physrevfluids.3.063901`), "the number and area of individual
+stains" and `A_i = π l² ξ² / (4 sin α)`: the unit of a spatter is a stain with an area of its own, as it landed, and nothing in it
+diffuses afterwards. Horror and forensic references, under `/tmp/c8/refs/` and cited by URL: Ref 1
+`commons.wikimedia.org/wiki/File:Blood_Spatter_Texture_-_FREE.jpg` (CC BY 2.0), Ref 7
+`.../File:Blood,_guts_and_gore_galore,_Moulage_crew_brings_horror_to_life_140723-A-IX584-092.jpg` (public domain), Ref 8 (`...057.jpg`,
+gel wound appliances, for the wound-sheen item), *Evil Dead* (2013) via `filmhounds.co.uk/2023/04/17/gory-groovy-the-splatter-of-evil-dead/`
+and *Terrifier 3* via Variety. Technique: Green 2007 (in the corpus, `s2007-advances-course-notes-0-25-mb`), Sigg & Hadwiger, *GPU Gems 2*
+ch. 20. `catalog_recent` (limit 200): nothing in a domain (psychology, relationships, and the same `sig2024_*`/`sig2026_*` bulk embed; the nearest,
+`sig2026_Points_as_Tori_Fast_Pointwise_Signed_Distance_for_Point_Clouds`, is point-cloud geometry). `system_status` healthy; `distill_search` answered.
+
+**Critique and verdict** (`/tmp/c8/critique.md`, `/tmp/c8/drops.png`, committed as `docs/media/drops.png`; the `/tmp/c8` files are removed). Against
+Ref 1 the wall's size band is still narrow (p10/p50/p90 of the equivalent diameters 1.1/3.2/4.7 px, p90/p50 1.46, against Ref 1's
+1.6/4.1/15.3, 3.75): the drops are now the size the model throws and round, but the model throws a narrow band and no tail; against
+Ref 7 the floor is sparse, and at 256 every drop under 1.7 cm is drawn at 1.7 cm. Verdicts, one per feature: **a droplet's stain drawn at
+its own size, round, holding still: GREAT** (every target the note set is met and measured: bbox fill ratio of a floor stain 0.66 to 0.83
+at 256 and 0.68 to 0.79 at 512, a circle being 0.785 and a diamond 0.5; median floor diameter 13.3 to 4.1 px; no glint; 600 ticks leave every
+byte); **the spray as a whole beside Ref 1 and Ref 7: NOT YET**, not claimed by this item, and the three changes that move it are the
+first of the backlog below. Rounds: one design round that changed the model (specks under four texels, then under eight, then walls and
+skins), two test rounds; stopped because every remaining flaw is a separate feature.
+
+**Numbers.**
+
+- *Reproducibility* (every `capture_skinned` variant twice on the final build, `cmp` of all 360 frames between the two runs): all eight pairs
+  equal, 0 frames differ. Against 0.8.1 the digests move **on purpose** where a drop under eight texels lands: default `e19726fb05ac40f3` to
+  `90b95dfc7aa439cd`, `--break` `6b95aab1742db9fa` to `8bf75a8ea2659fd3`, `--shirt` `bfb01ebc2acae68b` to `a67f17b0511b3a83`, `--through`
+  `4da541caaf98793b` to `aef30ab245128785`, `--guard` `a6d89deea27fa717` to `eac0328e6c4b8ec9`, `--blows` to the default's; `capture_preset`
+  `d4c0bcda72414525` to `7ed6213d12a430ec` (twice). **`--stroll` `8ebe761bcc8b4d83` and `--quiet` `f83a631a7426808d` keep theirs, and all 720 of
+  their frames are 0.8.1's byte for byte**; `flay=` and `dermis=` equal 0.8.1's in every variant; `bench_carnage` `0x4366a8b64352c85a`.
+  `canvas_digest`, `dry_timeline`, `stain_sweep` ran (no baseline binary was kept; none of them calls the preset or `paint_cone`).
+- *Cost*, `hit_tick_cost`, median of six runs alternated with 0.8.1's test binary (ms): bullet on a floor hit 3.04 to 2.67, tick after 2.78 to 2.47;
+  wound facing a wall 4.87 to 2.71 and 5.66 to 3.70; heavy wound 4.99 to 4.84 and 2.84 to 2.78; **heavy wound facing a wall 18.82 to 9.34 and 15.45 to
+  12.05**. No case slower; the whole run retires 18.03 to 13.60 billion instructions (−25 %). `bench_carnage` retires 15.74 and 15.78 billion
+  before, 15.71 and 15.71 after (it never calls the preset); its timing refused 3 of 3 before and gave 0.973 and 0.978 ms a frame, p99 27.8 and 27.3, after ("NO STABLE PLATEAU" is
+  the host's load, a reading and not a number to retry around).
+- *Locks and mass*: `cargo test --no-fail-fast` green on the branch (lib 359 and three ignored, `wetmap` 23 of which six are new, `readme` 4, `leaf` 3,
+  `qa_roster` 4, every other binary and the doctests); no golden touched. The drip and spread conservation tests pass untouched. No geometry touched.
+- *Gate*, in the loop's order, on the branch: `cargo build` rc 0 46 s; `cargo build --release` rc 0 59 s; `cargo build --release --examples` rc 0
+  (9 m 37 s with the two before it); `cargo test --no-fail-fast` rc 0, 21 m 29 s. Not run: rustfmt (not clean at `main`), `tools/qa.sh` (no
+  ImageMagick), clippy (no standing gate). **Demo**: `docs/media/drops.png` (listed in `docs/media/README.md`). The committed clips of the preset and
+  of `--through`, `--guard`, `--break`, `--shirt` and the default carry the old drops and cannot be re-cut here (`vfx` does not build on Bevy 0.20 and
+  `tools/gif.sh` needs ImageMagick); `docs/DEMOS.md` says so.
+
+**Found, not fixed.** (1) **The substrate's soak takes a thin film whole**: `absorbency`'s 38 bytes are an absolute cut over the drying span, so a cone
+of a texel's radius is gone by the time it is dry and a larger one shrinks from the rim, where a drop of dried blood keeps its footprint (Ref 7's
+neighbours stay). A speck did the same, the design says so ("faint spatter soaks away to nothing"), and the cone test pins only that it never grows; but
+a pinned contact line is the physics, so it is a model item. (2) A stain of eight texels or more is still a stamp, and its spread still diffuses it to the
+same diamond; the wall's largest drops show it. (3) Cones above a radius of 3.3 peak above the drip threshold and shed the excess downhill (a thick drop
+beginning to run: plausible, and the test's range stops at 3). (4) At the default 128-texel surface a drop is drawn no smaller than 1.4 texels: 3 cm on
+a 3 m wall; the resolution is the caller's. (5) `paint_speck` is public and unused by the crate.
+
+### Ranked backlog for iteration 9
+
+1. **The spray as a whole** (the NOT YET above): a mist for walls and skins (a cone is a few microseconds, so 90 drops a wound is about a third of
+   a millisecond; today `floor_mist` is the floor's alone and `a_wall_and_a_skin_take_no_mist` pins it, so a *separate* dial), a power-law size draw
+   for the mist (the leaf's is uniform in diameter and frozen by `the_spatter_model_is_frozen`, so a preset-side draw or a `BloodSettings` field, the
+   owner's word), and a tail on an oblique impact (the exclamation mark). Target: p90/p50 towards Ref 1's 3.75.
+2. **A dried drop keeps its footprint** (found-not-fixed 1): the substrate's cut should darken and thin a film, not erase its rim; it changes `advance`,
+   whose definition `the_passes_are_what_their_definitions_say` holds, so a deliberate re-bless of that oracle with the reason.
+3. **A heavy wound on a wall is still 9 ms on its hit tick and 12 ms on every tick after**: what is left is the stamps of eight texels and over and the
+   canvas's tick over the wound's own pooled blood. Stamp each droplet at the tick it arrives (moves the digests by an age offset, on purpose).
+4. **`digest=` itself for a body that breaks** (iteration 5's item 1, still open): a per-frame wet trace beside `flay=` and `dermis=`.
+5. **The horror-film items** (pooling and the drying ring, wound sheen, fracture debris), `#[non_exhaustive]` on `SkeletalRefusal` and the other public error
+   enums, and the Bevy 0.19 citation sweep; `vfx` on Bevy 0.20 still waits on `bevy_hanabi`.
