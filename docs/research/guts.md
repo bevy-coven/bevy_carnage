@@ -62,7 +62,7 @@ A practical-effects artist makes guts read as guts by three things the stills be
 
 *Dead Island 2* (Dambuster) builds a zombie "out of a surface mesh and a set of 'viscera' meshes", "individual pieces that can be destroyed, or broken", and fills "the resulting
 hole with destructible guts" (Kotaku, quoted above), after looking at *Day of the Dead*. This crate's guts are tubes swept on the CPU, so the model is: **the tube is the same
-mesh it was, with a per-vertex tint and a per-ring radius**, and a lower roughness. Nothing here is a texture, a new binding, or a shader branch.
+mesh it was, with a per-vertex tint and a per-ring radius**, and a slump where it lies. Nothing here is a texture, a new binding, or a shader branch.
 
 ## Model adopted
 
@@ -79,9 +79,10 @@ All of it cosmetic, outside every digest; a pure function of the strand's own no
    table of `SOAK_STEPS` entries built once. The cube is a measured fix: on a linear scale the first round (`soak * 0.35 mm`) put 90 percent of the range at one
    dark red, because venous blood is opaque in green by 0.04 mm (the table's green is 0.131 at 0.035 mm and 0.031 at 0.07 mm). It is written as
    `Mesh::ATTRIBUTE_COLOR` and the material multiplies it into `gut_image`.
-5. **A lower roughness**, `GUT_ROUGHNESS` 0.3 to 0.15. (The first plan was a clear coat on the material; the flesh shader overwrites `clearcoat` from its own wet
-   canvas every fragment, so it cannot be set from a `StandardMaterial`, and a shader change is a 79-minute WebGL2 re-check. Roughness 0.10 measured the same
-   highlight as 0.15 at the preset's camera, so 0.15 stays.)
+5. **No change to the roughness**, `GUT_ROUGHNESS` stays 0.3. (The first plan was a clear coat on the material; the flesh shader overwrites `clearcoat` from its own wet
+   canvas every fragment, so it cannot be set from a `StandardMaterial`, and a shader change is a 79-minute WebGL2 re-check. The second was a lower roughness: at the
+   preset's camera, frame 130, the 98th percentile of the strands' luminance is 110.9 at 0.30, 107.4 at 0.15 and 107.4 at 0.10, and the three renders are indistinguishable
+   to the eye but for a crisper streak on one strand; a changed public constant with no visible gain is not kept.)
 
 The public additions are `Strand::with_seed`/`seed`, `viscera::soak`, `soak_tint`, `soaked_tube` and their constants; `tube_mesh` keeps its signature and gets
 lumps (not the slump or the tint, which need the floor).
@@ -89,7 +90,7 @@ lumps (not the slump or the tint, which need the floor).
 ## Parameters
 
 All **tuned by eye against the reference set** (this note), none measured: `SOAK_BASE` 0.45, `SOAK_PATCH` 0.5, `SOAK_PATCH_M` 0.12, `WOUND_REACH_M` 0.30,
-`SOAK_FILM_MM` 0.35, `SLUMP_FADE` 1.4, `SLUMP_SQUASH` 0.72, the lump amplitudes 0.22 and 0.09 (0.14 and 0.06 in the first rounds) and periods 5.5 and 2.3 nodes, `GUT_ROUGHNESS` 0.15. Each says so in its
+`SOAK_FILM_MM` 0.35, `SLUMP_FADE` 1.4, `SLUMP_SQUASH` 0.72, the lump amplitudes 0.22 and 0.09 (0.14 and 0.06 in the first rounds) and periods 5.5 and 2.3 nodes; `GUT_ROUGHNESS` is unchanged. Each says so in its
 doc comment.
 
 ## Validation targets

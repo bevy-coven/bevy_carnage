@@ -44,15 +44,15 @@ const BLOOD: [f32; 3] = [0.40, 0.05, 0.07];
 /// Straight vessels along the strand, each leaving the mesenteric side for both sides of the wall.
 const VESSELS: u32 = 56;
 
-/// **How rough a spilled strand's wall is**: `0.15`, wet and bloodied bowel. Until 0.8.6 it was `0.3`, a soft streak on a clean pink wall; the
-/// *Thing* stills (`docs/research/guts.md`, T1, T2) have a dark body under a hard, small glint, and a lumpy wall ([`crate::viscera::tube_mesh`])
-/// breaks a lower roughness's highlight into several. The flesh shader draws a clear coat only from a wet canvas, which a strand has none of, so
-/// this is the whole of its gloss. **Tuned by eye**, not measured.
-pub const GUT_ROUGHNESS: f32 = 0.15;
+/// **How rough a spilled strand's wall is**: `0.3`, wet serosa — glossy, but a curved tube's highlight
+/// stays a streak rather than a mirror. This crate's own number. Iteration 12 tried `0.15` and `0.10` under the preset's camera and measured no more
+/// highlight (`docs/research/guts.md`); the flesh shader draws a clear coat only from a wet canvas, which a strand has none of, so a sharper glint is a
+/// shader item, and the glints a strand now has are its lumps catching the light.
+pub const GUT_ROUGHNESS: f32 = 0.3;
 
 /// **How soaked a node is at the least, on average**, `[0, 1]`: a spilled strand is slick with blood wherever it hangs, in patches ([`SOAK_PATCH`]).
 /// **Tuned by eye** against `docs/research/guts.md` (Ref D1: even the far end of the pulled bowel is red), not measured.
-pub const SOAK_BASE: f32 = 0.45;
+pub const SOAK_BASE: f32 = 0.5;
 /// **How much of [`SOAK_BASE`] swings along the strand**: the base is `SOAK_BASE * (1 + SOAK_PATCH * (2n - 1))`, `n` in `[0, 1]` a smooth noise of the
 /// arc length on a wavelength of [`SOAK_PATCH_M`]. Blood on a wall is thick in one place and a smear in the next; a strand soaked to one tone along
 /// its length read as red tubing. **Tuned**, `docs/research/guts.md` (Ref D1, T1).

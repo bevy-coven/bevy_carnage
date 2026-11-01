@@ -269,7 +269,7 @@ and breaks a body that can break.
 
 The guts a torso hit spills are not left clean: each is drawn by `viscera::soaked_tube`, **lumpy** (two sines on its radius, so no two strands bulge alike),
 **slumped** flat where it lies on `ViscSettings::floor_y`, and **soaked** in blood (thickest at the wound end and wherever it lies in the pool, patchy
-between), with a lower roughness (0.15) than a clean wall. It is all cosmetic and outside every digest. `GoreDials::strands` (5 ships) is how many a hit spills; a
+between). It is all cosmetic and outside every digest. `GoreDials::strands` (5 ships) is how many a hit spills; a
 game that draws its own strands with `tube_mesh` gets the lumps and not the slump or the tint, which need the floor. ![A body breaks and its guts hang and fall, frames 96 to 260 of `capture_preset`: 0.8.5 on the left with salmon-pink tubes of one radius, 0.8.6 on the right with blood-soaked, lumpy tubes that lie flattened in the pool](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/media/guts.gif)
 
 ## The player's settings
