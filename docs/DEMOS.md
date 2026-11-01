@@ -629,7 +629,17 @@ A torso hit that reaches muscle spills strands of bowel, and until 0.8.6 they we
 
 ![Two rows, 0.8.5 and now, six columns (frames 124 to 200): the guts hanging from the torso, falling, and lying in the pool, clean pink above and dark red below](media/guts.png)
 
-Not done, named: the heap of a pile is still three or four strands (a hit spills five, and the pieces of the body lie over some); organ blobs, slime strings and a strand that dries are the next items (`docs/research/guts.md`, `## Deviations`).
+Not done, named: the heap of a pile is still three or four strands (a hit spills five, and the pieces of the body lie over some); slime strings and a strand that dries are the next items (`docs/research/guts.md`, `## Deviations`); organ blobs came in 0.8.7, below.
+
+### `capture_preset` — a spill has lumps in it
+
+![Two columns labelled 0.8.6 and now, frames 118 to 260 of the preset: the body breaks and its guts fall into the pool; on the left the pool has only loops in it, on the right two dark, wet, lumpy organs are thrown with them and lie flattened among the loops](media/organs.gif)
+
+A heap of guts that is nothing but loops reads as rope. The *Day of the Dead* opened torso (`docs/research/organs.md`, Ref D2) is a mass: reddish pixels mean sRGB `(127, 38, 40)`, red minus green 89, with dark lumps in it. A torso hit that reaches muscle now throws `ORGANS_PER_SPILL` (2) organs with its strands: `viscera::organ_mesh(seed, size)`, a wedge of Gray's liver (21 cm across, 16 cm deep, 10 cm thick, "a soft solid", "a dark reddish brown", *Anatomy of the Human Body*, 1918), lumpy, flat where it lies, wearing `viscera::organ_image()` under the gut's muscle profile at roughness 0.35; each is a `Flying` piece that falls and lies where it lands. The clip is `capture_preset`, frames 118–260 every second, the two columns the same script on 0.8.6 and on 0.8.7. Measured on the pixels that differ between the two builds (frame 300, 993 of them, the two organs): mean sRGB `(123, 41, 40)`, red minus green 81 (D2 89), luminance 58.6 (D2 56.9), 98th percentile 127.7 (D2 133), the pair about 64 px wide at the preset's camera. **No digest moves**: `capture_preset`, `capture_entrails`, `capture_flesh` and all eight `capture_skinned` variants print what they printed in 0.8.6, twice each, and `bench_carnage` measures the same (its digest, and 0.0933 ms a frame against 0.0932): an organ costs 0.15 ms to build, once per organ per spill.
+
+![Two rows, 0.8.6 and now, four columns (frames 132 to 300): the spill's pool without and with two organs, the organs in the air at 142 and lying in the pool among the loops at 170 and 300](media/organs.png)
+
+Not done, named: at this camera (7 mm a pixel) a liver is thirty pixels and reads as *a dark wet lump* and not as a liver; the organs have no contact shadow and take no blood from the pool they lie in; a stomach and a spleen are the same wedge with another seed (`docs/research/organs.md`, `## Deviations`); slime strings were built, measured and **parked** (`docs/research/slime-strings.md`, branch `loop/iter-13`).
 
 ## `tiers` — the player's violence setting
 

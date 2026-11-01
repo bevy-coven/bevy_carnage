@@ -137,7 +137,7 @@ Stills are copyrighted film frames, kept under `/tmp/c12/refs/` for judging and 
 
 ## Pending index
 
-- Bosschaart 2014 full text: the crate's tables are from it; it is not in the home-still corpus as a converted document.
+- Bosschaart et al. 2014: the crate's tables are from it, and it **is** in the home-still corpus as `10.1007_s10103-013-1446-7` ("A literature review and novel theoretical approach on the optical properties of whole blood"); this pass (iteration 13) found it, and the line that said it was not was wrong.
 - Lagarde 2013 and the Visual Computer 2020 wet-absorbent paper: abstracts only (paywalled / blog).
 - No home-still paper on **intestinal serosa optical properties** was found (`distill_search`: nothing relevant on the first page); the colour here is
   therefore matched to the reference set, not derived.
