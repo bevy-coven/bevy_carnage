@@ -7,7 +7,8 @@
 //! `--eye x,y,z` renders from another camera position, aimed at the chest or at `--at x,y,z`. Neither
 //! changes a digest. `--floor N` dresses the floor at `N` texels a side instead of the dial's 256 (`GoreDials::floor_canvas`):
 //! a three-metre slab at 512 is 6 mm a texel, where a drop of blood a few millimetres across is a stain and not a tint.
-//! It changes the digest, as the canvas it folds is another size.
+//! It changes the digest, as the canvas it folds is another size. `--dry N` makes blood dry in `N` ticks instead of 1 800 (30 s at 60 Hz)
+//! (`WetSettings::dry_ticks`), so the clip shows what a wall and a floor look like once the blood on them has dried; it changes the digest.
 //! `--break` makes the body breakable and takes a heavy shot to the chest at frame 200: it breaks where
 //! its skeleton is, mid-walk with the arm raised, and its pieces fall to the floor. `--shirt` dresses
 //! the body in a sleeveless shirt: the two chest shots hole it and the wound is seen through the hole,
@@ -54,7 +55,7 @@ use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use bevy_carnage::preset::{ClothHoles, Gore, GoreClock, GoreDials, GorePlugin, GoreReset, GoreStep, HitKind, Sole};
-use bevy_carnage::wetmap::{StainShape, WetCanvas};
+use bevy_carnage::wetmap::{StainShape, WetCanvas, WetSettings};
 
 mod common;
 use common::digest;
@@ -101,6 +102,9 @@ fn main() {
         app.add_plugins(bevy_carnage::CarnageVfxPlugin);
         if let Some(floor_canvas) = common::arg("--floor").and_then(|n| n.parse::<u32>().ok()) {
             app.insert_resource(GoreDials { floor_canvas, ..default() });
+        }
+        if let Some(dry_ticks) = common::arg("--dry").and_then(|n| n.parse::<u32>().ok()) {
+            app.insert_resource(WetSettings { dry_ticks, ..default() });
         }
         app.add_plugins(GorePlugin)
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / (60.0 * slow as f64))))

@@ -691,8 +691,8 @@ fn a_cone_is_an_ellipse_along_its_direction() {
 /// texels differ by 23 at most, so nothing leaves it. With the substrate soaking nothing (`absorbency` 0) six hundred ticks,
 /// under both gravities, leave every byte of a cone as it was painted, up to the largest that holds no more than the drip pass
 /// leaves in a texel (`drip_rate`, 0.35 of 255: a drop thicker than that sheds the excess downhill, which is a drop beginning
-/// to run). With the shipped substrate the drying takes its share from the rim in, which is the soak's own design ("faint
-/// spatter soaks away to nothing"); that only ever *shrinks* a cone, and it never grows or moves it. (The speck this replaces went
+/// to run). With the shipped substrate the drying thins a cone down to `STAIN_FLOOR` and no lower, which keeps its footprint
+/// (`a_dried_drop_keeps_its_footprint`); it never grows or moves it. (The speck this replaces went
 /// from 4.5 texel squares of blood on a bump of 255 to a plateau of 77 and a diamond, over the first hundred ticks.)
 #[test]
 fn a_cone_does_not_creep_while_it_dries() {
@@ -722,6 +722,67 @@ fn a_cone_does_not_creep_while_it_dries() {
         assert!(after.area >= 0.3 * before.area, "a cone of radius {r} was soaked from {} to {} texel squares in a third of its drying", before.area, after.area);
         assert!(after.centroid.distance(before.centroid) <= 0.15, "a cone of radius {r} moved from {:?} to {:?}", before.centroid, after.centroid);
     }
+}
+
+/// **A drying stain loses height and keeps its footprint.** Smith, Nicloux & Brutin (2020, `doi:10.1038/s41598-020-65465-4`): "the
+/// pool is pinned to the surface and the liquid phase evaporates at the surface. The volume loss corresponds then to a decrease
+/// in height." The substrate's soak took 38 bytes from every texel over the drying, which is the whole of a spatter drop's film:
+/// on 0.8.2 a cone of radius 1.5 texels was gone once dry, one of radius 2 a tenth of what it was and one of 3 a fifth, and a
+/// wall's spatter was half its area a drying later. Now the substrate takes only the film above a stain's own depth, so a drop of
+/// any size is drawn at the size it was painted once it has dried, where it was painted.
+#[test]
+fn a_dried_drop_keeps_its_footprint() {
+    let s = WetSettings::default();
+    for r in [0.8f32, 1.0, 1.5, 2.0, 3.0, 4.0] {
+        let (_images, mut canvas) = scratch(64);
+        canvas.paint_cone(Vec2::new(30.4 / 64.0, 30.6 / 64.0), [r, r], Vec2::X, 0);
+        let before = drawn(&canvas, 16, 16, 28);
+        assert!(before.area > 0.0, "the premise: a cone of radius {r} painted nothing that is drawn");
+        for tick in 1..=s.dry_ticks + 60 {
+            canvas.tick(tick, Vec2::new(0.0, 1.0), &s);
+        }
+        let after = drawn(&canvas, 16, 16, 28);
+        assert!(after.area >= 0.9 * before.area, "a cone of radius {r} dried from {} to {} texel squares: the substrate took the stain", before.area, after.area);
+        assert!(after.area <= 1.02 * before.area, "a cone of radius {r} grew from {} to {} texel squares while it dried", before.area, after.area);
+        assert!(after.centroid.distance(before.centroid) <= 0.15, "a cone of radius {r} moved from {:?} to {:?} while it dried", before.centroid, after.centroid);
+    }
+}
+
+/// **The soak is bounded on both sides**: it takes a pool's film and stops at a stain's depth, and it takes nothing from a
+/// stain already under it. With drip and spread off, so the soak is the only thing moving blood, a pool of 255 ends at
+/// `255 − 38` (the schedule's whole share: untouched by the floor), no texel loses more than the schedule gives or goes under
+/// `min(what it had, STAIN_FLOOR)`, none gains, and a faint cone whose peak is under the floor is **byte for byte** as painted.
+#[test]
+fn the_substrate_takes_a_pools_film_and_nothing_under_a_stains_depth() {
+    use bevy_carnage::wetmap::STAIN_FLOOR;
+    let s = WetSettings { spread_rate: 0.0, drip_rate: 1.0, ..WetSettings::default() };
+    let bytes = |c: &WetCanvas| (0..64u32).flat_map(|y| (0..64u32).map(move |x| (x, y))).map(|(x, y)| c.amount_at(x, y)).collect::<Vec<u8>>();
+    let dry = |c: &mut WetCanvas| {
+        for tick in 1..=s.dry_ticks + 60 {
+            c.tick(tick, Vec2::new(0.0, 1.0), &s);
+        }
+    };
+
+    let (_images, mut pool) = scratch(64);
+    pool.paint_uv(Vec2::new(0.5, 0.5), &blob(0.4), 0);
+    let fresh = bytes(&pool);
+    assert_eq!(fresh.iter().max(), Some(&255), "the premise: the pool has full texels");
+    dry(&mut pool);
+    let dried = bytes(&pool);
+    assert_eq!(dried.iter().max(), Some(&(255 - 38)), "a pool's full texels lose the schedule's whole 15 %");
+    for (i, (f, d)) in fresh.iter().zip(&dried).enumerate() {
+        assert!(d <= f, "texel {i} gained blood while the substrate soaked: {f} to {d}");
+        assert!(f - d <= 38, "texel {i} lost {} of {f}: more than the schedule gives", f - d);
+        assert!(*d >= (*f).min(STAIN_FLOOR), "texel {i} went from {f} to {d}, under the stain's own depth {STAIN_FLOOR}");
+        assert_eq!(*f > 0, *d > 0, "texel {i} was {f} and is {d}: the footprint changed");
+    }
+
+    let (_images, mut faint) = scratch(64);
+    faint.paint_cone(Vec2::new(30.4 / 64.0, 30.6 / 64.0), [0.8, 0.8], Vec2::X, 0);
+    let painted = bytes(&faint);
+    assert!(painted.iter().any(|&b| b > 0) && painted.iter().all(|&b| b <= STAIN_FLOOR), "the premise: a cone of 0.8 peaks under the floor");
+    dry(&mut faint);
+    assert_eq!(painted, bytes(&faint), "the substrate soaked a film that was already under a stain's depth");
 }
 
 /// A cone is a pure function of its arguments, and is placed to a fraction of a texel: two canvases painted alike hold
