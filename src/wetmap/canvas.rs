@@ -20,6 +20,26 @@ use crate::bloodstain::stain::{StainShape, rasterise};
 /// substrate still shows through.
 const FILM_LEVELS: usize = 16;
 
+/// Slots in the table a canvas keeps of what each `(level, age)` pair shades to: `1024`, a power of two (`SHADE_BITS`). A design
+/// default: it holds the sixteen levels of sixty ages, which is the blood a scene of a few hundred hits keeps wet at once, in 8 KiB.
+const SHADE_SLOTS: usize = 1 << SHADE_BITS;
+/// `log2` of [`SHADE_SLOTS`].
+const SHADE_BITS: u32 = 10;
+
+/// One slot of a canvas's shade table: the `(age << 4) | level` it was computed for, and the albedo and roughness bytes that
+/// pair gets.
+#[derive(Clone, Copy, Debug)]
+struct Shaded {
+    key: u32,
+    rgb: [u8; 3],
+    rough: u8,
+}
+
+impl Shaded {
+    /// A slot holding nothing: its key is above any `(age << 4) | level`.
+    const EMPTY: Self = Self { key: u32::MAX, rgb: [0; 3], rough: 0 };
+}
+
 use crate::wetmap::digest::Fnv1a;
 use crate::wetmap::settings::WetSettings;
 use crate::wetmap::uv::{Pick, mesh_key, ray_uv};
@@ -118,6 +138,14 @@ pub struct WetCanvas {
     /// nothing is wet" being true and false.
     film_lut: [[f32; 3]; FILM_LEVELS],
     film_key: Option<(u32, u32, u32)>,
+    /// What a `(level, age)` pair shades to, kept between ticks: see `shade`. Empty until the canvas first shades blood.
+    shaded: Vec<Shaded>,
+    /// What `shaded` was computed from; it is dropped when this changes.
+    shaded_for: Option<(u32, u32, u32, u32, u32)>,
+    /// What the substrate has taken of a texel's blood by each age, a byte an age, kept between ticks: see `advance`.
+    absorbed: Vec<u8>,
+    /// The span and absorbency `absorbed` was computed for; it is dropped when either changes.
+    absorbed_for: Option<(u32, u32)>,
     /// **The settings this canvas went still under, or `None` while anything on it can still move.**
     ///
     /// A canvas whose every bloody texel has dried — and an untouched one, which has no blood at
@@ -127,27 +155,33 @@ pub struct WetCanvas {
     /// change to the settings, wakes it. On a body dressed by the preset that is most canvases on
     /// most ticks: a part nobody has shot, or one whose blood has set.
     quiet: Option<WetSettings>,
-    /// **For each tile of [`LIVE_TILE`] texels square, the smallest rectangle holding its blood**, or
-    /// `None` for a tile with none; row-major over the canvas's tiles. Every texel outside them is
-    /// `(0, 0)`. One tick moves blood at most [`TICK_REACH`] texels — drip translates a parcel one
-    /// texel, and spread, which runs after it in the same tick, can carry that parcel's share one more
-    /// — so the passes run over the union of these rectangles grown by that much, as disjoint runs
-    /// along the rows (`runs`), and leave the rest of the canvas untouched. That is exact, not an
-    /// approximation: outside them every pass would read zeros and write the zeros already there.
-    /// Re-measured after every tick, so it shrinks as the substrate takes the blood.
+    /// **For each tile of [`LIVE_TILE`] texels square, the smallest rectangle holding the blood painted into it since the last
+    /// tick**, or `None` for a tile with none; row-major over the canvas's tiles. A paint marks a texel here and a tick consumes
+    /// the marks: what it measures afterwards is `spans`. Every texel outside both is `(0, 0)`. One tick moves blood at most
+    /// [`TICK_REACH`] texels — drip translates a parcel one texel, and spread, which runs after it in the same tick, can carry
+    /// that parcel's share one more — so the passes run over the union of these rectangles and the spans grown by that much, as
+    /// disjoint runs along the rows (`runs`), and leave the rest of the canvas untouched. That is exact, not an approximation:
+    /// outside them every pass would read zeros and write the zeros already there.
     ///
-    /// Until 0.5.58 this was one rectangle round all the blood, and a canvas with blood in two of its
-    /// corners ticked every texel between them: two pools in opposite corners of a 1024 floor cost
-    /// 25.5 ms a tick, against 0.35 for one. A tile's own rectangle is what keeps the one-pool case as
-    /// cheap as it was: covering whole tiles and the ring of tiles round them, as was tried first,
-    /// tripled it.
+    /// Until 0.5.58 this was one rectangle round all the blood, and a canvas with blood in two of its corners ticked every texel
+    /// between them: two pools in opposite corners of a 1024 floor cost 25.5 ms a tick, against 0.35 for one. A tile's own
+    /// rectangle is what keeps the one-pool case as cheap as it was: covering whole tiles and the ring of tiles round them, as was
+    /// tried first, tripled it.
     live: Vec<Option<Live>>,
+    /// **The blood a tick left, as a rectangle one row high for each stretch of a row that holds any**, `x0..=x1` of row `y`
+    /// (stretches of one row less than [`SPAN_GAP`] texels apart are one). Re-measured over what a tick covered, so it shrinks as
+    /// the substrate takes the blood. It replaced a rectangle for each tile of blood, which for a spray of fine drops was the
+    /// whole tile round each of them: about three texels covered for each that held blood, and a tick's passes are paid per texel
+    /// covered.
+    spans: Vec<Live>,
     /// Scratch: the runs a tick's passes cover, and the wider runs their snapshot covers, kept so a
-    /// tick does not allocate; and the cuts along one row while they are built.
+    /// tick does not allocate; and the cuts along one row while they are built, the boxes they are built from, and the boxes
+    /// that cross the row being built.
     runs: Vec<Live>,
     snap: Vec<Live>,
     cuts: Vec<(i64, i64)>,
     boxes: Vec<Live>,
+    active: Vec<Live>,
     /// **Image pixels per texel along each edge**, `1..=MAX_DETAIL`. See
     /// [`new_detailed`](Self::new_detailed).
     detail: u32,
@@ -280,12 +314,18 @@ impl WetCanvas {
             warned: Vec::new(),
             film_lut: [[0.0; 3]; FILM_LEVELS],
             film_key: None,
+            shaded: Vec::new(),
+            shaded_for: None,
+            absorbed: Vec::new(),
+            absorbed_for: None,
             quiet: None,
             live: vec![None; (size.div_ceil(LIVE_TILE as u32) as usize).pow(2)],
             runs: Vec::new(),
             snap: Vec::new(),
             cuts: Vec::new(),
             boxes: Vec::new(),
+            spans: Vec::new(),
+            active: Vec::new(),
             detail,
             detail_albedo: base_rgba.iter().copied().cycle().take(pixels * 4).collect(),
             detail_rough: base_rough_rgba.iter().copied().cycle().take(pixels * 4).collect(),
@@ -345,7 +385,8 @@ impl WetCanvas {
     }
 
     /// **The bytes this canvas holds in the main world**, apart from its two images: the `(amount,
-    /// age)` buffer and its snapshot, the stamp scratch, and the CPU copy of each image (at a
+    /// age)` buffer and its snapshot, the stamp scratch, the shade and soak tables (8 KiB once it has
+    /// shaded blood, and a byte an age of the drying span), and the CPU copy of each image (at a
     /// [`detail`](Self::detail) above 1, both the texels' and the finer images', and the redraw's
     /// scratch). At 128 and detail 1 it is 16 bytes a texel, 256 KiB. Nothing here is read back from
     /// `Assets<Image>`; see [`image_bytes`](Self::image_bytes) for what the images add.
@@ -353,10 +394,12 @@ impl WetCanvas {
         let cell = std::mem::size_of::<(u8, u16)>();
         (self.wet.capacity() + self.prev.capacity()) * cell
             + self.live.capacity() * std::mem::size_of::<Option<Live>>()
-            + (self.runs.capacity() + self.snap.capacity() + self.boxes.capacity()) * std::mem::size_of::<Live>()
+            + (self.runs.capacity() + self.snap.capacity() + self.boxes.capacity() + self.spans.capacity() + self.active.capacity()) * std::mem::size_of::<Live>()
             + self.cuts.capacity() * std::mem::size_of::<(i64, i64)>()
             + self.mask.capacity()
             + self.fine.capacity()
+            + self.shaded.capacity() * std::mem::size_of::<Shaded>()
+            + self.absorbed.capacity()
             + self.albedo_px.capacity()
             + self.rough_px.capacity()
             + self.detail_albedo.capacity()
@@ -413,6 +456,7 @@ impl WetCanvas {
         self.stale.fill(false);
         self.quiet = None;
         self.live.fill(None);
+        self.spans.clear();
         self.dirty_since = Some(self.dirty_since.map_or(tick, |since| since.min(tick)));
     }
 
@@ -916,30 +960,43 @@ impl WetCanvas {
             return;
         }
         let n = self.size as i64;
-        // Where blood can be after this tick: every tile's blood grown by the distance one tick can
-        // move it, and what the passes read, one texel further. A canvas with no blood has nothing to
-        // move or shade. See `live`.
+        // Where blood can be after this tick: the stretches of blood the last tick left and the tiles painted since, each grown
+        // by the distance one tick can move it, and what the passes read, one texel further. A canvas with no blood has
+        // nothing to move or shade. See `live` and `spans`.
         let (mut runs, mut snap) = (std::mem::take(&mut self.runs), std::mem::take(&mut self.snap));
-        covered(&self.live, n, TICK_REACH, &mut runs, &mut self.cuts, &mut self.boxes);
-        covered(&self.live, n, TICK_REACH + 1, &mut snap, &mut self.cuts, &mut self.boxes);
+        covered(&self.spans, &self.live, n, TICK_REACH, &mut runs, &mut self.cuts, &mut self.boxes, &mut self.active);
+        covered(&self.spans, &self.live, n, TICK_REACH + 1, &mut snap, &mut self.cuts, &mut self.boxes, &mut self.active);
         if !runs.is_empty() {
             self.drip(&runs, &snap, gravity_uv, s);
             self.spread(&runs, &snap, s);
             self.advance(&runs, s);
             self.shade(&runs, tick, s);
         }
-        // Re-measured over what was covered: outside it every texel is still `(0, 0)`.
+        // Re-measured over what was covered: outside it every texel is still `(0, 0)`. A row's blood is a stretch from one blood
+        // texel to the next while they are no more than `SPAN_GAP` apart, which covers what growing each stretch would have.
         let span = s.dry_span();
         let mut moving = false;
         self.live.fill(None);
+        self.spans.clear();
         for r in &runs {
             for y in r.y0..=r.y1 {
+                let mut open: Option<(i64, i64)> = None;
                 for x in r.x0..=r.x1 {
                     let Some(&(amount, age)) = self.wet.get((y * n + x) as usize) else { continue };
                     if amount > 0 {
                         moving |= is_wet(age, span);
-                        mark(&mut self.live, self.size, x, y);
+                        open = match open {
+                            Some((x0, x1)) if x - x1 <= SPAN_GAP => Some((x0, x)),
+                            Some((x0, x1)) => {
+                                self.spans.push(Live { x0, y0: y, x1, y1: y });
+                                Some((x, x))
+                            }
+                            None => Some((x, x)),
+                        };
                     }
+                }
+                if let Some((x0, x1)) = open {
+                    self.spans.push(Live { x0, y0: y, x1, y1: y });
                 }
             }
         }
@@ -1251,30 +1308,49 @@ impl WetCanvas {
         let span = s.dry_span();
         self.snapshot(snap);
         let n = self.size as i64;
-        // Fixed E/W/S/N order. Nothing here reduces across texels, so the order cannot change the
-        // answer — it is fixed anyway, because a neighbour order that varied would be one more thing
-        // to have to reason about later.
-        const NEIGHBOURS: [(i64, i64); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        let width = self.size as usize;
+        // **The flux across an edge, by the difference of coverage it is driven by.** `round(k · (aᵢ − aⱼ))` of two bytes is
+        // one of 511 values, and `(amount as f32 - aj as f32)` is an exact integer, so reading it from a table is the same
+        // number the multiply and round would give: this was a float multiply, a round and a conversion a neighbour.
+        let mut flux_of = [0i32; 511];
+        for (d, flux) in flux_of.iter_mut().enumerate() {
+            *flux = (k * (d as i32 - 255) as f32).round() as i32;
+        }
         for region in runs {
             for y in region.y0..=region.y1 {
                 for x in region.x0..=region.x1 {
-                    let Some(&(amount, age)) = self.prev.get((y * n + x) as usize) else {
+                    let i = (y * n + x) as usize;
+                    let Some(&(amount, age)) = self.prev.get(i) else {
                         continue;
                     };
+                    // An empty texel whose four neighbours are empty takes nothing and gives nothing: its flux is nil on
+                    // every edge, so it stays `(0, 0)`, which is what it is. Most of what a tick covers is that.
+                    if amount == 0
+                        && age == 0
+                        && x > 0
+                        && y > 0
+                        && x + 1 < n
+                        && y + 1 < n
+                        && [i - 1, i + 1, i - width, i + width].into_iter().all(|j| matches!(self.prev.get(j), Some(&(0, _))))
+                    {
+                        continue;
+                    }
                     // A dry crust neither gives nor receives: nothing flows through set blood.
                     if !is_wet(age, span) {
                         continue;
                     }
                     let mut net: i32 = 0;
                     let mut youngest = age;
-                    for (dx, dy) in NEIGHBOURS {
-                        let (nx, ny) = (x + dx, y + dy);
-                        if nx < 0 || nx >= n || ny < 0 || ny >= n {
-                            // No-flux boundary: the share that would have left stays put rather than
-                            // draining off the edge of the atlas.
+                    // Fixed E/W/S/N order. Nothing here reduces across texels, so the order cannot change the
+                    // answer — it is fixed anyway, because a neighbour order that varied would be one more thing
+                    // to have to reason about later. A neighbour off the edge of the atlas gives nothing: the
+                    // no-flux boundary, where the share that would have left stays put rather than draining away.
+                    let neighbours = [(x + 1 < n, i.wrapping_add(1)), (x > 0, i.wrapping_sub(1)), (y + 1 < n, i.wrapping_add(width)), (y > 0, i.wrapping_sub(width))];
+                    for (inside, j) in neighbours {
+                        if !inside {
                             continue;
                         }
-                        let Some(&(aj, agej)) = self.prev.get((ny * n + nx) as usize) else {
+                        let Some(&(aj, agej)) = self.prev.get(j) else {
                             continue;
                         };
                         if !is_wet(agej, span) {
@@ -1282,7 +1358,7 @@ impl WetCanvas {
                         }
                         // Odd in its argument, and the wet/bounds gate above is symmetric in (i, j), so
                         // `flux(i→j) == −flux(j→i)` exactly. That is the whole conservation argument.
-                        let flux = (k * (amount as f32 - aj as f32)).round() as i32;
+                        let flux = flux_of.get(amount as usize + 255 - aj as usize).copied().unwrap_or(0);
                         net -= flux;
                         if flux < 0 {
                             youngest = youngest.min(agej);
@@ -1291,7 +1367,7 @@ impl WetCanvas {
                     // Unreachable at the shipped `spread_rate`; reachable near `spread_rate = 1`, where
                     // four saturated neighbours can offer more than a texel can hold.
                     let new_amount = (amount as i32 + net).clamp(0, 255) as u8;
-                    if let Some(cell) = self.wet.get_mut((y * n + x) as usize) {
+                    if let Some(cell) = self.wet.get_mut(i) {
                         *cell = (new_amount, if new_amount == 0 { 0 } else { youngest });
                     }
                 }
@@ -1304,6 +1380,15 @@ impl WetCanvas {
         let span = s.dry_span();
         let ceiling = span as u16;
         let n = self.size as i64;
+        // **What the substrate has taken by each age**, tabulated: `absorbed_by` is a clamp, a rounded multiply and a 64-bit
+        // division, twice a wet texel a tick. At most 255, so a byte an age; kept between ticks and dropped when the span or the
+        // absorbency changes.
+        let for_key = (span, s.absorbency.to_bits());
+        if self.absorbed_for != Some(for_key) {
+            self.absorbed = (0..=span).map(|age| s.absorbed_by(age).min(255) as u8).collect();
+            self.absorbed_for = Some(for_key);
+        }
+        let top = span as usize;
         for region in runs {
             for y in region.y0..=region.y1 {
                 for x in region.x0..=region.x1 {
@@ -1320,8 +1405,9 @@ impl WetCanvas {
                         *cell = (amount, new_age);
                         continue;
                     }
-                    let taken = s.absorbed_by(new_age as u32).saturating_sub(s.absorbed_by(age as u32));
-                    let new_amount = amount.saturating_sub(taken.min(255) as u8);
+                    let by = |age: u16| self.absorbed.get((age as usize).min(top)).copied().unwrap_or(0);
+                    let taken = by(new_age).saturating_sub(by(age));
+                    let new_amount = amount.saturating_sub(taken);
                     *cell = (new_amount, if new_amount == 0 { 0 } else { new_age });
                 }
             }
@@ -1351,12 +1437,23 @@ impl WetCanvas {
         }
         let fresh = self.film_lut;
 
-        // One-slot memo on `(level, age)`. A stamp lands with one age across a contiguous blob and
-        // its interior is one level, so a row-major walk hits this for almost every texel. Exact,
-        // not quantised: the memo either matches or is recomputed.
-        let mut memo = (usize::MAX, u32::MAX);
-        let mut memo_srgb = [0u8; 3];
-        let mut memo_rough = 0u8;
+        // **A table on `(level, age)`.** What a texel's blood looks like is a pure function of the film's
+        // depth level, its age and this canvas's settings, so it is computed once for each pair a tick
+        // meets and read after. A stamp lands with one age across a contiguous blob, but its rim runs through
+        // every level, and a texel a tick takes the same `appearance_with_fresh` (nearly all of the tick's
+        // time at 190 ns a blood texel) when only the last pair is remembered. Direct-mapped and exact, not
+        // quantised: a slot either holds this pair or is recomputed, so a collision costs a recompute and
+        // never a byte. Kept between ticks and dropped when anything it was computed from changes.
+        let for_key = (key.0, key.1, key.2, span, blood.humidity.to_bits());
+        if self.shaded_for != Some(for_key) || self.shaded.len() != SHADE_SLOTS {
+            self.shaded.clear();
+            self.shaded.resize(SHADE_SLOTS, Shaded::EMPTY);
+            self.shaded_for = Some(for_key);
+        }
+        let mut last = Shaded::EMPTY;
+        // The wetness byte is a function of age alone for a texel with blood in it: one division a texel otherwise.
+        let mut wet_age = u32::MAX;
+        let mut wet_byte = 0u8;
         let mut changed = false;
 
         let n = self.size as i64;
@@ -1365,21 +1462,36 @@ impl WetCanvas {
                 for x in region.x0..=region.x1 {
                     let i = (y * n + x) as usize;
                     let Some(&(amount, age)) = self.wet.get(i) else { continue };
+                    // A texel with no blood whose pixels already say so is shaded: `R` of the metallic-roughness image is
+                    // the coverage byte it was last drawn with, and every write of it draws the whole texel, so a zero is
+                    // the bare surface in all four channels of both images. Most of what a tick covers is that.
+                    if amount == 0 && self.rough_px.get(i * 4) == Some(&0) {
+                        continue;
+                    }
                     let (rgb, rough_byte) = if amount == 0 {
                         ([base[0], base[1], base[2]], base_rough)
                     } else {
                         let level = (amount as usize * FILM_LEVELS) / 256;
-                        if (level, age as u32) != memo {
-                            memo = (level, age as u32);
-                            // **`s.dry_ticks` is the single authority for the timeline.** `appearance`
-                            // normalises the age it is given against `dry_ticks(area, hz)`, so the texel's
-                            // age is rescaled onto `bloodstain`'s own reference span and the reference
-                            // inputs are passed. Feeding the raw age with an unrelated area would leave two
-                            // dials deciding one curve.
-                            let scaled = ((age as u64 * DRY_REF_TICKS as u64) / span as u64) as u32;
-                            let ap = appearance_with_fresh(scaled, 60, DRY_REF_AREA_M2, &blood, fresh[level]);
-                            memo_srgb = [enc(ap.srgb[0]), enc(ap.srgb[1]), enc(ap.srgb[2])];
-                            memo_rough = enc(ap.roughness);
+                        let want = ((age as u32) << 4) | level as u32;
+                        if last.key != want {
+                            let slot = (want.wrapping_mul(0x9E37_79B1) >> (32 - SHADE_BITS)) as usize;
+                            last = match self.shaded.get(slot) {
+                                Some(hit) if hit.key == want => *hit,
+                                _ => {
+                                    // **`s.dry_ticks` is the single authority for the timeline.** `appearance`
+                                    // normalises the age it is given against `dry_ticks(area, hz)`, so the texel's
+                                    // age is rescaled onto `bloodstain`'s own reference span and the reference
+                                    // inputs are passed. Feeding the raw age with an unrelated area would leave two
+                                    // dials deciding one curve.
+                                    let scaled = ((age as u64 * DRY_REF_TICKS as u64) / span as u64) as u32;
+                                    let ap = appearance_with_fresh(scaled, 60, DRY_REF_AREA_M2, &blood, fresh[level]);
+                                    let made = Shaded { key: want, rgb: [enc(ap.srgb[0]), enc(ap.srgb[1]), enc(ap.srgb[2])], rough: enc(ap.roughness) };
+                                    if let Some(entry) = self.shaded.get_mut(slot) {
+                                        *entry = made;
+                                    }
+                                    made
+                                }
+                            };
                         }
                         // The albedo is the film's own colour: the substrate is already inside it,
                         // because a thin film transmits what it lies on — compositing it over the base a
@@ -1388,7 +1500,7 @@ impl WetCanvas {
                         // these values the difference is under a code value. `rim`, `halo` and
                         // `craquelure` are deliberately unread — they need a shader, and this crate ships
                         // none.
-                        (memo_srgb, over(base_rough, memo_rough, amount))
+                        (last.rgb, over(base_rough, last.rough, amount))
                     };
 
                     let mut touched = false;
@@ -1406,7 +1518,16 @@ impl WetCanvas {
                     // where a shader can read them, so nothing has to be inferred from the albedo — and
                     // they are still *output*: no pass that moves blood reads a pixel back, and the
                     // detail redraw reads these bytes, never the images.
-                    let want = [amount, rough_byte, 0, wetness(amount, age, span)];
+                    let wet = if amount == 0 {
+                        0
+                    } else {
+                        if age as u32 != wet_age {
+                            wet_age = age as u32;
+                            wet_byte = wetness(1, age, span);
+                        }
+                        wet_byte
+                    };
+                    let want = [amount, rough_byte, 0, wet];
                     if let Some(r_px) = self.rough_px.get_mut(i * 4..i * 4 + 4) {
                         for (slot, want) in r_px.iter_mut().zip(want) {
                             if *slot != want {
@@ -1472,10 +1593,15 @@ impl Live {
 /// (then over a rectangle) caught it on a spined stain at tick 0.
 const TICK_REACH: i64 = 2;
 
-/// **The tile a canvas tracks its blood in, texels square: 32.** Each keeps the rectangle round its
-/// own blood, so blood in two far corners is two small rectangles rather than one round both; at 32
-/// a 1024 canvas has a thousand of them to look through each tick. See [`WetCanvas::live`].
+/// **The tile a canvas tracks the blood a paint adds in, texels square: 32.** Each keeps the rectangle round its own new blood,
+/// so a paint is a few texels marked and not a pass over the canvas; at 32 a 1024 canvas has a thousand of them to look through
+/// each tick. See [`WetCanvas::live`].
 const LIVE_TILE: i64 = 32;
+
+/// **How far apart, in texels, two blood texels of a row can be and still be one stretch of it: `2 * (TICK_REACH + 1) + 1`**,
+/// seven. The passes cover a stretch grown by `TICK_REACH` and their snapshot by one more, so two stretches that a snapshot's
+/// growth joins (a gap of six, three from each) are one box either way; fewer boxes to sort and sweep, the same texels covered.
+const SPAN_GAP: i64 = 2 * (TICK_REACH + 1) + 1;
 
 /// Take texel `(x, y)`, on a canvas `size` texels square, into its tile's rectangle of blood.
 fn mark(live: &mut [Option<Live>], size: u32, x: i64, y: i64) {
@@ -1485,26 +1611,45 @@ fn mark(live: &mut [Option<Live>], size: u32, x: i64, y: i64) {
     }
 }
 
-/// **The texels every tile's rectangle of blood, grown by `reach` and clamped to a canvas `n` texels
-/// square, covers between them**, written to `out` as disjoint rectangles: along each row the
-/// rectangles' spans merged, and rows whose spans are the same as the row above folded into it. Disjoint
-/// because a pass that ages a texel must visit it once. `cuts` and `boxes` are scratch.
-fn covered(live: &[Option<Live>], n: i64, reach: i64, out: &mut Vec<Live>, cuts: &mut Vec<(i64, i64)>, boxes: &mut Vec<Live>) {
+/// **The texels every box of blood, grown by `reach` and clamped to a canvas `n` texels square, covers between them**, written to
+/// `out` as disjoint rectangles: along each row the boxes' spans merged, and rows whose spans are the same as the row above folded
+/// into it. The boxes are `spans`, the rows of blood the last tick left, and `live`, the tiles of blood painted since. Disjoint
+/// because a pass that ages a texel must visit it once. `cuts`, `boxes` and `active` are scratch: the boxes sorted by the row they
+/// begin on, and those among them that cross the row being built.
+#[allow(clippy::too_many_arguments)]
+fn covered(
+    spans: &[Live],
+    live: &[Option<Live>],
+    n: i64,
+    reach: i64,
+    out: &mut Vec<Live>,
+    cuts: &mut Vec<(i64, i64)>,
+    boxes: &mut Vec<Live>,
+    active: &mut Vec<Live>,
+) {
     out.clear();
     boxes.clear();
-    boxes.extend(live.iter().flatten().map(|l| l.grown(reach, n)));
-    let grown = || boxes.iter();
-    let Some(top) = grown().map(|g| g.y0).min() else { return };
-    let bottom = grown().map(|g| g.y1).max().unwrap_or(top);
+    boxes.extend(spans.iter().copied().chain(live.iter().flatten().copied()).map(|l| l.grown(reach, n)));
+    boxes.sort_unstable_by_key(|g| g.y0);
+    let Some(top) = boxes.first().map(|g| g.y0) else { return };
+    let bottom = boxes.iter().map(|g| g.y1).max().unwrap_or(top);
+    active.clear();
+    // The first box not yet begun.
+    let mut next = 0;
     // Where the runs of the row above start in `out`, to fold an identical row into them.
     let mut above = 0;
     let mut y = top;
     while y <= bottom {
+        while let Some(g) = boxes.get(next).filter(|g| g.y0 <= y) {
+            active.push(*g);
+            next += 1;
+        }
+        active.retain(|g| g.y1 >= y);
         cuts.clear();
-        cuts.extend(grown().filter(|g| g.y0 <= y && y <= g.y1).map(|g| (g.x0, g.x1)));
+        cuts.extend(active.iter().map(|g| (g.x0, g.x1)));
         if cuts.is_empty() {
-            // A gap between rectangles: jump to the next row any of them starts on.
-            y = grown().map(|g| g.y0).filter(|&y0| y0 > y).min().unwrap_or(bottom + 1);
+            // A gap between boxes: jump to the row the next one begins on.
+            y = boxes.get(next).map_or(bottom + 1, |g| g.y0);
             above = out.len();
             continue;
         }
@@ -2162,6 +2307,27 @@ mod tests {
         assert!(c.runs.iter().all(|r| (r.y0..=r.y1).all(|y| (r.x0..=r.x1).all(|x| seen.insert((x, y))))), "two runs covered one texel");
     }
 
+    /// **A spray is covered by its own blood, not by the tiles it fell in.** Forty drops of five texels scattered over a
+    /// 128-texel patch of a 512 canvas, which is sixteen tiles and up: the passes cover each drop and two texels round it, about
+    /// 81 texels a drop, once a tick has measured where the blood is, and not the bounding rectangle of each tile's drops, which
+    /// for drops this far apart is most of the tile and about a quarter of the patch. A tick's cost is paid per texel covered, so
+    /// this is the difference between a spray that costs what it wets and one that costs the squares it landed in.
+    #[test]
+    fn a_spray_is_covered_by_its_own_blood_and_not_by_its_tiles() {
+        let (_images, mut c) = canvas(512);
+        for k in 0..40u32 {
+            let h = |salt: u32| crate::bloodstain::hash_f32(k.wrapping_mul(0x9E37_79B9) ^ salt);
+            c.paint_uv(Vec2::new(0.3 + 0.25 * h(1), 0.3 + 0.25 * h(2)), &blob(0.01), 0);
+        }
+        let s = WetSettings::default();
+        c.tick(1, Vec2::new(0.0, 1.0), &s);
+        c.tick(2, Vec2::new(0.0, 1.0), &s);
+        let covered: i64 = c.runs.iter().map(|r| (r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1)).sum();
+        let blood = c.wet.iter().filter(|cell| cell.0 > 0).count() as i64;
+        assert!(blood > 0 && covered >= blood, "a tick covered {covered} texels and left {blood} with blood");
+        assert!(covered <= 40 * 9 * 9, "a tick covered {covered} texels for {blood} with blood: more than a drop and two texels round it each");
+    }
+
     /// Tick one canvas with `tick` and another with every pass over every texel, and require them
     /// equal on every tick.
     fn agree(size: u32, s: &WetSettings, stains: &[(u32, Vec2, StainShape)], ticks: u32) {
@@ -2184,6 +2350,153 @@ mod tests {
             assert_eq!(fast.wet, full.wet, "size {size}, tick {t}: the buffers parted");
             assert_eq!((&fast.albedo_px, &fast.rough_px), (&full.albedo_px, &full.rough_px), "size {size}, tick {t}: the images parted");
         }
+    }
+
+    /// **The spread pass by its definition**: the four neighbours in order, the flux a float multiply and a round each, every
+    /// bound checked. What `spread` computed before it read the flux from a table.
+    fn spread_by_definition(c: &mut WetCanvas, runs: &[Live], snap: &[Live], s: &WetSettings) {
+        let k = s.spread_rate.clamp(0.0, 1.0) * 0.25;
+        if !k.is_finite() || k <= 0.0 {
+            return;
+        }
+        let span = s.dry_span();
+        c.snapshot(snap);
+        let n = c.size as i64;
+        for region in runs {
+            for y in region.y0..=region.y1 {
+                for x in region.x0..=region.x1 {
+                    let (amount, age) = c.prev[(y * n + x) as usize];
+                    if !is_wet(age, span) {
+                        continue;
+                    }
+                    let mut net: i32 = 0;
+                    let mut youngest = age;
+                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        let (nx, ny) = (x + dx, y + dy);
+                        if nx < 0 || nx >= n || ny < 0 || ny >= n {
+                            continue;
+                        }
+                        let (aj, agej) = c.prev[(ny * n + nx) as usize];
+                        if !is_wet(agej, span) {
+                            continue;
+                        }
+                        let flux = (k * (amount as f32 - aj as f32)).round() as i32;
+                        net -= flux;
+                        if flux < 0 {
+                            youngest = youngest.min(agej);
+                        }
+                    }
+                    let new_amount = (amount as i32 + net).clamp(0, 255) as u8;
+                    c.wet[(y * n + x) as usize] = (new_amount, if new_amount == 0 { 0 } else { youngest });
+                }
+            }
+        }
+    }
+
+    /// **The substrate's soak and the ageing by their definition**: `absorbed_by` asked twice a wet texel.
+    fn advance_by_definition(c: &mut WetCanvas, runs: &[Live], s: &WetSettings) {
+        let span = s.dry_span();
+        let ceiling = span as u16;
+        let n = c.size as i64;
+        for region in runs {
+            for y in region.y0..=region.y1 {
+                for x in region.x0..=region.x1 {
+                    let cell = &mut c.wet[(y * n + x) as usize];
+                    let (amount, age) = *cell;
+                    if amount == 0 {
+                        *cell = (0, 0);
+                        continue;
+                    }
+                    let new_age = age.saturating_add(1).min(ceiling);
+                    if !is_wet(age, span) {
+                        *cell = (amount, new_age);
+                        continue;
+                    }
+                    let taken = s.absorbed_by(new_age as u32).saturating_sub(s.absorbed_by(age as u32));
+                    let new_amount = amount.saturating_sub(taken.min(255) as u8);
+                    *cell = (new_amount, if new_amount == 0 { 0 } else { new_age });
+                }
+            }
+        }
+    }
+
+    /// **The two images by their definition**: every texel's albedo and metallic-roughness bytes from its coverage and age alone,
+    /// `appearance_with_fresh` asked afresh each time, no table and no memo.
+    fn shade_by_definition(c: &WetCanvas, s: &WetSettings) -> (Vec<[u8; 3]>, Vec<[u8; 4]>) {
+        let blood = s.blood();
+        let span = s.dry_span();
+        let substrate = luminance(c.base_rgba);
+        let fresh: [[f32; 3]; FILM_LEVELS] = core::array::from_fn(|i| {
+            let thickness_mm = s.film_depth_mm.max(0.0) * (i as f32 + 0.5) / FILM_LEVELS as f32;
+            crate::bloodstain::spectral::srgb(&Film { thickness_mm, so2: s.so2, substrate })
+        });
+        let base = [c.base_rgba[0], c.base_rgba[1], c.base_rgba[2]];
+        c.wet
+            .iter()
+            .map(|&(amount, age)| {
+                let (rgb, rough) = if amount == 0 {
+                    (base, c.base_rough)
+                } else {
+                    let level = (amount as usize * FILM_LEVELS) / 256;
+                    let scaled = ((age as u64 * DRY_REF_TICKS as u64) / span as u64) as u32;
+                    let ap = appearance_with_fresh(scaled, 60, DRY_REF_AREA_M2, &blood, fresh[level]);
+                    ([enc(ap.srgb[0]), enc(ap.srgb[1]), enc(ap.srgb[2])], over(c.base_rough, enc(ap.roughness), amount))
+                };
+                (rgb, [amount, rough, 0, wetness(amount, age, span)])
+            })
+            .unzip()
+    }
+
+    /// Two canvases take the same stains and the same gravity; one runs `spread`, `advance` and `shade`, the other their
+    /// definitions, over every texel. Their buffers and every pixel of both images must agree on every tick.
+    fn agree_with_definition(size: u32, s: &WetSettings, stains: &[(u32, Vec2, StainShape)], ticks: u32) {
+        let (_ia, mut fast) = canvas(size);
+        let (_ib, mut slow) = canvas(size);
+        let all = whole(&fast);
+        for t in 0..ticks {
+            for (at, uv, shape) in stains {
+                if t == *at {
+                    fast.paint_uv(*uv, shape, t);
+                    slow.paint_uv(*uv, shape, t);
+                }
+            }
+            let gravity = if t < ticks / 2 { Vec2::new(0.0, 1.0) } else { Vec2::new(1.0, 0.2) };
+            fast.drip(&all, &all, gravity, s);
+            slow.drip(&all, &all, gravity, s);
+            fast.spread(&all, &all, s);
+            spread_by_definition(&mut slow, &all, &all, s);
+            assert_eq!(fast.wet, slow.wet, "size {size}, tick {t}: spread parted from its definition");
+            fast.advance(&all, s);
+            advance_by_definition(&mut slow, &all, s);
+            assert_eq!(fast.wet, slow.wet, "size {size}, tick {t}: advance parted from its definition");
+            fast.shade(&all, t, s);
+            let (albedo, rough) = shade_by_definition(&slow, s);
+            for (i, (rgb, mr)) in albedo.iter().zip(&rough).enumerate() {
+                assert_eq!(&fast.albedo_px[i * 4..i * 4 + 3], rgb, "size {size}, tick {t}, texel {i}: the albedo parted from its definition");
+                assert_eq!(&fast.rough_px[i * 4..i * 4 + 4], mr, "size {size}, tick {t}, texel {i}: the roughness parted from its definition");
+            }
+        }
+    }
+
+    /// **The passes the tick runs are what their definitions say, to the byte.** `spread` reads its flux from a table of the 511
+    /// differences, `advance` the substrate's soak from a table of ages and `shade` what a `(level, age)` pair looks like from a
+    /// table too, and a table is only right if it is the function it tabulates: stains of every size and spine count landing at
+    /// different ticks so that a canvas holds every age at once, a drying span short enough that blood goes through its whole
+    /// life, the soak at 0 and at 0.9, and a spread near its ceiling where four saturated neighbours overflow a texel.
+    #[test]
+    fn the_passes_are_what_their_definitions_say() {
+        let spiky = |major: f32, seed: u32| StainShape { major, minor: major * 0.7, spines: 12, satellites: 4, direction: [0.3, 1.0], seed };
+        let scatter: Vec<(u32, Vec2, StainShape)> = (0..30u32)
+            .map(|k| {
+                let h = |salt: u32| crate::bloodstain::hash_f32(k.wrapping_mul(0x9E37_79B9) ^ salt);
+                let shape = if k % 2 == 0 { blob(0.03 + 0.05 * h(3)) } else { spiky(0.04 + 0.06 * h(3), k) };
+                (k * 7, Vec2::new(0.15 + 0.7 * h(1), 0.15 + 0.7 * h(2)), shape)
+            })
+            .collect();
+        agree_with_definition(48, &WetSettings { dry_ticks: 120, absorbency: 0.0, ..Default::default() }, &scatter, 260);
+        agree_with_definition(48, &WetSettings { dry_ticks: 90, absorbency: 0.9, spread_rate: 0.4, ..Default::default() }, &scatter, 260);
+        agree_with_definition(32, &WetSettings { dry_ticks: 200, spread_rate: 1.0, drip_rate: 0.2, ..Default::default() }, &scatter[..8], 120);
+        agree_with_definition(64, &WetSettings::default(), &scatter, 400);
     }
 
     /// **A detailed image draws a pool's edge crisp, with its corners softened, and in the pool's

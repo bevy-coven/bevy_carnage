@@ -794,3 +794,112 @@ binaries copied out of the cache, the semver-checks target, a venv with Pillow, 
 not mine and not deleted: the branches `loop/iter-1`, `loop/iter-1b`, `loop/iter-2`, `loop/iter-3`, `loop/iter-4` (merged), `loop/iter-5` (merged), `loop/iter-4-floor-stains`
 (parked, mine: its idea was adopted this pass, kept on purpose), and `/tmp/b2`, `/tmp/b2.sh`, `/tmp/c-0.25`, `/tmp/c-0.3`, `/tmp/c.md`, `/tmp/c1`, `/tmp/c12-1` to `/tmp/c12-3`,
 `/tmp/c70.sh`, `/tmp/ca0.0`, `/tmp/ca0.35`, `/tmp/cap*` and other loops' `/tmp` directories. Mine and kept: `loop/iter-6` (merged, pushed).
+
+## Iteration 7 — 2026-10-31 — a wounded scene costs the caller about two fifths less a tick, byte for byte (AG-146)
+
+**Item and why it ranked first.** `gh issue list` is empty (no bug, no `consumer` request) and `git branch --list 'wiggum/parked-*'`
+finds nothing (the only `WIP(pass 7, parked)` commit, `2ed4559`, is iteration 1's `tools/qa.sh` work, adopted then). Ranked from
+iteration 6's backlog: (1) the large spined stamp's cost and the mist on a wall (`hit_tick_cost` read 28 ms for a heavy wound facing a
+wall, which is a dropped frame: the brief names a hit that spikes the frame a failure), (2) the few-texel drop's look in
+`flesh.wesl` (needs a WebGL2 re-check this host cannot make quickly), (3) `digest=` for a body that breaks, (4)
+`#[non_exhaustive]` on the error enums, (5) the horror-film items (pooling, wound sheen, debris; no ImageMagick). Picked (1): a
+measured failure beats a look that needs a browser, and the finding below made it larger than its title.
+
+**What was measured before any change** (`docs/research/wet-tick-cost.md`; the `sample` tool took about 15 samples a second on this
+host and could not attribute anything, so the numbers are the crate's own `Instant` probes in a scratch copy, removed before the
+commit). Iteration 6 blamed the stamp. It is 10 ms of the heavy hit; **the canvases' own tick is the larger share of every hit, and
+it does not stop when the shooting does**: the 90 ticks after the last hit with nothing new thrown cost 3.4 to 4.8 ms a bullet scene
+and **26 ms** a heavy wound facing a wall, every frame for as long as the blood is wet. A canvas tick split by pass (ms, 45 000
+texels covered of which 15 000 held blood): `spread` 2.7, `shade` 3.0, `drip` 1.0, `advance` 0.5, the re-measure 0.4. And the
+stamp: 49 spined stamps a hit, `rasterise` at 430 ns a sample, because `reach_bound` (`1 + the sum of every spine's reach`, about
+ten) culled nothing and every sample walked all 24 spines.
+
+**What changed** (`f294a6c` research, `0c1fd4d`, `bc6d147`, `648abb2`, `119cba8`; the docs and this entry follow). Five reductions,
+each exact (no model, look, default or dial changed):
+
+- `stain::rasterise`: `RimBounds`, a 32-bucket table of which spines can reach each angle and an upper bound on the rim there, rounded
+  up by three pads; a texel outside the stain skips its spines (outside the largest bound, its `atan2`), the rest walk only the spines
+  that can reach them in the same order; a texel outside a satellite's disc skips its square root. About 8x faster than the mask by
+  definition (21.6 ms to 2.6 ms for an 84-texel mask of a 6 mm droplet at 25 m/s), on a host whose single runs vary by 30 %.
+- `shade`: a 1024-slot direct-mapped table on `(level, age)` kept between ticks (the one-slot memo thrashed along every rim: 190 ns a
+  blood texel), and the wetness byte memoised by age.
+- `spread` reads its flux from a table of the 511 differences; `advance` its soak from a byte table of the age.
+- Bare texels: `spread` leaves an empty texel with four empty neighbours, `shade` a texel whose `R` byte is already zero.
+- **A tick covers a spray's own blood, not the tiles it fell in**: the live tiles kept each 32-texel tile's bounding rectangle of
+  blood, so a spray of fine drops covered 9 388 texels for 1 144 with blood. A tick re-measures the blood as one-row boxes per
+  stretch of a row (`SPAN_GAP` 7) and sweeps them with the tiles painted since.
+- Tooling: `hit_tick_cost` also prints `wet_tick_ms_median_*`.
+
+**Proof it is the same bytes** (not a claim: every layer of it ran). `rasterise_writes_the_mask_its_definition_does` held the mask to
+a by-definition oracle already (3 000 shapes); a second test holds it there at 24 spines and 24 satellites and over 2 000 impacts
+`stain_shape` makes. `the_passes_are_what_their_definitions_say` (new) copies the pre-table `spread` and `advance` into the test,
+writes `shade` by its definition, and compares `wet` and every pixel of both images each tick of four scripted runs.
+`the_live_tiles_change_nothing_but_the_cost` holds the covered tick to the whole-canvas one. `a_spray_is_covered_by_its_own_blood_and_not_by_its_tiles`
+(new) is the cost and **fails on 0.8.0** (checked in a worktree of `e82c3f5`: 9 388 covered, bound 3 240).
+
+**Sources.** Physics: Comiskey, Yarin & Attinger 2018 (`doi:10.1103/physrevfluids.3.063901`), "Other than that, droplet motion is
+fully deterministic" (a stain is a pure function of its shape, so a cost change that moved a byte is a model change); Knock & Davison
+2007 (spines, through `docs/bloodstain-citations.md`); the oxidation walk (`doi:10.1371/journal.pone.0021845`). Horror and forensic
+references, under `/tmp/c7/refs/` and cited by URL: Ref 1 `commons.wikimedia.org/wiki/File:Blood_Spatter_Texture_-_FREE.jpg` (CC BY
+2.0), Ref 7 `.../File:Blood,_guts_and_gore_galore,_Moulage_crew_brings_horror_to_life_140723-A-IX584-092.jpg` (public domain), and
+*Evil Dead* (2013), KNB's methylcellulose blood (`filmhounds.co.uk/2023/04/17/gory-groovy-the-splatter-of-evil-dead/`). Technique:
+*Ray Tracing Gems* ch. 22 ("a conservative segmentation mask ... adaptively employ 8x ... supersampling for 6% of the total image"), the
+SIGGRAPH 2010 hybrid anti-aliasing talk, Geffroy on Doom Eternal's decals (corpus). `catalog_recent` (limit 200): nothing in a domain
+(psychology and six `sig2024_*`/`sig2026_*` titles on rendering). `system_status` healthy (two scribes, distill on CUDA, 18 673
+documents).
+
+**Critique and verdict** (`/tmp/c7/critique.md`, `compare-wall-spray.png`, removed with `/tmp/c7`). Frame 359 of `capture_skinned --through`
+beside Refs 1 and 7: the look is **exactly 0.8.0's** (all 6 480 frames byte-identical). Against Ref 1 the wall stipple is dozens of
+near-round blobs of one narrow size band (about a centimetre), almost no fine specks, no tails; Ref 1's larger stains throw
+spines and tails and run from a millimetre to three centimetres. The spines exist in the mask (24 at wall speed) and are under a
+texel wide at 5 mm a texel, so they do not read: **the most expensive part of a wall stamp is the part nobody can see.** Verdicts:
+exactness **GREAT**; cost as delivered **GREAT** (same bytes in 0.6 of the ticks and 0.59 of the instructions, with a test that fails
+on 0.8.0); cost as an absolute **NOT YET** (a heavy wound facing a wall is still about 19 ms of its hit tick and 15 ms of every tick
+after: what is left is not exact); the wall stipple's look **NOT YET**, unchanged. Rounds: four on the cost (the stamp, the passes,
+the bare texels, the spans), each measured; stopped because the next levers move pixels (below) and are their own items.
+
+**Numbers.**
+
+- *Reproducibility* (every variant twice, after the final code): all 18 digests equal pairwise and to 0.8.0's (`preset`
+  `d4c0bcda72414525`; default and `--blows` `e19726fb05ac40f3`; `--through` `4da541caaf98793b`; `--guard` `a6d89deea27fa717`; `--shirt`
+  `bfb01ebc2acae68b`; `--break` `6b95aab1742db9fa`; `--stroll` `8ebe761bcc8b4d83`; `--quiet` `f83a631a7426808d`), `flay=` and `dermis=`
+  unchanged, **and `cmp` of all 6 480 frames: none differ**. `canvas_digest`, `dry_timeline`, `stain_sweep` byte-identical;
+  `bench_carnage` digest `0x4366a8b64352c85a`. (`pattern_classes` is an interactive window, not a terminal example: it hung a
+  loop for 300 s; `rheology` and `flay_digest` were not run, their modules untouched.)
+- *Cost*, `hit_tick_cost`, 8 runs alternated with 0.8.0, median of the runs (ms), 0.8.0 to now. Hit tick: bullet on a floor 4.51 to 3.04,
+  facing a wall 6.86 to 4.82, heavy 8.26 to 4.98, heavy facing a wall 28.51 to 18.68. **Tick after the last hit**: 4.80 to 2.79, 9.39 to
+  5.66, 5.56 to 2.84, 26.52 to 15.35. No case slower. Wall time on this host varies by two between single runs (other loops, load 3 to
+  7), so the stable number is `/usr/bin/time -l`'s **instructions retired**, repeatable to 0.05 %: the whole run 30.47 billion to 18.03
+  (-41 %; 21.5, 35 and 41 % after the first, second and third group of reductions). `bench_carnage` never calls the preset or a canvas:
+  15.75 billion instructions before and 15.75 to 15.80 after; its timing refused ("NO STABLE PLATEAU") in 11 of 17 runs at load 4 to 7, and
+  the six it gave (`carnage_frame_ms` 0.9885, 0.9877 and 0.9466 after, 0.9942, 0.9918 and 0.7516 before; p99 26.4 to 29.1) are noise around nothing.
+- *Locks and mass*: the gate's `cargo test --no-fail-fast` is green (lib 359 and three ignored, `wetmap` 17, `leaf` 3, `readme` 4, every other
+  binary and the doctests); no golden touched. The drip and spread conservation tests pass untouched. No geometry touched.
+- *Gate*, in the loop's order, on the final code: `cargo build` rc 0 30 s; `cargo build --release` rc 0 27 s; `cargo test --no-fail-fast`
+  rc 0, 1 383 s for the whole gate; `cargo build --examples` rc 0. Not run: rustfmt (not clean at `main`; every edit follows the file's own
+  long-line style), `tools/qa.sh` (no ImageMagick), clippy (no standing gate).
+
+**Assumed decisions (owner may override)**: (1) the cost item stays exact: a sample budget or a resolution-aware spine count would move
+pixels and every digest, and `tests/wetmap.rs` pins four samples at 32 texels, so those are separate items (measured table in the
+note); (2) `RIM_BUCKETS` 32 (16, 32 and 64 cost the same for a big stamp within the host's noise; the table is 10 to 19 us at 32 and 37 at 64);
+(3) no release this pass: `v0.8.0` was tagged at 16:23 CDT, the six-hour rule holds, and an exact cost change needs no version of its own.
+
+**Found, not fixed.** (1) The first stamp in a process costs 1.5 ms (cold: not investigated). (2) `drip` is untouched (about 20 ns a covered
+texel, the next largest pass). (3) The `hit_tick_cost` scene piles 45 hits on one wall: a realistic single heavy hit is 9 to 16 ms
+(the first in a process also builds the mesh index). (4) The stamp's cost is the many small stamps, not the big one (the `STAMPS by px`
+probe: 16 of two texels, 7 of three, 5 of four, 20 of five, one of 24).
+
+### Ranked backlog for iteration 8
+
+1. **A heavy wound on a wall is still more than a frame** (19 ms hit, 15 ms a tick after). Each lever moves pixels, so it is its own item
+   with a visual sign-off: (a) stamp each droplet at the tick it arrives (0.9 m at 8 to 40 m/s is one to seven ticks), which spreads
+   the spike without changing a stamp, but moves the digests on purpose (an age offset); (b) draw the spines a canvas can resolve and
+   re-size the body so a stamp keeps its mass (the body is shrunk to make room for spines: dropping them makes it 2.5x the area);
+   (c) a sample budget for stamps of 14 texels and over (mean 1 to 2.4 of 255 a texel at 2 samples, measured).
+2. **The wall stipple's look beside Ref 1**: size spread (the leaf's draw is uniform in diameter; the paper's is a power law: a
+   `BloodSettings` field, the owner's word), tails, and the few-texel drop's shape in `flesh.wesl` (iteration 6's item 2, WebGL2 re-check).
+3. **`digest=` itself for a body that breaks** (iteration 5's item 1): a per-frame wet trace beside `flay=` and `dermis=`.
+4. **`#[non_exhaustive]` on `SkeletalRefusal` and the other public error enums**, and the Bevy 0.19 citation sweep: do the first with
+   the next MINOR or never.
+5. **The horror-film items** (pooling and drying ring, wound sheen, fracture debris), each needing `magick`; `vfx` on Bevy 0.20 still
+   waits on `bevy_hanabi`. Cheaper first: `drip`'s row slices, and a first-stamp warm-up.
