@@ -4390,3 +4390,571 @@ pass	seq	phase	kind	category	tool	start	seconds	detail
 16	614	release	model	model		2026-11-01T07:10:29Z	2.8	
 16	615	release	tool	todo	todo	2026-11-01T07:10:32Z	0.0	Marking the iteration complete
 16	616	release	model	model		2026-11-01T07:10:32Z	12.7	
+17	1	orient	model	model		2026-11-01T07:11:21Z	6.0	
+17	2	orient	tool	phase mark	bash	2026-11-01T07:11:27Z	1.1	Marking orient and checking repo state :: python3 ~/.local/share/wiggum/steps.py mark orient; cd /Users/ladvien/bevy_carnage_loop && git status --short | head; git branch --show-current; git log --oneli
+17	3	orient	tool	git	bash	2026-11-01T07:11:27Z	1.9	Reading last audit and parked branches :: cd /Users/ladvien/bevy_carnage_loop && git fetch -q origin loop-stats 2>&1 | tail -2; git show origin/loop-stats:steps/bevy_carnage_loop-audit.tsv 2>&1 | tail -
+17	4	orient	tool	github	bash	2026-11-01T07:11:27Z	1.9	Listing open issues :: cd /Users/ladvien/bevy_carnage_loop && gh issue list --repo bevy-coven/bevy_carnage --state open --limit 100 --json number,title,labels,createdAt --jq '.[] | "#
+17	5	orient	model	model		2026-11-01T07:11:29Z	3.7	
+17	6	orient	tool	github	bash	2026-11-01T07:11:33Z	0.8	Checking audit header and log structure :: cd /Users/ladvien/bevy_carnage_loop && git show origin/loop-stats:steps/bevy_carnage_loop-audit.tsv | head -2; gh issue list --repo bevy-coven/bevy_carnage --st
+17	7	orient	model	model		2026-11-01T07:11:34Z	1.7	
+17	8	orient	tool	read files	read	2026-11-01T07:11:35Z	0.1	Reading iteration 9 log and backlog :: docs/loop-log.md:1050-1165
+17	9	orient	model	model		2026-11-01T07:11:35Z	9.4	
+17	10	orient	tool	shell	bash	2026-11-01T07:11:45Z	0.2	Preparing scratch and checking build cache :: cd /Users/ladvien/bevy_carnage_loop && mkdir -p /tmp/c10/before /tmp/c10/after /tmp/c10/refs && uptime && git rev-parse HEAD && grep -n '^version' Cargo.toml | 
+17	11	orient	model	model		2026-11-01T07:11:45Z	3.3	
+17	12	orient	tool	cargo build	bash	2026-11-01T07:11:48Z	0.0	[launched bg_2] Building release examples (baseline) :: cd /Users/ladvien/bevy_carnage_loop && time cargo build --release --examples 2>&1 | tail -3
+17	13	orient	tool	git	bash	2026-11-01T07:11:48Z	17.1	Home-still preflight :: cd /Users/ladvien/bevy_carnage_loop && git log --since='2026-11-01 00:00' --format='%h %ad %s' --date=iso | head -5; (hs status 2>&1 | head -30)
+17	14	orient	model	model		2026-11-01T07:12:05Z	3.9	
+17	15	orient	tool	read files	read	2026-11-01T07:12:09Z	0.0	Reading catalog_recent schema :: xd://mcp__home_still_catalog_recent
+17	16	orient	model	model		2026-11-01T07:12:09Z	1.8	
+17	17	orient	tool	edit files	write	2026-11-01T07:12:11Z	8.8	Scanning recent catalog for new domain sources :: xd://mcp__home_still_catalog_recent
+17	18	orient	model	model		2026-11-01T07:12:20Z	10.8	
+17	19	orient	tool	shell	bash	2026-11-01T07:12:31Z	0.1	Surveying docs and src layout :: cd /Users/ladvien/bevy_carnage_loop && ls docs docs/research docs/media | head -80; grep -n 'hit_tick_cost' -r src | head; wc -l src/*.rs | tail -30
+17	20	orient	model	model		2026-11-01T07:12:31Z	2.7	
+17	21	orient	tool	read files	read	2026-11-01T07:12:34Z	0.0	Reading the wet-tick cost research note :: docs/research/wet-tick-cost.md
+17	22	orient	tool	read files	read	2026-11-01T07:12:34Z	0.3	Reading hit_tick_cost test :: src/preset.rs:7225-7289
+17	23	orient	model	model		2026-11-01T07:12:34Z	21.3	
+17	24	orient	tool	shell	bash	2026-11-01T07:12:55Z	0.1	Looking for golem reference image tool :: ls xd:// 2>/dev/null | grep -i -E 'golem|reference|image' | head
+17	25	orient	model	model		2026-11-01T07:12:55Z	1.7	
+17	26	orient	tool	read files	read	2026-11-01T07:12:57Z	0.0	Listing xd devices :: xd://
+17	27	orient	model	model		2026-11-01T07:12:57Z	7.8	
+17	28	orient	tool	web	web_search	2026-11-01T07:13:05Z	9.3	Searching wound practical-effects references :: practical effects gunshot wound makeup close-up wet blood sheen film still Savini
+17	29	orient	tool	web	web_search	2026-11-01T07:13:05Z	9.3	Searching Commons blood references :: site:commons.wikimedia.org blood splatter wall crime scene dried blood stains photograph
+17	30	orient	model	model		2026-11-01T07:13:14Z	5.6	
+17	31	orient	tool	shell	bash	2026-11-01T07:13:20Z	0.9	Searching Commons for moulage wound images :: cd /tmp/c10/refs && curl -sL 'https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=moulage+wound+blood&srnamespace=6&srlimit=20&format=json
+17	32	orient	model	model		2026-11-01T07:13:21Z	6.3	
+17	33	orient	tool	shell	bash	2026-11-01T07:13:27Z	6.1	Downloading public-domain moulage references :: cd /tmp/c10/refs && UA='bevy_carnage-loop/1.0 (research; https://github.com/bevy-coven/bevy_carnage)'; get(){ n="$1"; f="$2"; curl -sL -A "$UA" "https://commons
+17	34	orient	model	model		2026-11-01T07:13:33Z	2.4	
+17	35	orient	tool	read files	read	2026-11-01T07:13:36Z	1.6	Looking at moulage reference 1 :: /tmp/c10/refs/m1.jpg
+17	36	orient	tool	read files	read	2026-11-01T07:13:36Z	1.6	Looking at moulage reference 4 :: /tmp/c10/refs/m4.jpg
+17	37	orient	model	model		2026-11-01T07:13:37Z	6.5	
+17	38	orient	tool	read files	read	2026-11-01T07:13:44Z	0.0	Viewing current preset still :: docs/media/preset.png
+17	39	orient	tool	read files	read	2026-11-01T07:13:44Z	1.2	Viewing current dried still :: docs/media/dried.png
+17	40	orient	model	model		2026-11-01T07:13:45Z	11.9	
+17	41	orient	tool	search	grep	2026-11-01T07:13:57Z	0.2	Searching for bead/rivulet handling :: src;docs/wetmap.md;docs/research;docs/guide;BACKLOG.md;docs/loop-log.md
+17	42	orient	model	model		2026-11-01T07:13:57Z	8.7	
+17	43	orient	tool	shell	bash	2026-11-01T07:14:06Z	0.1	Locating wetmap drip code :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'fn drip\|fn spread\|fn advance\|fn shade\|fn tick\|fn paint_cone\|pub const\|^const' src/wetmap.rs | head -80; l
+17	44	orient	model	model		2026-11-01T07:14:06Z	2.8	
+17	45	orient	tool	shell	bash	2026-11-01T07:14:09Z	0.0	Listing canvas.rs functions :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'fn \|^pub const\|^const' src/wetmap/canvas.rs | head -120
+17	46	orient	model	model		2026-11-01T07:14:09Z	2.1	
+17	47	orient	tool	read files	read	2026-11-01T07:14:11Z	0.1	Reading the drip pass :: src/wetmap/canvas.rs:1394-1445
+17	48	orient	model	model		2026-11-01T07:14:11Z	5.2	
+17	49	orient	tool	wait: build	wait	2026-11-01T07:14:16Z	927.2	Waiting for baseline release examples build
+17	50	orient	model	model		2026-11-01T07:29:43Z	4.6	
+17	51	orient	tool	shell	bash	2026-11-01T07:29:48Z	0.0	Checking how qa.sh invokes recorders :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'capture_skinned\|capture_preset' tools/qa.sh | head -20; uptime
+17	52	orient	model	model		2026-11-01T07:29:48Z	5.0	
+17	53	orient	tool	shell	bash	2026-11-01T07:29:53Z	25.5	Preparing recorder script and checking capture_skinned usage :: cd /Users/ladvien/bevy_carnage_loop && cat > /tmp/c10/rec.sh <<'EOF' #!/bin/bash # usage: rec.sh <bin dir> <out dir> B=$1; O=$2; mkdir -p $O cd /Users/ladvien/b
+17	54	orient	model	model		2026-11-01T07:30:18Z	3.9	
+17	55	orient	tool	git	bash	2026-11-01T07:30:22Z	0.2	Checking stray output and capture_skinned args :: cd /Users/ladvien/bevy_carnage_loop && git status --short | head; ls -d frames-skinned 2>/dev/null; grep -n 'args\|"--' examples/capture_skinned.rs | head -50
+17	56	orient	model	model		2026-11-01T07:30:23Z	4.5	
+17	57	orient	tool	shell	bash	2026-11-01T07:30:27Z	0.0	[launched bg_3] Running baseline recorders twice :: cd /Users/ladvien/bevy_carnage_loop && rm -rf frames-skinned && /tmp/c10/rec.sh $CARGO_TARGET_DIR/release/examples /tmp/c10/before 2>&1 | tee /tmp/c10/before/re
+17	58	orient	model	model		2026-11-01T07:30:27Z	6.3	
+17	59	orient	tool	shell	bash	2026-11-01T07:30:33Z	0.1	Surveying flesh.wesl structure :: cd /Users/ladvien/bevy_carnage_loop && wc -l assets/shaders/*.wesl 2>/dev/null || find . -name 'flesh.wesl' -not -path './target/*'; grep -n '^fn \|^const \|^@f
+17	60	orient	model	model		2026-11-01T07:30:33Z	1.9	
+17	61	orient	tool	read files	read	2026-11-01T07:30:35Z	0.0	Reading the flesh fragment shader :: src/flesh.wesl:297-520
+17	62	orient	model	model		2026-11-01T07:30:35Z	3.0	
+17	63	orient	tool	wait: clip	wait	2026-11-01T07:30:38Z	258.3	Waiting for baseline recorders
+17	64	orient	model	model		2026-11-01T07:34:57Z	6.0	
+17	65	orient	tool	clip record/render	bash	2026-11-01T07:35:03Z	0.3	Checking image tooling and frame layout :: python3 -c "import PIL; print(PIL.__version__)" 2>&1; which magick convert ffmpeg; ls /tmp/c10/before/sk_default1 | wc -l; ls /tmp/c10/before/ | head -30; grep 
+17	66	orient	model	model		2026-11-01T07:35:03Z	4.4	
+17	67	orient	tool	shell	bash	2026-11-01T07:35:07Z	0.0	[launched bg_4] Creating Pillow/NumPy venv :: cd /tmp/c10 && python3 -m venv venv && ./venv/bin/pip -q install pillow numpy scipy 2>&1 | tail -2; ./venv/bin/python -c "import PIL, numpy, scipy; print('ok', 
+17	68	orient	tool	read files	read	2026-11-01T07:35:07Z	0.3	Viewing default skinned frame 150 :: /tmp/c10/before/sk_default1/frame0150.png
+17	69	orient	model	model		2026-11-01T07:35:08Z	5.7	
+17	70	orient	tool	shell	bash	2026-11-01T07:35:13Z	0.0	Reading media recipes and capture_skinned schedule :: cd /Users/ladvien/bevy_carnage_loop && cat docs/media/README.md | head -60; sed -n 36,62p examples/capture_skinned.rs
+17	71	orient	model	model		2026-11-01T07:35:13Z	5.4	
+17	72	orient	tool	shell	bash	2026-11-01T07:35:19Z	20.6	Capturing close chest wound clip :: cd /Users/ladvien/bevy_carnage_loop && $CARGO_TARGET_DIR/release/examples/capture_skinned --eye 0.0,1.3,0.75 --at 0.0,1.25,0.0 --out /tmp/c10/before/chest 2>&1 
+17	73	orient	model	model		2026-11-01T07:35:39Z	2.3	
+17	74	orient	tool	read files	read	2026-11-01T07:35:42Z	0.5	Viewing chest wound frame 160 :: /tmp/c10/before/chest/frame0160.png
+17	75	orient	tool	read files	read	2026-11-01T07:35:42Z	0.5	Viewing chest wound frame 330 :: /tmp/c10/before/chest/frame0330.png
+17	76	orient	model	model		2026-11-01T07:35:42Z	30.6	
+17	77	orient	tool	read files	read	2026-11-01T07:36:13Z	0.0	Reading distill_search schema :: xd://mcp__home_still_distill_search
+17	78	orient	bg	shell	bash	2026-11-01T07:35:38Z	35.1	bg_4 completed: python3 -m venv venv && ./venv/bin/pip -q install pillow numpy scipy 2>&1 | tail -2; ./venv/bin/python -c "import PIL...
+17	79	orient	model	model		2026-11-01T07:36:13Z	3.7	
+17	80	orient	tool	edit files	write	2026-11-01T07:36:17Z	4.3	Searching corpus for rivulet meandering physics :: xd://mcp__home_still_distill_search
+17	81	orient	tool	edit files	write	2026-11-01T07:36:21Z	0.5	Searching corpus for sliding drop trail physics :: xd://mcp__home_still_distill_search
+17	82	orient	model	model		2026-11-01T07:36:21Z	7.1	
+17	83	orient	tool	read files	read	2026-11-01T07:36:28Z	0.0	Reading paper_search schema :: xd://mcp__home_still_paper_search
+17	84	orient	model	model		2026-11-01T07:36:28Z	5.3	
+17	85	orient	tool	read files	read	2026-11-01T07:36:34Z	0.3	Viewing through variant final frame :: /tmp/c10/before/sk_through1/frame0359.png
+17	86	orient	tool	read files	read	2026-11-01T07:36:34Z	0.3	Viewing preset final frame :: /tmp/c10/before/preset1/frame0359.png
+17	87	orient	model	model		2026-11-01T07:36:34Z	22.6	
+17	88	orient	tool	read files	read	2026-11-01T07:36:57Z	0.0	Reading drip_step and wetness helpers :: src/wetmap/canvas.rs:2000-2075
+17	89	orient	model	model		2026-11-01T07:36:57Z	15.2	
+17	90	orient	tool	shell	bash	2026-11-01T07:37:12Z	0.0	Reading WetSettings code without docs :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,223p src/wetmap/settings.rs | grep -v '^\s*///' | head -150
+17	91	orient	model	model		2026-11-01T07:37:12Z	8.3	
+17	92	orient	tool	read files	read	2026-11-01T07:37:20Z	0.0	Reading the wound pulse code :: src/preset.rs:4380-4520
+17	93	orient	model	model		2026-11-01T07:37:20Z	31.8	
+17	94	orient	tool	shell	bash	2026-11-01T07:37:52Z	4.0	Searching Commons for blood-run references :: cd /tmp/c10/refs && for q in "blood trickling down skin" "nosebleed blood running" "bleeding wound blood dripping arm" "blood running down wall" "bloody handpri
+17	95	orient	model	model		2026-11-01T07:37:56Z	6.3	
+17	96	orient	tool	shell	bash	2026-11-01T07:38:02Z	2.3	Listing Commons categories for blood and wound images :: cd /tmp/c10/refs && for c in "Fake blood" "Special effects makeup" "Blood stains" "Bloodstain pattern analysis" "Moulage" "Wounds" "Gunshot wounds" "Bleeding"; 
+17	97	orient	model	model		2026-11-01T07:38:05Z	7.2	
+17	98	orient	tool	shell	bash	2026-11-01T07:38:12Z	4.5	Downloading wound and blood-run references :: cd /tmp/c10/refs && UA='bevy_carnage-loop/1.0 (research; https://github.com/bevy-coven/bevy_carnage)'; get(){ n="$1"; f="$2"; curl -sL -A "$UA" "https://commons
+17	99	orient	model	model		2026-11-01T07:38:16Z	3.0	
+17	100	orient	tool	read files	read	2026-11-01T07:38:19Z	1.2	Viewing moulage deep gash reference :: /tmp/c10/refs/w1.jpg
+17	101	orient	tool	read files	read	2026-11-01T07:38:19Z	1.2	Viewing Bloodywoman reference :: /tmp/c10/refs/w3.jpg
+17	102	orient	tool	read files	read	2026-11-01T07:38:19Z	1.7	Viewing gore galore reference 178 :: /tmp/c10/refs/w4.jpg
+17	103	orient	model	model		2026-11-01T07:38:21Z	6.3	
+17	104	orient	tool	read files	read	2026-11-01T07:38:28Z	0.8	Viewing fake blood on a wall reference :: /tmp/c10/refs/w6.jpg
+17	105	orient	tool	read files	read	2026-11-01T07:38:28Z	0.8	Viewing surgical training moulage reference :: /tmp/c10/refs/w5.jpg
+17	106	orient	model	model		2026-11-01T07:38:28Z	8.3	
+17	107	orient	tool	shell	bash	2026-11-01T07:38:37Z	0.0	Reading shape_on and BLEED_WELLS usage :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'fn shape_on' -A40 src/preset.rs | head -80; grep -n 'BLEED_WELLS\|RIM_FAN' src/preset.rs | head -30
+17	108	orient	model	model		2026-11-01T07:38:37Z	6.9	
+17	109	orient	tool	shell	bash	2026-11-01T07:38:44Z	0.0	Checking mannequin dimensions and density :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'torso\|Torso\|radius\|uv_per_metre\|density' examples/common/mannequin.rs | head -40; grep -n 'uv_per_metre\|fn 
+17	110	orient	model	model		2026-11-01T07:38:44Z	12.2	
+17	111	orient	tool	shell	bash	2026-11-01T07:38:56Z	0.0	Reading canvas constructors and tick :: cd /Users/ladvien/bevy_carnage_loop && sed -n 2108,2130p src/wetmap/canvas.rs; sed -n 250,300p src/wetmap/canvas.rs; sed -n 1095,1165p src/wetmap/canvas.rs
+17	112	orient	model	model		2026-11-01T07:38:56Z	63.4	
+17	113	orient	tool	cargo build	bash	2026-11-01T07:39:59Z	0.0	[launched bg_5] Warm dev-profile build of capture_skinned :: cd /Users/ladvien/bevy_carnage_loop && time cargo build --example capture_skinned 2>&1 | tail -3
+17	114	orient	model	model		2026-11-01T07:39:59Z	8.2	
+17	115	orient	tool	edit files	write	2026-11-01T07:40:07Z	8.3	Searching rivulet physics papers :: xd://mcp__home_still_paper_search
+17	116	orient	bg	cargo build	bash	2026-11-01T07:40:13Z	3.2	bg_5 completed: time cargo build --example capture_skinned 2>&1 | tail -3
+17	117	orient	model	model		2026-11-01T07:40:16Z	6.6	
+17	118	orient	tool	edit files	write	2026-11-01T07:40:22Z	0.6	Searching blood run-down fluid dynamics papers :: xd://mcp__home_still_paper_search
+17	119	orient	model	model		2026-11-01T07:40:23Z	5.9	
+17	120	orient	tool	read files	read	2026-11-01T07:40:29Z	0.0	Reading paper_download schema :: xd://mcp__home_still_paper_download
+17	121	orient	model	model		2026-11-01T07:40:29Z	3.1	
+17	122	orient	tool	edit files	write	2026-11-01T07:40:32Z	1.3	Downloading Le Grand 2005 sliding drops paper :: xd://mcp__home_still_paper_download
+17	123	orient	tool	edit files	write	2026-11-01T07:40:33Z	2.1	Downloading Schwartz 1989 fingering paper :: xd://mcp__home_still_paper_download
+17	124	orient	model	model		2026-11-01T07:40:36Z	4.8	
+17	125	orient	tool	edit files	write	2026-11-01T07:40:40Z	0.3	Searching Attinger BPA fluid dynamics review :: xd://mcp__home_still_paper_search
+17	126	orient	model	model		2026-11-01T07:40:41Z	7.5	
+17	127	orient	tool	shell	bash	2026-11-01T07:40:48Z	0.0	Reading rheo.rs overview :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'pub fn\|pub const' src/bloodstain/rheo.rs | head -30; sed -n 1,60p src/bloodstain/rheo.rs
+17	128	orient	model	model		2026-11-01T07:40:48Z	22.0	
+17	129	orient	tool	shell	bash	2026-11-01T07:41:10Z	0.0	Reading bleed.rs public API :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'pub fn\|pub struct\|pub const\| pub ' src/bloodstain/bleed.rs | head -50
+17	130	orient	model	model		2026-11-01T07:41:10Z	2.5	
+17	131	orient	tool	read files	read	2026-11-01T07:41:13Z	0.0	Reading bleed.rs pulse functions :: src/bloodstain/bleed.rs:95
+17	132	orient	model	model		2026-11-01T07:41:13Z	21.0	
+17	133	orient	tool	shell	bash	2026-11-01T07:41:34Z	60.0	[launched bg_6] Timing a dev-profile chest capture :: cd /Users/ladvien/bevy_carnage_loop && D=${CARGO_TARGET_DIR}/debug/examples && ls $D | grep -c capture_skinned; time $D/capture_skinned --eye 0.0,1.3,0.75 --at 
+17	134	orient	model	model		2026-11-01T07:42:34Z	6.4	
+17	135	orient	tool	read files	read	2026-11-01T07:42:40Z	0.0	Reading paint_uv_with and stamp :: src/wetmap/canvas.rs:535
+17	136	orient	tool	read files	read	2026-11-01T07:42:40Z	0.1	Reading stamp body :: src/wetmap/canvas.rs:906
+17	137	orient	model	model		2026-11-01T07:42:40Z	6.6	
+17	138	orient	tool	wait: clip	wait	2026-11-01T07:42:47Z	366.9	Waiting for dev chest capture timing
+17	139	orient	model	model		2026-11-01T07:48:54Z	15.8	
+17	140	orient	tool	shell	bash	2026-11-01T07:49:10Z	0.0	Reading mannequin UV layout density :: cd /Users/ladvien/bevy_carnage_loop && sed -n 455,540p examples/common/mannequin.rs
+17	141	orient	model	model		2026-11-01T07:49:10Z	48.8	
+17	142	orient	tool	read files	read	2026-11-01T07:49:58Z	0.0	Reading mask_px :: src/wetmap/canvas.rs:1380
+17	143	orient	model	model		2026-11-01T07:49:58Z	16.3	
+17	144	orient	tool	edit files	write	2026-11-01T07:50:15Z	1.2	Creating throwaway run-probe integration test :: /Users/ladvien/bevy_carnage_loop/tests/zz_runs.rs
+17	145	orient	model	model		2026-11-01T07:50:16Z	6.7	
+17	146	orient	tool	cargo test	bash	2026-11-01T07:50:23Z	0.0	[launched bg_7] Running run-shape probe on the real canvas :: cd /Users/ladvien/bevy_carnage_loop && time PROBE='cur:8:28:11:8:0:0;thin3:3:28:11:8:0:0;thin2:2:28:11:8:0:0;thin3bead:3:24:11:8:6:6;thin4:4:28:11:8:0:0' cargo 
+17	147	orient	model	model		2026-11-01T07:50:23Z	9.1	
+17	148	orient	tool	edit files	write	2026-11-01T07:50:32Z	0.0	Writing probe viewer script :: /tmp/c10/view.py
+17	149	orient	model	model		2026-11-01T07:50:32Z	7.2	
+17	150	orient	tool	shell	bash	2026-11-01T07:50:39Z	1.2	Fetching licences for reference images :: cd /tmp/c10/refs && python3 - <<'EOF' import json, urllib.request, urllib.parse UA={'User-Agent':'bevy_carnage-loop/1.0 (research)'} files=['The art behind Army
+17	151	orient	bg	shell	bash	2026-11-01T07:50:28Z	12.4	bg_7 completed: time PROBE='cur:8:28:11:8:0:0;thin3:3:28:11:8:0:0;thin2:2:28:11:8:0:0;thin3bead:3:24:11:8:6:6;thin4:4:28:11:8:0:0' ca...
+17	152	orient	model	model		2026-11-01T07:50:40Z	3.4	
+17	153	orient	tool	shell	bash	2026-11-01T07:50:44Z	2.3	Rendering probe contact sheet :: cd /tmp/c10 && ./venv/bin/python view.py /tmp/c10/sheet1.png cur thin3 thin2 thin3bead thin4
+17	154	orient	model	model		2026-11-01T07:50:46Z	2.0	
+17	155	orient	tool	read files	read	2026-11-01T07:50:48Z	0.5	Viewing probe sheet 1 :: /tmp/c10/sheet1.png
+17	156	orient	model	model		2026-11-01T07:50:48Z	36.7	
+17	157	orient	tool	shell	bash	2026-11-01T07:51:25Z	0.5	Cropping crater close-ups :: cd /tmp/c10 && ./venv/bin/python - <<'EOF' from PIL import Image im=Image.open('/tmp/c10/before/chest/frame0330.png').convert('RGB') c=im.crop((330,100,500,260)
+17	158	orient	tool	read files	read	2026-11-01T07:51:25Z	0.5	Viewing crater close-up :: /tmp/c10/crater_before.png
+17	159	orient	model	model		2026-11-01T07:51:26Z	2.6	
+17	160	orient	tool	shell	bash	2026-11-01T07:51:28Z	0.0	Checking where the crater crops went :: ls /tmp/c10/ | head -30; ls /tmp/c10/before/chest | head -3
+17	161	orient	model	model		2026-11-01T07:51:28Z	1.9	
+17	162	orient	tool	read files	read	2026-11-01T07:51:30Z	0.0	Viewing crater close-up :: /tmp/c10/crater_before.png
+17	163	orient	model	model		2026-11-01T07:51:30Z	41.6	
+17	164	orient	tool	shell	bash	2026-11-01T07:52:12Z	0.2	Extending probe with per-well variation and tilt :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' import re p='tests/zz_runs.rs' s=open(p).read() s=s.replace(''' let (minor, major, spacing, pulses, hea
+17	165	orient	model	model		2026-11-01T07:52:12Z	4.4	
+17	166	orient	tool	cargo test	bash	2026-11-01T07:52:17Z	13.8	Running varied/tilted rivulet probes :: cd /Users/ladvien/bevy_carnage_loop && PROBE='cur:8:28:11:8:0:0;t3v:3:28:11:8:0:0:1:0;t3vt:3:28:11:8:0:0:1:0.25;t4vt:4:30:12:8:5:5:1:0.3;t3vtb:3:26:12:8:6:6:1:0
+17	167	orient	model	model		2026-11-01T07:52:30Z	2.8	
+17	168	orient	tool	read files	read	2026-11-01T07:52:33Z	0.5	Viewing probe sheet 2 :: /tmp/c10/sheet2.png
+17	169	orient	model	model		2026-11-01T07:52:34Z	25.7	
+17	170	orient	tool	cargo test	bash	2026-11-01T07:52:59Z	0.0	[launched bg_8] Measuring current hit and wet tick cost :: cd /Users/ladvien/bevy_carnage_loop && time cargo test --release --lib -- hit_tick_cost --ignored --nocapture 2>&1 | grep -E 'METRIC|floor_|test result|error' |
+17	171	orient	model	model		2026-11-01T07:52:59Z	33.8	
+17	172	orient	tool	wait: other	wait	2026-11-01T07:53:33Z	123.7	Waiting for hit_tick_cost numbers
+17	173	orient	model	model		2026-11-01T07:55:37Z	39.1	
+17	174	orient	tool	github	bash	2026-11-01T07:56:16Z	1.0	Reading grimoire F12 issue for consumer needs :: gh issue view 108 --repo bevy-coven/bevy_grimoire 2>&1 | head -120
+17	175	orient	model	model		2026-11-01T07:56:17Z	14.1	
+17	176	orient	tool	shell	bash	2026-11-01T07:56:31Z	0.0	Locating flaymap paint code and exit scale :: cd /Users/ladvien/bevy_carnage_loop && ls src src/flaymap 2>/dev/null | head -50; grep -n 'pub fn paint_uv\|fn stamp\|smoothstep\|pub const' src/flaymap/canvas.
+17	177	orient	model	model		2026-11-01T07:56:31Z	4.7	
+17	178	orient	tool	read files	read	2026-11-01T07:56:36Z	0.0	Reading flaymap crater stamp :: src/flaymap/canvas.rs:420-560
+17	179	orient	model	model		2026-11-01T07:56:36Z	34.0	
+17	180	orient	tool	web	web_search	2026-11-01T07:57:10Z	12.7	Searching shipping-game technique for blood runs :: game dev blood rivulets running down wall or body shader technique vertical streaks dripping decal flow GDC talk gore rendering
+17	181	orient	model	model		2026-11-01T07:57:23Z	5.9	
+17	182	orient	tool	shell	bash	2026-11-01T07:57:28Z	1.1	Fetching Vlachos L4D2 wounds slides text :: cd /tmp/c10 && curl -sL -A 'Mozilla/5.0' -o l4d2.pdf 'https://alex.vlachos.com/graphics/Vlachos-GDC10-Left4Dead2Wounds.pdf' && file l4d2.pdf && (pdftotext -layo
+17	183	orient	model	model		2026-11-01T07:57:30Z	2.2	
+17	184	orient	tool	read files	read	2026-11-01T07:57:32Z	0.2	Reading Vlachos L4D2 wounds slides :: /tmp/c10/l4d2.pdf
+17	185	orient	model	model		2026-11-01T07:57:32Z	32.2	
+17	186	orient	tool	shell	bash	2026-11-01T07:58:04Z	0.7	Measuring rivulet widths in the glass-pane reference :: cd /tmp/c10 && ./venv/bin/python - <<'EOF' from PIL import Image import numpy as np im=np.asarray(Image.open('/tmp/c10/refs/w6.jpg').convert('RGB')).astype(int)
+17	187	orient	model	model		2026-11-01T07:58:05Z	48.2	
+17	188	orient	tool	edit files	write	2026-11-01T07:58:53Z	0.0	Writing the rivulet research note :: /Users/ladvien/bevy_carnage_loop/docs/research/rivulets.md
+17	189	orient	model	model		2026-11-01T07:58:53Z	9.1	
+17	190	research	tool	phase mark	bash	2026-11-01T07:59:02Z	0.9	Committing the research note alone :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's/at a contact angle of 30 degrees it is up to 12 mm/at a contact angle of 30 degrees it is up to 11 mm/' docs/re
+17	191	research	model	model		2026-11-01T07:59:03Z	8.0	
+17	192	build	tool	phase mark	bash	2026-11-01T07:59:11Z	0.7	Creating iteration branch and marking build phase :: cd /Users/ladvien/bevy_carnage_loop && git checkout -q -b loop/iter-10 && git branch --show-current && python3 ~/.local/share/wiggum/steps.py mark build
+17	193	build	tool	todo	todo	2026-11-01T07:59:12Z	0.0	Tracking iteration 10 rivulets work
+17	194	build	model	model		2026-11-01T07:59:12Z	5.0	
+17	195	build	tool	read files	read	2026-11-01T07:59:17Z	0.0	Reading WoundSite and CutLine well code :: src/preset.rs:1596
+17	196	build	model	model		2026-11-01T07:59:17Z	32.3	
+17	197	build	tool	shell	bash	2026-11-01T07:59:49Z	0.0	Checking re-exports and shot radii :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'BLEED_WELLS\|RIM_FAN\|EXIT_SCALE' src/lib.rs docs/guide/*.md README.md CHANGELOG.md 2>/dev/null | head; grep -n 
+17	198	build	model	model		2026-11-01T07:59:49Z	7.2	
+17	199	build	tool	read files	read	2026-11-01T07:59:56Z	0.0	Reading bleed well loop exact lines :: src/preset.rs:4420-4445
+17	200	build	model	model		2026-11-01T07:59:56Z	9.7	
+17	201	build	tool	shell	bash	2026-11-01T08:00:06Z	0.0	Reading Gore::density :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'fn density' -B2 -A14 src/preset.rs | head -40
+17	202	build	model	model		2026-11-01T08:00:06Z	22.3	
+17	203	build	tool	edit files	edit	2026-11-01T08:00:28Z	0.1	Implementing rivulet width, variety and lean in the bleed pulse :: [src/preset.rs#A8DA] PUT >1636: + +/// **How wide a rivulet of blood runs on a vertical surface at the flow of a 2 cm wound, metres**: 4 mm. +/// +/// A rivulet
+17	204	build	model	model		2026-11-01T08:00:29Z	7.2	
+17	205	build	tool	cargo build	bash	2026-11-01T08:00:36Z	0.0	[launched bg_9] Building release capture examples with rivulet change :: cd /Users/ladvien/bevy_carnage_loop && time cargo build --release --example capture_skinned --example capture_preset 2>&1 | grep -E '^(warning: unused|error|war
+17	206	build	model	model		2026-11-01T08:00:36Z	7.1	
+17	207	build	tool	shell	bash	2026-11-01T08:00:43Z	0.1	Reading the existing runs test for scaffolding :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'fn a_hole_bleeds_in_runs_from_its_lower_rim' -B6 -A60 src/preset.rs | head -120
+17	208	build	model	model		2026-11-01T08:00:43Z	13.7	
+17	209	build	tool	wait: build	wait	2026-11-01T08:00:57Z	71.5	Waiting for rivulet capture build
+17	210	build	model	model		2026-11-01T08:02:08Z	3.9	
+17	211	build	tool	shell	bash	2026-11-01T08:02:12Z	13.7	Capturing chest close-up with rivulets :: cd /Users/ladvien/bevy_carnage_loop && $CARGO_TARGET_DIR/release/examples/capture_skinned --eye 0.0,1.3,0.75 --at 0.0,1.25,0.0 --out /tmp/c10/after/chest 2>&1 |
+17	212	build	model	model		2026-11-01T08:02:26Z	2.2	
+17	213	build	tool	read files	read	2026-11-01T08:02:28Z	0.2	Viewing rivulet chest frame 330 :: /tmp/c10/after/chest/frame0330.png
+17	214	build	model	model		2026-11-01T08:02:28Z	16.7	
+17	215	build	tool	shell	bash	2026-11-01T08:02:45Z	0.7	Making a time strip of the rivulet wound :: cd /tmp/c10 && ./venv/bin/python - <<'EOF' from PIL import Image fr=[140,160,200,260] ims=[Image.open(f'/tmp/c10/after/chest/frame{f:04d}.png').convert('RGB').c
+17	216	build	tool	read files	read	2026-11-01T08:02:45Z	0.7	Viewing rivulet time strip :: /tmp/c10/after_time.png
+17	217	build	model	model		2026-11-01T08:02:46Z	2.3	
+17	218	build	tool	read files	read	2026-11-01T08:02:48Z	0.5	Viewing rivulet time strip :: /tmp/c10/after_time.png
+17	219	build	model	model		2026-11-01T08:02:48Z	11.8	
+17	220	build	tool	shell	bash	2026-11-01T08:03:00Z	0.0	Finding how a wound's area is set :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'area:' src/preset.rs | sed -n 1,30p; grep -n 'fn opened_area\|opened_area' src/preset.rs | head
+17	221	build	model	model		2026-11-01T08:03:00Z	2.7	
+17	222	build	tool	read files	read	2026-11-01T08:03:03Z	0.0	Reading opened_area :: src/preset.rs:1120-1175
+17	223	build	model	model		2026-11-01T08:03:03Z	14.3	
+17	224	build	tool	cargo build	bash	2026-11-01T08:03:17Z	57.6	Widening the fan and rebuilding the capture :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/preset.rs' s=open(p).read() s=s.replace("const RIM_FAN: f32 = 0.87;","const RIM_FAN: f32 = 1.2;"
+17	225	build	model	model		2026-11-01T08:04:15Z	2.5	
+17	226	build	tool	read files	read	2026-11-01T08:04:17Z	0.5	Viewing wider-fan time strip :: /tmp/c10/after_time.png
+17	227	build	model	model		2026-11-01T08:04:18Z	77.1	
+17	228	build	tool	git	bash	2026-11-01T08:05:35Z	0.4	Reverting rivulet edit and reading dry Appearance :: cd /Users/ladvien/bevy_carnage_loop && git checkout src/preset.rs && git status --short && grep -n 'pub struct Appearance' -A40 src/bloodstain/dry.rs | head -80
+17	229	build	model	model		2026-11-01T08:05:35Z	6.8	
+17	230	build	tool	read files	read	2026-11-01T08:05:42Z	0.0	Reading dry.rs module docs and constants :: src/bloodstain/dry.rs:1-74
+17	231	build	model	model		2026-11-01T08:05:42Z	20.5	
+17	232	build	tool	read files	read	2026-11-01T08:06:03Z	0.0	Reading appearance_with_fresh body :: src/bloodstain/dry.rs:116-215
+17	233	build	model	model		2026-11-01T08:06:03Z	38.7	
+17	234	build	tool	shell	bash	2026-11-01T08:06:41Z	3.7	Searching Commons for dried blood pool references :: cd /tmp/c10/refs && for q in "dried blood drop coffee ring" "drying blood droplet crack pattern" "dried blood stain cracked" "dried blood floor crime scene" "bl
+17	235	build	model	model		2026-11-01T08:06:45Z	7.4	
+17	236	build	tool	shell	bash	2026-11-01T08:06:52Z	60.0	[launched bg_10] Searching Openverse for dried blood references :: cd /tmp/c10/refs && for q in "dried blood pool" "dried blood cracked" "drying blood drop" "dried blood stain"; do echo "## $q"; curl -sL -A 'bevy_carnage-loop/1
+17	237	build	model	model		2026-11-01T08:07:52Z	44.8	
+17	238	build	tool	read files	read	2026-11-01T08:08:37Z	0.0	Viewing crater right after the shot :: /tmp/c10/crater_before_125.png
+17	239	build	model	model		2026-11-01T08:08:37Z	8.1	
+17	240	build	tool	wait: other	wait	2026-11-01T08:08:45Z	124.9	Waiting for Openverse reference search
+17	241	build	model	model		2026-11-01T08:10:50Z	7.2	
+17	242	build	tool	shell	bash	2026-11-01T08:10:57Z	4.9	Searching Commons bitmap images for blood pools :: cd /tmp/c10/refs && for q in "bloodstain" "blood pool floor" "dried blood" "blood stain carpet" "blood on floor" "pool of blood"; do echo "## $q"; timeout 20 cu
+17	243	build	model	model		2026-11-01T08:11:02Z	9.6	
+17	244	build	tool	shell	bash	2026-11-01T08:11:12Z	3.9	Downloading dried pool references and licences :: cd /tmp/c10/refs && UA='bevy_carnage-loop/1.0 (research; https://github.com/bevy-coven/bevy_carnage)'; get(){ n="$1"; f="$2"; curl -sL -A "$UA" "https://commons
+17	245	build	model	model		2026-11-01T08:11:16Z	2.9	
+17	246	build	tool	read files	read	2026-11-01T08:11:19Z	0.0	Viewing real pool of blood crime-scene photo :: /tmp/c10/refs/p1.jpg
+17	247	build	tool	read files	read	2026-11-01T08:11:19Z	0.4	Viewing blood on car park floor photo :: /tmp/c10/refs/p3.png
+17	248	build	model	model		2026-11-01T08:11:19Z	20.0	
+17	249	build	tool	shell	bash	2026-11-01T08:11:39Z	0.6	Sampling the real pool's colours :: cd /tmp/c10 && ./venv/bin/python - <<'EOF' from PIL import Image import numpy as np im=np.asarray(Image.open('/tmp/c10/refs/p1.jpg').convert('RGB')).astype(floa
+17	250	build	model	model		2026-11-01T08:11:40Z	23.4	
+17	251	build	tool	github	bash	2026-11-01T08:12:03Z	60.0	[launched bg_11] Cloning Sanctuary to see how it consumes the crate :: mkdir -p /tmp/c10/sanctuary && cd /tmp/c10 && timeout 120 gh repo clone Ladvien/sanctuary /tmp/c10/sanctuary -- --depth 1 2>&1 | tail -2; cd /tmp/c10/sanctuary 
+17	252	build	model	model		2026-11-01T08:13:03Z	23.3	
+17	253	build	tool	shell	bash	2026-11-01T08:13:26Z	0.0	Checking the ragged-exit promise in docs and code :: cd /Users/ladvien/bevy_carnage_loop && sed -n 2520,2540p src/preset.rs | cut -c1-240; grep -n 'ragged' src/*.rs src/flaymap/*.rs docs/preset.md README.md docs/g
+17	254	build	bg	github	bash	2026-11-01T08:12:23Z	63.6	bg_11 completed: mkdir -p /tmp/c10/sanctuary && cd /tmp/c10 && timeout 120 gh repo clone Ladvien/sanctuary /tmp/c10/sanctuary -- --dep...
+17	255	build	model	model		2026-11-01T08:13:26Z	4.9	
+17	256	build	tool	shell	bash	2026-11-01T08:13:31Z	0.0	Grepping Sanctuary's use of the crate :: cd /tmp/c10/sanctuary && grep -rn 'bevy_carnage' src --include='*.rs' | cut -c1-220 | head -30; grep -n 'carnage' Cargo.toml | head
+17	257	build	model	model		2026-11-01T08:13:31Z	6.8	
+17	258	build	tool	shell	bash	2026-11-01T08:13:38Z	0.0	Reading Sanctuary remains.rs header and functions :: cd /tmp/c10/sanctuary && sed -n 1,60p src/siege/remains.rs | cut -c1-200; grep -n 'fn ' src/siege/remains.rs | cut -c1-150 | head -60
+17	259	build	model	model		2026-11-01T08:13:38Z	12.5	
+17	260	build	tool	shell	bash	2026-11-01T08:13:51Z	16.4	Capturing the exit side of a through shot :: cd /Users/ladvien/bevy_carnage_loop && E=$CARGO_TARGET_DIR/release/examples; $E/capture_skinned --through --eye 0.0,1.3,-0.75 --at 0.0,1.25,0.0 --out /tmp/c10/b
+17	261	build	model	model		2026-11-01T08:14:07Z	4.8	
+17	262	build	tool	read files	read	2026-11-01T08:14:12Z	0.3	Viewing exit-wound frames before change :: /tmp/c10/exit_before_strip.png
+17	263	build	model	model		2026-11-01T08:14:12Z	22.8	
+17	264	build	tool	edit files	write	2026-11-01T08:14:35Z	12.4	Searching corpus for gunshot entrance and exit wound morphology :: xd://mcp__home_still_distill_search
+17	265	build	model	model		2026-11-01T08:14:47Z	5.0	
+17	266	build	tool	edit files	write	2026-11-01T08:14:52Z	1.0	Searching open forensic sources on exit wound morphology :: xd://mcp__home_still_paper_search
+17	267	build	model	model		2026-11-01T08:14:53Z	3.0	
+17	268	build	tool	edit files	write	2026-11-01T08:14:56Z	0.6	Searching openalex for gunshot entry/exit differentiation :: xd://mcp__home_still_paper_search
+17	269	build	model	model		2026-11-01T08:14:57Z	12.6	
+17	270	build	tool	shell	bash	2026-11-01T08:15:10Z	2.7	Fetching forensic exit and entrance wound images :: cd /tmp/c10/refs && UA='bevy_carnage-loop/1.0 (research; https://github.com/bevy-coven/bevy_carnage)'; get(){ n="$1"; f="$2"; curl -sL -A "$UA" "https://commons
+17	271	build	model	model		2026-11-01T08:15:12Z	2.8	
+17	272	build	tool	read files	read	2026-11-01T08:15:15Z	0.0	Viewing experimental exit wound reference :: /tmp/c10/refs/x1.jpg
+17	273	build	tool	read files	read	2026-11-01T08:15:15Z	0.0	Viewing experimental entrance wound reference :: /tmp/c10/refs/x2.jpg
+17	274	build	model	model		2026-11-01T08:15:15Z	19.7	
+17	275	build	tool	shell	bash	2026-11-01T08:15:35Z	0.0	Reading flaymap build_mask and paint_world :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'fn build_mask' -B3 -A40 src/flaymap/canvas.rs | head -80; grep -n 'pub fn paint_world' -A40 src/flaymap/canvas.r
+17	276	build	model	model		2026-11-01T08:15:35Z	17.3	
+17	277	build	tool	shell	bash	2026-11-01T08:15:52Z	0.0	Locating exit crater paint calls and canvas fields :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'flay.paint_world\|flay\.paint_uv\|\.paint_world(mesh\|paint_world(' src/preset.rs | head -20; sed -n 3398,3424p 
+17	278	build	model	model		2026-11-01T08:15:52Z	6.8	
+17	279	build	tool	shell	bash	2026-11-01T08:15:59Z	0.0	Reading the pass/leg crater paint region :: cd /Users/ladvien/bevy_carnage_loop && sed -n 3470,3516p src/preset.rs | cut -c1-200; sed -n 1498,1512p src/preset.rs | cut -c1-200
+17	280	build	model	model		2026-11-01T08:15:59Z	15.9	
+17	281	build	tool	shell	bash	2026-11-01T08:16:15Z	0.0	Checking flaymap seed, libm and imports :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'seed' src/flaymap/canvas.rs | head -12; grep -n 'libm\|hash_f32' src/flaymap/*.rs | head -8; grep -n 'RAGGED_MM'
+17	282	build	model	model		2026-11-01T08:16:15Z	11.2	
+17	283	build	tool	shell	bash	2026-11-01T08:16:26Z	0.0	Reading paint_world doc head :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'pub fn paint_world' -B22 src/flaymap/canvas.rs | sed -n 1,30p | cut -c1-170; grep -n 'cx = \|let cy = ' src/flay
+17	284	build	model	model		2026-11-01T08:16:26Z	19.4	
+17	285	build	tool	edit files	edit	2026-11-01T08:16:46Z	0.0	Adding torn craters to the flaymap canvas :: [src/flaymap/canvas.rs#8DA8] PUT >445: + /// **Peel at a UV with the margin torn**: [`paint_uv`](Self::paint_uv), and for a `tear` over zero a **star of radial 
+17	286	build	model	model		2026-11-01T08:16:46Z	5.8	
+17	287	build	tool	read files	read	2026-11-01T08:16:51Z	0.0	Inspecting edited flaymap region :: src/flaymap/canvas.rs:428-535
+17	288	build	model	model		2026-11-01T08:16:51Z	6.1	
+17	289	build	tool	edit files	edit	2026-11-01T08:16:58Z	0.0	Fixing doc comment placement on paint_uv and torn :: [src/flaymap/canvas.rs#BB07] CUT 431.=445 @pdoc PUT <471 @pdoc PUT 516.=517: +
+17	290	build	model	model		2026-11-01T08:16:58Z	5.9	
+17	291	build	tool	shell	bash	2026-11-01T08:17:04Z	0.0	Locating paint_world after the edit :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'pub fn paint_world' src/flaymap/canvas.rs; sed -n 573,590p src/flaymap/canvas.rs
+17	292	build	model	model		2026-11-01T08:17:04Z	6.8	
+17	293	build	tool	edit files	edit	2026-11-01T08:17:10Z	0.0	Adding paint_world_torn and the torn mask :: [src/flaymap/canvas.rs#3741] PUT >581: + /// **[`paint_world`](Self::paint_world) with the margin torn**: the same ray, the crater of + /// [`paint_uv_torn`](Se
+17	294	build	model	model		2026-11-01T08:17:10Z	8.1	
+17	295	build	tool	edit files	edit	2026-11-01T08:17:18Z	0.0	Retrying the paint_world_torn edit :: [src/flaymap/canvas.rs#3741] PUT >581: + /// **[`paint_world`](Self::paint_world) with the margin torn**: the same ray, the crater of + /// [`paint_uv_torn`](Se
+17	296	build	model	model		2026-11-01T08:17:18Z	8.4	
+17	297	build	tool	shell	bash	2026-11-01T08:17:27Z	0.2	Wiring peel through paint_world and sanitising tear :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flaymap/canvas.rs' s=open(p).read() s=s.replace("let mut handoff = self.paint_uv(uv, radius_uv, 
+17	298	build	model	model		2026-11-01T08:17:27Z	3.1	
+17	299	build	tool	shell	bash	2026-11-01T08:17:30Z	0.0	Viewing build_mask doc and constants area :: cd /Users/ladvien/bevy_carnage_loop && sed -n 898,925p src/flaymap/canvas.rs | cut -c1-140; sed -n 44,64p src/flaymap/canvas.rs | cut -c1-140
+17	300	build	model	model		2026-11-01T08:17:30Z	17.2	
+17	301	build	tool	edit files	edit	2026-11-01T08:17:47Z	0.1	Adding tear constants and build_torn_mask :: [src/flaymap/canvas.rs#F034] PUT >62: + +/// **How far a fully torn crater's longest split reaches past the rim**, in crater radii: `1.3`, so a split of a crate
+17	302	build	model	model		2026-11-01T08:17:48Z	6.3	
+17	303	build	tool	read files	read	2026-11-01T08:17:54Z	0.0	Viewing the misplaced doc lines :: src/flaymap/canvas.rs:908-924
+17	304	build	tool	read files	read	2026-11-01T08:17:54Z	0.0	Viewing build_mask head after edit :: src/flaymap/canvas.rs:968-978
+17	305	build	model	model		2026-11-01T08:17:54Z	2.7	
+17	306	build	tool	edit files	edit	2026-11-01T08:17:56Z	0.0	Moving the build_mask doc back to build_mask :: [src/flaymap/canvas.rs#2E81] CUT 914.=919 @bmdoc PUT <974 @bmdoc
+17	307	build	model	model		2026-11-01T08:17:57Z	6.4	
+17	308	build	tool	shell	bash	2026-11-01T08:18:03Z	0.0	Reading the EXIT_SCALE definition and doc :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'pub const EXIT_SCALE' -B6 src/preset.rs | cut -c1-200
+17	309	build	model	model		2026-11-01T08:18:03Z	3.2	
+17	310	build	tool	read files	read	2026-11-01T08:18:06Z	0.0	Reading exit scale lines for anchored edit :: src/preset.rs:2450-2460
+17	311	build	tool	read files	read	2026-11-01T08:18:06Z	0.0	Reading the exit paint line for anchored edit :: src/preset.rs:3415-3419
+17	312	build	model	model		2026-11-01T08:18:06Z	5.3	
+17	313	build	tool	edit files	edit	2026-11-01T08:18:11Z	0.1	Using torn craters for exit wounds in the preset :: [src/preset.rs#A8DA] PUT >2458: + +/// **How torn an exit wound's margin is**, `1.0` (the most [`crate::flaymap::FlayCanvas::paint_world_torn`] tears): the +///
+17	314	build	model	model		2026-11-01T08:18:12Z	6.2	
+17	315	build	tool	cargo build	bash	2026-11-01T08:18:18Z	60.0	[launched bg_12] Building and capturing torn exit wound :: cd /Users/ladvien/bevy_carnage_loop && (cargo build --release --example capture_skinned 2>&1 | grep -E '^(error|warning: unused)|-->|Finished' | head -20) && E=
+17	316	build	model	model		2026-11-01T08:19:18Z	11.1	
+17	317	build	tool	shell	bash	2026-11-01T08:19:29Z	0.0	Listing flaymap public accessors and test helpers :: cd /Users/ladvien/bevy_carnage_loop && grep -n ' pub fn ' src/flaymap/canvas.rs | cut -c1-140; grep -n 'fn canvas(\|fn limb()\|fn fresh(' src/flaymap/canvas.rs 
+17	318	build	model	model		2026-11-01T08:19:29Z	3.2	
+17	319	build	tool	shell	bash	2026-11-01T08:19:32Z	0.0	Reading flaymap test module scaffolding :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1016,1075p src/flaymap/canvas.rs | cut -c1-170; tail -30 src/flaymap/canvas.rs | cut -c1-150
+17	320	build	model	model		2026-11-01T08:19:32Z	17.5	
+17	321	build	tool	shell	bash	2026-11-01T08:19:50Z	0.0	Finding existing through-shot tests :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'fn .*through\|fn .*exit' src/preset.rs | cut -c1-140 | head -20; grep -n 'fn headless' -A25 src/preset.rs | head
+17	322	build	model	model		2026-11-01T08:19:50Z	2.4	
+17	323	build	tool	read files	read	2026-11-01T08:19:52Z	0.0	Reading the existing exit-wound preset test :: src/preset.rs:5003-5056
+17	324	build	bg	cargo build	bash	2026-11-01T08:18:20Z	92.1	bg_12 completed: (cargo build --release --example capture_skinned 2>&1 | grep -E '^(error|warning: unused)|-->|Finished' | head -20) &...
+17	325	build	model	model		2026-11-01T08:19:52Z	4.7	
+17	326	build	tool	read files	read	2026-11-01T08:19:57Z	0.3	Viewing torn exit wound frames :: /tmp/c10/exit_after_strip.png
+17	327	build	model	model		2026-11-01T08:19:57Z	8.9	
+17	328	build	tool	shell	bash	2026-11-01T08:20:06Z	0.7	Zooming on torn exit and the reference :: cd /tmp/c10 && ./venv/bin/python - <<'EOF' from PIL import Image a=Image.open('/tmp/c10/after/exit_front/frame0125.png').convert('RGB').crop((280,70,500,250)).r
+17	329	build	tool	read files	read	2026-11-01T08:20:06Z	0.7	Viewing zoomed torn exit :: /tmp/c10/exit_after_125.png
+17	330	build	model	model		2026-11-01T08:20:07Z	3.1	
+17	331	build	tool	read files	read	2026-11-01T08:20:10Z	0.5	Viewing zoomed torn exit :: /tmp/c10/exit_after_125.png
+17	332	build	tool	read files	read	2026-11-01T08:20:10Z	0.5	Viewing zoomed reference exit wound :: /tmp/c10/ref_exit_zoom.png
+17	333	build	model	model		2026-11-01T08:20:10Z	16.1	
+17	334	build	tool	shell	bash	2026-11-01T08:20:26Z	0.0	Viewing the splits loop to modify :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'let mut splits' -B4 -A40 src/flaymap/canvas.rs | cut -c1-150 | head -80
+17	335	build	model	model		2026-11-01T08:20:26Z	9.0	
+17	336	build	tool	read files	read	2026-11-01T08:20:35Z	0.0	Reading the splits loop for anchored edit :: src/flaymap/canvas.rs:929-962
+17	337	build	model	model		2026-11-01T08:20:35Z	8.0	
+17	338	build	tool	edit files	edit	2026-11-01T08:20:43Z	0.0	Bending and varying the splits :: [src/flaymap/canvas.rs#1A25] PUT 933.=940: + // (cos, sin) of the split's angle, its tip and root width, how far its tip is bent off the straight, and the rippl
+17	339	build	model	model		2026-11-01T08:20:43Z	8.2	
+17	340	build	tool	cargo build	bash	2026-11-01T08:20:52Z	52.3	Rebuilding with bent splits and capturing :: cd /Users/ladvien/bevy_carnage_loop && (cargo build --release --example capture_skinned 2>&1 | grep -E '^(error|warning: unused)|-->|Finished' | head -20) && E=
+17	341	build	model	model		2026-11-01T08:21:44Z	2.7	
+17	342	build	tool	read files	read	2026-11-01T08:21:47Z	0.4	Viewing bent-split exit wound :: /tmp/c10/exit_after_v2.png
+17	343	build	model	model		2026-11-01T08:21:47Z	14.9	
+17	344	build	tool	read files	read	2026-11-01T08:22:02Z	0.0	Reading file tail for test insertion :: src/flaymap/canvas.rs:1338-1349
+17	345	build	model	model		2026-11-01T08:22:02Z	22.4	
+17	346	build	tool	edit files	edit	2026-11-01T08:22:24Z	0.0	Adding tests for torn craters :: [src/flaymap/canvas.rs#09FA] PUT >1354: + + /// How far from the middle of a `size` canvas each of `sectors` directions is peeled at all, in crater radii. + fn 
+17	347	build	model	model		2026-11-01T08:22:24Z	15.4	
+17	348	build	tool	read files	read	2026-11-01T08:22:40Z	0.0	Anchoring preset test insertion point :: src/preset.rs:5040-5044
+17	349	build	model	model		2026-11-01T08:22:40Z	13.4	
+17	350	build	tool	edit files	edit	2026-11-01T08:22:53Z	0.1	Adding the entrance-round exit-torn preset test :: [src/preset.rs#1C6E] PUT >5041: + /// **A shot that goes through leaves a round entrance and a torn exit.** One shot through a skin box, and each wound's + /// 
+17	351	build	model	model		2026-11-01T08:22:53Z	6.5	
+17	352	build	tool	cargo test	bash	2026-11-01T08:23:00Z	0.0	[launched bg_13] Running the new flaymap and preset tests :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's/assert!(hi - lo < 0.15, "a plain crater is not round/assert!(hi - lo < 0.2, "a plain crater is not round/' src/
+17	353	build	model	model		2026-11-01T08:23:00Z	9.9	
+17	354	build	tool	shell	bash	2026-11-01T08:23:10Z	0.3	Fetching Wikipedia text on exit wounds for a quote :: cd /tmp/c10 && curl -sL -A 'bevy_carnage-loop/1.0 (research)' 'https://en.wikipedia.org/w/index.php?title=Gunshot_wound&action=raw' -o gsw.txt; wc -c gsw.txt; g
+17	355	build	model	model		2026-11-01T08:23:10Z	5.4	
+17	356	build	tool	web	web_search	2026-11-01T08:23:16Z	6.1	Finding a quotable forensic source on exit wounds :: exit wound typically larger and irregular, stellate or slit-like, no abrasion collar; entrance wound round with abrasion collar forensic pathology gunshot
+17	357	build	model	model		2026-11-01T08:23:22Z	14.6	
+17	358	build	tool	read files	read	2026-11-01T08:23:36Z	0.1	Reading mask loop head for the cull edit :: src/flaymap/canvas.rs:946-956
+17	359	build	model	model		2026-11-01T08:23:36Z	5.4	
+17	360	build	tool	edit files	edit	2026-11-01T08:23:42Z	0.0	Culling the rim trigonometry outside the crater :: [src/flaymap/canvas.rs#7238] PUT 946.=953: + let from = 0.5 * r; + // Past the farthest the rim can reach there is no crater to find the angle of: the splits ar
+17	361	build	model	model		2026-11-01T08:23:42Z	37.8	
+17	362	build	tool	edit files	write	2026-11-01T08:24:20Z	0.0	Writing the torn-exits research note :: /Users/ladvien/bevy_carnage_loop/docs/research/torn-exits.md
+17	363	build	model	model		2026-11-01T08:24:20Z	12.1	
+17	364	build	tool	git	bash	2026-11-01T08:24:32Z	0.7	Recording the rivulet outcome and staging notes :: cd /Users/ladvien/bevy_carnage_loop && cat >> docs/research/rivulets.md <<'EOF' ## Outcome (iteration 10): not shipped, and why The change was built (`rivulet_w
+17	365	build	model	model		2026-11-01T08:24:32Z	3.0	
+17	366	build	tool	wait: tests	wait	2026-11-01T08:24:35Z	7.2	Waiting for the new tests to run
+17	367	build	model	model		2026-11-01T08:24:43Z	3.4	
+17	368	build	tool	cargo test	bash	2026-11-01T08:24:46Z	44.0	Reading the two test failures :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib -- a_torn_crater_is_a_star a_shot_through_leaves 2>&1 | grep -E 'panicked|assertion|a torn|the
+17	369	build	model	model		2026-11-01T08:25:30Z	24.6	
+17	370	build	tool	cargo test	bash	2026-11-01T08:25:54Z	60.0	[launched bg_14] Fixing test measurement and rerunning :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flaymap/canvas.rs' s=open(p).read() s=s.replace("let round = reach(&plain, r_tex, 72);","let rou
+17	371	build	model	model		2026-11-01T08:26:54Z	12.6	
+17	372	build	tool	shell	bash	2026-11-01T08:27:07Z	0.0	Adding a throwaway torn-crater cost probe :: cd /Users/ladvien/bevy_carnage_loop && cat >> tests/zz_runs.rs <<'EOF' #[test] fn torn_cost() { use bevy_carnage::cross_section::{Layers, Region}; use bevy_carn
+17	373	build	model	model		2026-11-01T08:27:07Z	5.7	
+17	374	build	tool	shell	bash	2026-11-01T08:27:13Z	0.0	Checking flaymap re-exports and root exports :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,20p src/flaymap/mod.rs; grep -n 'flaymap' src/lib.rs | head; grep -n 'EXIT_SCALE' src/lib.rs README.md docs/guid
+17	375	build	bg	shell	bash	2026-11-01T08:26:00Z	73.4	bg_14 completed: python3 - <<'EOF' p='src/flaymap/canvas.rs' s=open(p).read() s=s.replace("let round = reach(&plain, r_tex, 72);","let...
+17	376	build	model	model		2026-11-01T08:27:13Z	23.4	
+17	377	build	tool	cargo test	bash	2026-11-01T08:27:36Z	60.0	[launched bg_15] Probing centres and star reach for the tests :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/preset.rs' s=open(p).read() s=s.replace(" let r_in = radius * gore.density() * n;\n let reach = 
+17	378	build	model	model		2026-11-01T08:28:36Z	4.4	
+17	379	build	tool	wait: other	wait	2026-11-01T08:28:41Z	25.1	Waiting for probe output
+17	380	build	model	model		2026-11-01T08:29:06Z	17.6	
+17	381	build	tool	cargo test	bash	2026-11-01T08:29:23Z	0.0	[launched bg_16] Adjusting thresholds and rerunning tests :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/preset.rs' s=open(p).read() s=s.replace(" eprintln!(\"PROBE centres {:?} r_in {r_in} n {n} densi
+17	382	build	model	model		2026-11-01T08:29:23Z	7.5	
+17	383	build	tool	read files	read	2026-11-01T08:29:31Z	0.0	Reading flaymap re-export line :: src/flaymap/mod.rs:6-10
+17	384	build	model	model		2026-11-01T08:29:31Z	2.8	
+17	385	build	tool	edit files	edit	2026-11-01T08:29:34Z	0.0	Re-exporting the tear constants :: [src/flaymap/mod.rs#4E37] PUT 8.=8: +pub use canvas::{FlayCanvas, Handoff, TEAR_REACH, TEAR_SPLIT_DEPTH, TEAR_SPLIT_WIDTH, UV_SPAN_M};
+17	386	build	model	model		2026-11-01T08:29:34Z	5.7	
+17	387	build	tool	shell	bash	2026-11-01T08:29:39Z	0.1	Finding docs that mention exit wounds :: cd /Users/ladvien/bevy_carnage_loop && grep -n -i 'exit wound\|exit.*ragged\|more irregular' README.md docs/preset.md docs/flaymap.md docs/guide/*.md CHANGELOG.
+17	388	build	model	model		2026-11-01T08:29:40Z	8.3	
+17	389	build	tool	wait: tests	wait	2026-11-01T08:29:48Z	71.1	Waiting for the tears test run
+17	390	build	model	model		2026-11-01T08:30:59Z	3.0	
+17	391	build	tool	cargo test	bash	2026-11-01T08:31:02Z	19.1	Reading the preset test failure :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib -- a_shot_through_leaves 2>&1 | grep -E 'panicked' -A3 | cut -c1-900
+17	392	build	model	model		2026-11-01T08:31:21Z	8.9	
+17	393	build	tool	cargo test	bash	2026-11-01T08:31:30Z	37.5	Simplifying the preset test's measure :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/preset.rs' s=open(p).read() a=s.index(" let spread = |f: &[f32; 36]|") b=s.index(' assert_eq!(ru
+17	394	build	model	model		2026-11-01T08:32:08Z	6.9	
+17	395	build	tool	cargo test	bash	2026-11-01T08:32:14Z	42.4	Proving the preset test fails without the tear :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's/^pub const EXIT_TEAR: f32 = 1.0;/pub const EXIT_TEAR: f32 = 0.0;/' src/preset.rs && cargo test --release --lib 
+17	396	build	model	model		2026-11-01T08:32:57Z	7.4	
+17	397	prove	tool	phase mark	bash	2026-11-01T08:33:04Z	22.6	Running baseline bench three times :: python3 ~/.local/share/wiggum/steps.py mark prove >/dev/null; cd /Users/ladvien/bevy_carnage_loop && uptime && for i in 1 2 3; do $CARGO_TARGET_DIR/release/exam
+17	398	prove	model	model		2026-11-01T08:33:27Z	7.3	
+17	399	prove	tool	cargo build	bash	2026-11-01T08:33:34Z	0.0	[launched bg_17] Preserving baseline bench binary and building all examples :: cp $CARGO_TARGET_DIR/release/examples/bench_carnage /tmp/c10/bench_before && cd /Users/ladvien/bevy_carnage_loop && for i in 4 5 6; do /tmp/c10/bench_before > /
+17	400	prove	model	model		2026-11-01T08:33:34Z	25.2	
+17	401	prove	tool	shell	bash	2026-11-01T08:33:59Z	0.1	Checking history and readme-test version references :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,12p docs/guide/history.md | cut -c1-260; grep -n '0.8.3' docs/guide/history.md README.md docs/guide/install.md C
+17	402	prove	model	model		2026-11-01T08:33:59Z	5.2	
+17	403	prove	tool	shell	bash	2026-11-01T08:34:05Z	0.0	Listing flaymap.md and preset.md headings :: cd /Users/ladvien/bevy_carnage_loop && grep -n '^#' docs/flaymap.md | head -30; grep -n -i 'through' docs/preset.md | cut -c1-160 | head
+17	404	prove	model	model		2026-11-01T08:34:05Z	3.1	
+17	405	prove	tool	read files	read	2026-11-01T08:34:08Z	0.1	Reading the through-shot section of preset.md :: docs/preset.md:111-128
+17	406	prove	tool	read files	read	2026-11-01T08:34:08Z	0.1	Reading flaymap.md exposes section :: docs/flaymap.md:140-160
+17	407	prove	model	model		2026-11-01T08:34:08Z	16.0	
+17	408	prove	tool	edit files	edit	2026-11-01T08:34:24Z	0.0	Documenting torn exits in preset.md :: [docs/preset.md#A539] PUT 118.=119: +nothing there. An exit is `EXIT_SCALE` (1.6) times the entry's radius, cut from outside along the way +the shot left, and s
+17	409	prove	tool	edit files	edit	2026-11-01T08:34:24Z	0.1	Documenting the torn paint calls in flaymap.md :: [docs/flaymap.md#1DAC] PUT 154.=157: +| Constant | `UV_SPAN_M` | How much world one UV unit is taken to be — one metre. | +| Constants | `TEAR_REACH`, `TEAR_SPL
+17	410	prove	model	model		2026-11-01T08:34:24Z	6.7	
+17	411	prove	tool	read files	read	2026-11-01T08:34:31Z	0.1	Anchoring the EXIT_SCALE doc edit :: src/preset.rs:2454-2458
+17	412	prove	tool	read files	read	2026-11-01T08:34:31Z	0.1	Anchoring the through doc edit :: src/preset.rs:2532-2538
+17	413	prove	model	model		2026-11-01T08:34:31Z	6.3	
+17	414	prove	tool	edit files	edit	2026-11-01T08:34:37Z	0.1	Updating the EXIT_SCALE and through docs :: [src/preset.rs#1ABE] PUT 2454.=2457: +/// **How much wider an exit wound is than the entry**, for [`GoreHit::through`]. That an exit is +/// larger and more irr
+17	415	prove	model	model		2026-11-01T08:34:37Z	5.8	
+17	416	prove	tool	wait: build	wait	2026-11-01T08:34:43Z	308.3	Waiting for the bench and examples build
+17	417	prove	model	model		2026-11-01T08:39:51Z	4.9	
+17	418	prove	tool	shell	bash	2026-11-01T08:39:56Z	0.0	[launched bg_18] Running after-state recorders twice and comparing digests :: cd /Users/ladvien/bevy_carnage_loop && /tmp/c10/rec.sh $CARGO_TARGET_DIR/release/examples /tmp/c10/after 2>&1 | tee /tmp/c10/after/recorders.txt | grep -E 'dige
+17	419	prove	model	model		2026-11-01T08:39:56Z	5.2	
+17	420	prove	tool	edit files	edit	2026-11-01T08:40:01Z	0.0	Adding the Unreleased changelog entry :: [CHANGELOG.md#0000]
+17	421	prove	model	model		2026-11-01T08:40:01Z	2.5	
+17	422	prove	tool	read files	read	2026-11-01T08:40:04Z	0.0	Reading changelog head to anchor :: CHANGELOG.md:6-10
+17	423	prove	model	model		2026-11-01T08:40:04Z	8.9	
+17	424	prove	tool	edit files	edit	2026-11-01T08:40:13Z	0.1	Adding the Unreleased changelog entry :: [CHANGELOG.md#74FF] PUT >8: +### Added + +- **`FlayCanvas::paint_uv_torn` and `paint_world_torn`** (iteration 10, AG-149, `docs/research/torn-exits.md`): the cr
+17	425	prove	model	model		2026-11-01T08:40:13Z	7.9	
+17	426	prove	tool	wait: clip	wait	2026-11-01T08:40:21Z	244.5	Waiting for the after-state recorders
+17	427	prove	model	model		2026-11-01T08:44:25Z	6.0	
+17	428	prove	tool	shell	bash	2026-11-01T08:44:31Z	58.0	Alternating before/after bench runs :: cd /Users/ladvien/bevy_carnage_loop && uptime; for i in 1 2 3 4; do for w in before after; do if [ $w = before ]; then B=/tmp/c10/bench_before; else B=$CARGO_TA
+17	429	prove	model	model		2026-11-01T08:45:29Z	5.6	
+17	430	prove	tool	shell	bash	2026-11-01T08:45:35Z	30.0	Measuring bench instructions retired before and after :: cd /tmp/c10 && for w in before after; do if [ $w = before ]; then B=/tmp/c10/bench_before; else B=$CARGO_TARGET_DIR/release/examples/bench_carnage; fi; for i in
+17	431	prove	model	model		2026-11-01T08:46:05Z	5.7	
+17	432	prove	tool	cargo test	bash	2026-11-01T08:46:11Z	24.7	Measuring the cost of a torn crater :: cd /Users/ladvien/bevy_carnage_loop && TORN_COST=1 cargo test --release --test zz_runs torn_cost -- --nocapture 2>&1 | grep -E 'COST|error|panicked' | head
+17	433	prove	model	model		2026-11-01T08:46:35Z	16.1	
+17	434	prove	tool	read files	read	2026-11-01T08:46:51Z	0.0	Reading the split loop for the exact reject edit :: src/flaymap/canvas.rs:960-978
+17	435	prove	model	model		2026-11-01T08:46:51Z	6.8	
+17	436	prove	tool	edit files	edit	2026-11-01T08:46:58Z	0.0	Rejecting texels off a split before its ripple is taken :: [src/flaymap/canvas.rs#AEA5] PUT 967.=968: + // A split is not a ray: it bends toward its tip and ripples a little, as a tear does. A texel farther from + // th
+17	437	prove	model	model		2026-11-01T08:46:58Z	3.8	
+17	438	prove	tool	cargo test	bash	2026-11-01T08:47:02Z	60.0	[launched bg_19] Re-measuring torn cost and re-checking the through digest :: cd /Users/ladvien/bevy_carnage_loop && TORN_COST=1 cargo test --release --test zz_runs torn_cost -- --nocapture 2>&1 | grep -E 'COST|error|panicked' | head; car
+17	439	prove	model	model		2026-11-01T08:48:02Z	16.8	
+17	440	prove	tool	read files	read	2026-11-01T08:48:19Z	0.0	Reading the mask loops for the bounding-box rewrite :: src/flaymap/canvas.rs:940-990
+17	441	prove	bg	cargo test	bash	2026-11-01T08:47:16Z	62.9	bg_19 completed: TORN_COST=1 cargo test --release --test zz_runs torn_cost -- --nocapture 2>&1 | grep -E 'COST|error|panicked' | head;...
+17	442	prove	model	model		2026-11-01T08:48:19Z	21.8	
+17	443	prove	tool	edit files	edit	2026-11-01T08:48:41Z	0.0	Rasterising each split inside its own bounding box :: [src/flaymap/canvas.rs#E1F2] PUT 946.=982: + let from = 0.5 * r; + // Past the farthest the rim can reach there is no crater to find the angle of: the splits ar
+17	444	prove	model	model		2026-11-01T08:48:41Z	5.7	
+17	445	prove	tool	cargo test	bash	2026-11-01T08:48:47Z	60.0	[launched bg_20] Measuring cost, bytes and tests after the rewrite :: cd /Users/ladvien/bevy_carnage_loop && TORN_COST=1 cargo test --release --test zz_runs torn_cost -- --nocapture 2>&1 | grep -E 'COST|error|panicked' | head; car
+17	446	prove	model	model		2026-11-01T08:49:47Z	7.8	
+17	447	prove	tool	wait: other	wait	2026-11-01T08:49:54Z	58.7	Waiting for rewrite verification
+17	448	prove	model	model		2026-11-01T08:50:53Z	9.6	
+17	449	prove	tool	cargo build	bash	2026-11-01T08:51:03Z	0.0	[launched bg_21] Building the 0.8.3 baseline capture and recording exit frames :: cd /Users/ladvien/bevy_carnage_loop && git worktree add --detach ~/c10_base 18da8b1 2>&1 | tail -1 && cd ~/c10_base && (cargo build --release --example capture_
+17	450	prove	model	model		2026-11-01T08:51:03Z	9.7	
+17	451	prove	tool	wait: build	wait	2026-11-01T08:51:12Z	202.9	Waiting for the baseline capture build
+17	452	prove	model	model		2026-11-01T08:54:35Z	6.9	
+17	453	prove	tool	cargo build	bash	2026-11-01T08:54:42Z	60.0	[launched bg_22] Capturing entry and exit sides with both builds :: cd /Users/ladvien/bevy_carnage_loop && git worktree remove ~/c10_base && git worktree list && (cargo build --release --example capture_skinned 2>&1 | grep -E '^
+17	454	prove	model	model		2026-11-01T08:55:42Z	9.0	
+17	455	prove	tool	edit files	write	2026-11-01T08:55:51Z	0.0	Killing the mis-targeted capture job :: proc://bg_22/kill
+17	456	prove	tool	cargo build	bash	2026-11-01T08:55:51Z	60.0	[launched bg_23] Forcing the example to relink with the current library :: cd /Users/ladvien/bevy_carnage_loop && touch examples/capture_skinned.rs && (cargo build --release --example capture_skinned 2>&1 | grep -E '^error|Finished|Com
+17	457	prove	model	model		2026-11-01T08:56:51Z	2.3	
+17	458	prove	tool	wait: clip	wait	2026-11-01T08:56:54Z	8.3	Waiting for the through capture with the rebuilt example
+17	459	prove	model	model		2026-11-01T08:57:02Z	10.8	
+17	460	prove	tool	cargo build	bash	2026-11-01T08:57:13Z	0.0	[launched bg_24] Touching sources to force a true rebuild of the current tree :: cd /Users/ladvien/bevy_carnage_loop && touch src/lib.rs src/flaymap/canvas.rs src/preset.rs examples/capture_skinned.rs && (cargo build --release --example capt
+17	461	prove	model	model		2026-11-01T08:57:13Z	4.3	
+17	462	prove	tool	shell	bash	2026-11-01T08:57:17Z	0.0	Surveying README structure :: cd /Users/ladvien/bevy_carnage_loop && grep -n '^#\|^- \*\*' README.md | cut -c1-150 | head -50
+17	463	prove	model	model		2026-11-01T08:57:17Z	3.1	
+17	464	prove	tool	shell	bash	2026-11-01T08:57:20Z	0.0	Reading README hero and feature lines :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,17p README.md | cut -c1-260; sed -n 60,63p README.md | cut -c1-600; sed -n 66p README.md | cut -c1-600; grep -n 
+17	465	prove	model	model		2026-11-01T08:57:20Z	5.7	
+17	466	prove	tool	wait: build	wait	2026-11-01T08:57:26Z	147.5	Waiting for the forced rebuild and through capture
+17	467	prove	model	model		2026-11-01T08:59:53Z	6.1	
+17	468	prove	tool	shell	bash	2026-11-01T09:00:00Z	0.0	[launched bg_25] Capturing entry and exit sides with both builds :: cd /tmp/c10 && E=$CARGO_TARGET_DIR/release/examples; for side in entry exit; do if [ $side = entry ]; then Z=0.75; else Z=-0.75; fi; $E/capture_skinned --throug
+17	469	prove	model	model		2026-11-01T09:00:00Z	2.9	
+17	470	prove	tool	wait: clip	wait	2026-11-01T09:00:02Z	70.0	Waiting for entry and exit captures
+17	471	prove	model	model		2026-11-01T09:01:12Z	7.4	
+17	472	prove	tool	shell	bash	2026-11-01T09:01:20Z	0.8	Measuring where the entry frame differs :: cd /tmp/c10 && ./venv/bin/python - <<'EOF' from PIL import Image, ImageChops import numpy as np for f in (125,): a=Image.open(f'/tmp/c10/after/entry_now/frame{f
+17	473	prove	model	model		2026-11-01T09:01:21Z	9.4	
+17	474	prove	tool	shell	bash	2026-11-01T09:01:30Z	0.8	Building the entrance/exit comparison sheet :: cd /tmp/c10 && ./venv/bin/python - <<'EOF' from PIL import Image, ImageDraw, ImageFont def tile(path, box, scale, label): im=Image.open(path).convert('RGB').cro
+17	475	prove	model	model		2026-11-01T09:01:31Z	2.6	
+17	476	prove	tool	read files	read	2026-11-01T09:01:33Z	0.8	Viewing the before/after entrance and exit sheet :: /tmp/c10/sheet_exit.png
+17	477	prove	model	model		2026-11-01T09:01:34Z	22.8	
+17	478	prove	tool	cargo build	bash	2026-11-01T09:01:57Z	0.0	[launched bg_26] Tuning split width and ripple, recapturing :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='src/flaymap/canvas.rs' s=open(p).read() s=s.replace("pub const TEAR_SPLIT_WIDTH: f32 = 1.6;","pub co
+17	479	prove	model	model		2026-11-01T09:01:57Z	2.9	
+17	480	prove	tool	wait: clip	wait	2026-11-01T09:02:00Z	50.3	Waiting for the tuned split capture
+17	481	prove	model	model		2026-11-01T09:02:50Z	2.5	
+17	482	prove	tool	read files	read	2026-11-01T09:02:53Z	0.5	Comparing split tuning before and after :: /tmp/c10/split_tune.png
+17	483	prove	model	model		2026-11-01T09:02:53Z	13.5	
+17	484	prove	tool	shell	bash	2026-11-01T09:03:07Z	1.3	Building the committed sheet and the reference comparison :: cd /tmp/c10 && ./venv/bin/python - <<'EOF' from PIL import Image, ImageDraw def lab(im,t): d=ImageDraw.Draw(im); d.rectangle((0,0,im.width,18),fill=(20,20,20));
+17	485	prove	model	model		2026-11-01T09:03:08Z	3.0	
+17	486	prove	tool	read files	read	2026-11-01T09:03:11Z	0.5	Viewing the plates against the crate's pair :: /tmp/c10/compare-exit.png
+17	487	prove	tool	read files	read	2026-11-01T09:03:11Z	0.7	Viewing the committed exit sheet :: /tmp/c10/exit_sheet.png
+17	488	prove	model	model		2026-11-01T09:03:12Z	19.5	
+17	489	prove	tool	cargo build	bash	2026-11-01T09:03:31Z	0.0	[launched bg_27] Building all release examples and running final recorders twice :: cd /Users/ladvien/bevy_carnage_loop && rm -f tests/zz_runs.rs && git status --short && (cargo build --release --examples 2>&1 | grep -E '^(error|warning: unused
+17	490	prove	model	model		2026-11-01T09:03:31Z	7.2	
+17	491	prove	tool	shell	bash	2026-11-01T09:03:38Z	0.2	Checking media sizes and package excludes :: cd /Users/ladvien/bevy_carnage_loop && ls -la /tmp/c10/exit_sheet.png docs/media/*.png | awk '{print $5, $9}'; grep -n 'exclude\|include' -A12 Cargo.toml | head
+17	492	prove	model	model		2026-11-01T09:03:39Z	8.5	
+17	493	prove	tool	shell	bash	2026-11-01T09:03:47Z	0.9	Adding the exit sheet to the repo media list :: cd /Users/ladvien/bevy_carnage_loop && cp /tmp/c10/exit_sheet.png docs/media/exit.png && python3 - <<'EOF' p='docs/media/README.md' s=open(p).read() row = "| `d
+17	494	prove	model	model		2026-11-01T09:03:48Z	6.4	
+17	495	prove	tool	read files	read	2026-11-01T09:03:55Z	0.1	Anchoring README bullet edit :: README.md:62
+17	496	prove	model	model		2026-11-01T09:03:55Z	7.7	
+17	497	prove	tool	shell	bash	2026-11-01T09:04:02Z	0.4	Checking whether the compatibility row is pinned by tests :: cd /Users/ladvien/bevy_carnage_loop && grep -n '0.6 – 0.7\|0\.6 – 0\.' -r tests docs/guide README.md | cut -c1-160
+17	498	prove	model	model		2026-11-01T09:04:03Z	5.8	
+17	499	prove	tool	edit files	edit	2026-11-01T09:04:09Z	0.1	Adding the exit to the README and fixing the compatibility row :: [README.md#AB86] PUT 62.=62: +- **Hurt a character with one message**: `GoreHit::impact`, `blunt`, `burn` and `slash` peel skin, fat and muscle to bone, bruise 
+17	500	prove	model	model		2026-11-01T09:04:09Z	8.4	
+17	501	prove	tool	shell	bash	2026-11-01T09:04:17Z	0.1	Locating the flaymap crater section in CLAUDE.md :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'A hit peels a crater, not a cylinder' -A8 CLAUDE.md | cut -c1-120
+17	502	prove	model	model		2026-11-01T09:04:17Z	3.8	
+17	503	prove	tool	read files	read	2026-11-01T09:04:21Z	0.5	Anchoring the CLAUDE.md insertion :: CLAUDE.md:384-386
+17	504	prove	model	model		2026-11-01T09:04:21Z	9.2	
+17	505	prove	tool	edit files	edit	2026-11-01T09:04:31Z	0.3	Recording the torn-crater rules in CLAUDE.md :: [CLAUDE.md#5FF2] PUT >385: +#### An exit is torn, an entrance is not (0.8.4) + +`paint_uv_torn` and `paint_world_torn` take a `tear` in `[0, 1]`, and **`tear` o
+17	506	prove	model	model		2026-11-01T09:04:31Z	8.0	
+17	507	prove	tool	wait: build	wait	2026-11-01T09:04:39Z	521.6	Waiting for the examples build and final recorders
+17	508	prove	model	model		2026-11-01T09:13:21Z	7.5	
+17	509	gate	tool	phase mark	bash	2026-11-01T09:13:28Z	0.8	Running the flay_digest terminal example and staging work :: cd /Users/ladvien/bevy_carnage_loop && $CARGO_TARGET_DIR/release/examples/flay_digest 2>&1 | tail -6 | cut -c1-200; python3 ~/.local/share/wiggum/steps.py mark 
+17	510	gate	model	model		2026-11-01T09:13:29Z	8.8	
+17	511	gate	tool	git	bash	2026-11-01T09:13:38Z	1.2	Committing research, implementation and docs separately :: cd /Users/ladvien/bevy_carnage_loop && git commit -q -m "Research: torn-exits (an exit wound is a hub with radiating splits; the rivulet item's outcome recorded
+17	512	gate	model	model		2026-11-01T09:13:39Z	6.1	
+17	513	gate	tool	push gate	bash	2026-11-01T09:13:45Z	0.0	[launched bg_28] Pushing the branch and running the full gate :: cd /Users/ladvien/bevy_carnage_loop && git push -q -u origin loop/iter-10 2>&1 | tail -2; cat > /tmp/c10/gate.sh <<'EOF' #!/bin/bash cd /Users/ladvien/bevy_carn
+17	514	gate	model	model		2026-11-01T09:13:45Z	21.8	
+17	515	gate	tool	wait: gate	wait	2026-11-01T09:14:07Z	1544.4	Waiting for the gate to finish
+17	516	gate	model	model		2026-11-01T09:39:51Z	5.5	
+17	517	gate	tool	shell	bash	2026-11-01T09:39:57Z	0.2	Summarising gate test results :: cd /tmp/c10 && grep -h 'test result' gate_cargo_test___no_fail_fast.log | awk '{p+=$4; f+=$6; i+=$8} END {print "passed",p,"failed",f,"ignored",i}'; grep -c 'wa
+17	518	gate	model	model		2026-11-01T09:39:57Z	53.7	
+17	519	gate	tool	push gate	bash	2026-11-01T09:40:51Z	2.9	Writing the iteration 10 log entry and pushing :: cd /Users/ladvien/bevy_carnage_loop && cat >> docs/loop-log.md <<'EOF' ## Iteration 10 — 2026-11-01 — an exit wound is torn, an entrance is round (AG-149) **Ite
+17	520	gate	model	model		2026-11-01T09:40:54Z	10.3	
+17	521	ship	tool	phase mark	bash	2026-11-01T09:41:04Z	4.7	Merging the branch into main and pushing :: cd /Users/ladvien/bevy_carnage_loop && python3 ~/.local/share/wiggum/steps.py mark ship >/dev/null; git checkout -q main && git pull --ff-only 2>&1 | tail -1 &&
+17	522	ship	model	model		2026-11-01T09:41:09Z	7.9	
+17	523	ship	tool	shell	bash	2026-11-01T09:41:16Z	0.0	[launched bg_29] Running cargo semver-checks against 0.8.3 :: cd /Users/ladvien/bevy_carnage_loop && which cargo-semver-checks && CARGO_TARGET_DIR=/tmp/c10-semver cargo semver-checks check-release --baseline-version 0.8.3 
+17	524	ship	tool	shell	bash	2026-11-01T09:41:16Z	0.2	Reading history Status and version locations :: cd /Users/ladvien/bevy_carnage_loop && sed -n 5,12p docs/guide/history.md | cut -c1-700; grep -n 'version = "0.8.3"' Cargo.toml Cargo.lock | head; grep -n 'hist
+17	525	ship	model	model		2026-11-01T09:41:17Z	9.1	
+17	526	ship	tool	read files	read	2026-11-01T09:41:26Z	0.1	Anchoring the history edit :: docs/guide/history.md:7-9
+17	527	ship	model	model		2026-11-01T09:41:26Z	10.2	
+17	528	ship	tool	edit files	edit	2026-11-01T09:41:36Z	0.2	Adding the 0.8.4 status and section to history.md :: [docs/guide/history.md#AA0B] PUT 7.=9: +**`0.8.4` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is develop
+17	529	ship	model	model		2026-11-01T09:41:36Z	7.8	
+17	530	ship	tool	wait: other	wait	2026-11-01T09:41:44Z	342.2	Waiting for semver-checks
+17	531	ship	model	model		2026-11-01T09:47:26Z	5.0	
+17	532	ship	tool	read files	read	2026-11-01T09:47:31Z	0.0	Anchoring the version bump :: Cargo.toml:391-395
+17	533	ship	tool	read files	read	2026-11-01T09:47:31Z	0.0	Anchoring the changelog header :: CHANGELOG.md:5-10
+17	534	ship	model	model		2026-11-01T09:47:31Z	3.2	
+17	535	ship	tool	edit files	edit	2026-11-01T09:47:34Z	0.0	Bumping the version and cutting the changelog :: [Cargo.toml#D5B1] PUT 393.=393: +version = "0.8.4" [CHANGELOG.md#4063] PUT 7.=8: +## [Unreleased] + +## [0.8.4] - 2026-11-01 +
+17	536	ship	model	model		2026-11-01T09:47:34Z	3.6	
+17	537	ship	tool	cargo test	bash	2026-11-01T09:47:38Z	0.0	[launched bg_30] Refreshing the lockfile, running readme tests and publish dry run :: cd /Users/ladvien/bevy_carnage_loop && cargo build 2>&1 | tail -1 && git diff --stat Cargo.lock | tail -2 && cargo test --release --test readme --test leaf 2>&1
+17	538	ship	model	model		2026-11-01T09:47:38Z	2.3	
+17	539	ship	tool	wait: tests	wait	2026-11-01T09:47:40Z	180.6	Waiting for lock refresh, readme tests and dry run
+17	540	ship	model	model		2026-11-01T09:50:41Z	6.8	
+17	541	ship	tool	push gate	bash	2026-11-01T09:50:48Z	0.0	[launched bg_31] Committing the release and running the publish dry run :: cd /Users/ladvien/bevy_carnage_loop && git add Cargo.toml Cargo.lock CHANGELOG.md docs/guide/history.md && git commit -q -m "release: v0.8.4" && git push -q ori
+17	542	ship	model	model		2026-11-01T09:50:48Z	2.6	
+17	543	ship	tool	wait: release	wait	2026-11-01T09:50:51Z	50.3	Waiting for the publish dry run
+17	544	ship	model	model		2026-11-01T09:51:41Z	3.5	
+17	545	ship	tool	push gate	bash	2026-11-01T09:51:44Z	21.5	Publishing 0.8.4, tagging and verifying :: cd /Users/ladvien/bevy_carnage_loop && cargo publish 2>&1 | tail -4; git tag -a v0.8.4 -m v0.8.4 && git push -q origin v0.8.4 2>&1 | tail -1; git log --oneline 
+17	546	ship	model	model		2026-11-01T09:52:06Z	7.8	
+17	547	ship	tool	shell	bash	2026-11-01T09:52:14Z	3.7	Verifying crates.io and sizing my scratch :: curl -s -A 'bevy_carnage-loop' https://crates.io/api/v1/crates/bevy_carnage/0.8.4 | python3 -c "import json,sys; d=json.load(sys.stdin); v=d['version']; print(v
+17	548	ship	model	model		2026-11-01T09:52:17Z	7.6	
+17	549	ship	tool	shell	bash	2026-11-01T09:52:25Z	12.6	Removing this pass's scratch and finding log lines to correct :: rm -rf /tmp/c10 /tmp/c10-semver /Users/ladvien/target/bevy_carnage-loop/package; df -h /tmp | tail -1; cd /Users/ladvien/bevy_carnage_loop && grep -n 'only park
+17	550	ship	model	model		2026-11-01T09:52:38Z	3.4	
+17	551	ship	tool	read files	read	2026-11-01T09:52:41Z	0.2	Reading the log lines to correct :: docs/loop-log.md:1169-1171
+17	552	ship	tool	read files	read	2026-11-01T09:52:41Z	0.2	Reading the pixel-diff sentence :: docs/loop-log.md:1208-1210
+17	553	ship	model	model		2026-11-01T09:52:41Z	6.2	
+17	554	ship	tool	edit files	edit	2026-11-01T09:52:47Z	0.1	Correcting two log sentences :: [docs/loop-log.md#4A07] PUT 1169.=1170: +**Item and why it ranked first.** `gh issue list` is empty (no bug, no `consumer` request); `git branch --list 'wiggum/
+17	555	ship	model	model		2026-11-01T09:52:47Z	12.6	
+17	556	ship	tool	push gate	bash	2026-11-01T09:53:00Z	4.0	Appending release and cleanup to the log and pushing main :: cd /Users/ladvien/bevy_carnage_loop && cat >> docs/loop-log.md <<'EOF' **Merged tree and release.** `origin/main` had not moved (`18da8b1`): merged `loop/iter-1
+17	557	ship	model	model		2026-11-01T09:53:04Z	16.6	
+17	558	ship	tool	learn	learn	2026-11-01T09:53:21Z	0.0	Capturing iteration 10 lessons
+17	559	ship	tool	todo	todo	2026-11-01T09:53:21Z	0.0	Closing out all iteration 10 todo items
+17	560	ship	model	model		2026-11-01T09:53:21Z	9.2	
+17	561	ship	tool	todo	todo	2026-11-01T09:53:30Z	0.0	Marking gate done
+17	562	ship	tool	todo	todo	2026-11-01T09:53:30Z	0.0	Marking docs done
+17	563	ship	tool	todo	todo	2026-11-01T09:53:30Z	0.0	Marking capture and verdict done
+17	564	ship	tool	todo	todo	2026-11-01T09:53:30Z	0.0	Marking bench done
+17	565	ship	tool	todo	todo	2026-11-01T09:53:30Z	0.0	Dropping the reverted rivulet build task
+17	566	ship	tool	todo	todo	2026-11-01T09:53:30Z	0.0	Dropping the reverted rivulet probe task
+17	567	ship	tool	todo	todo	2026-11-01T09:53:30Z	0.0	Dropping the reverted rivulet test task
+17	568	ship	model	model		2026-11-01T09:53:30Z	14.1	
