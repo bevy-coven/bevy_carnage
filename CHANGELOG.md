@@ -6,6 +6,8 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-11-01
+
 ### Added
 
 - **`viscera::organ_mesh(seed, size)`, `organ_image()`, `ORGAN_HALF_EXTENTS`, `ORGAN_TAPER`, `ORGAN_LUMP`, `ORGAN_FLAT`; `preset::Organ`, `ORGANS_PER_SPILL`, `ORGAN_ROUGHNESS`.** An organ is a closed, wedge-shaped, lumpy mesh of Gray's liver

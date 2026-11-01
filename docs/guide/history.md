@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.8.6` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.8.7` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.8.7` changed: a spill has lumps in it
+
+- **A torso hit that reaches muscle throws organs with its guts.** The spill was loops and nothing else, where the *Day of the Dead* opened torso is a mass (reddish pixels mean sRGB `(127, 38, 40)`, red minus green 89) with dark lumps in it. `viscera::organ_mesh(seed, size)` is a closed, wedge-shaped, lumpy mesh of Gray's liver (*Anatomy of the Human Body*, 1918: 20 to 22.5 cm across, 15 to 17.5 deep, 10 to 12.5 thick, "a soft solid", "a dark reddish brown") with a contact patch where it lies and seamless normals; `organ_image()` is the `128 x 64` texture it wears. The preset throws `ORGANS_PER_SPILL` (2) of them, 0.9 to 1.3 times the liver, sideways by their number, each a `Flying` piece that falls to the floor and lies there, in the guts' muscle-profile `FleshMaterial` at roughness 0.35; `GoreDials::strands` at 0 and a viscera policy that refuses guts refuse them too, and there is no new `GoreDials` field. Measured on the pixels that differ from 0.8.6 (`capture_preset` frame 300): mean sRGB `(123, 41, 40)`, red minus green 81, luminance 58.6 (D2: 56.9). **No digest moves** and `bench_carnage` is within its noise. Named, not done: a liver is thirty pixels at the preset's camera and reads as a dark wet lump, the organs have no contact shadow, and a stomach and a spleen are the same wedge with another seed. Slime strings were built, measured and **parked** (`docs/research/slime-strings.md`, branch `loop/iter-13`). `docs/research/organs.md`, `docs/media/organs.gif`, `docs/media/organs.png`.
 
 ### What `0.8.6` changed: spilled guts are bloodied, lumpy and slumped on the floor
 
