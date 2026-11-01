@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.8.4` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.8.5` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.8.5` changed: blood dries from its edge in, and a dried crust cracks
+
+- **A pool, a run and a wound's crust dry the way blood does.** The flesh shader drew a film's colour at the one age its stamp carries, so a pool changed colour as a decal does: one flat tone edge to edge. A film now dries at its contact line first and the front goes in (Smith, Nicloux & Brutin 2020): a dark matte rim round a red, wet middle, the outermost 12 mm of a deep film darkened and drawn at the film's full depth (the coffee ring), and a dried deep film crazed in patches into 12 mm plates that show the surface under the blood, faded out where plates are under twelve pixels across, so a close-range detail. The shader reads the film's own extent in the wet map (six directions, seven taps each, 30 mm on the surface); no table, canvas, uniform or binding is added, and **no digest moves**. A dried drop is unchanged (one dark tone). `docs/research/drying-front.md`; the pair, 0.8.4 and now: `docs/media/drying_front.png`.
 
 ### What `0.8.4` changed: an exit wound is torn, an entrance is round
 

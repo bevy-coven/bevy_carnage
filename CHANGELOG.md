@@ -6,6 +6,8 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-11-01
+
 ### Changed
 
 - **Blood dries from its edge in, and a dried crust cracks** (iteration 11, AG-150, `docs/research/drying-front.md`). The flesh material drew a
