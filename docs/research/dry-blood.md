@@ -73,8 +73,10 @@ physics (pigment mass does not leave).
 by the film's own red so a thin film stays lighter) is baked **at its two knots** into new rows of the flesh tables
 (`flesh::aged_blood_lut`, below the blood table, rows `BLOOD_ROW0 + 4 ..`), and the shader interpolates between the stops by
 `1 - wetness`, in encoded sRGB, exactly as `appearance_with_fresh` does, then decodes. The age is read from the **unsmoothed** wet map,
-the youngest of the 3 by 3 texels round the one a fragment is in: the smoothed wetness falls to zero at the rim of any drop (the
-bare texels beside it carry none), which would draw a brown ring on every fresh one. One spectral model, as for the fresh table;
+averaged over the four by four texels the spline reads, **by the spline's own weights and counting only the texels that have blood
+in them** (`R > 0`; a dried texel has blood and no wetness): the smoothed wetness falls to zero at the rim of any drop (the
+bare texels beside it carry none), which would draw a brown ring on every fresh one, and the youngest-of-nine that was tried first drew
+the texel boundaries between two ages as hard lines. One spectral model, as for the fresh table;
 no texture, sampler, uniform or binding is added, so the WebGL2 limits `CLAUDE.md` keeps are as they were.
 
 ## Parameters
@@ -83,7 +85,7 @@ no texture, sampler, uniform or binding is added, so the WebGL2 limits `CLAUDE.m
 |---|---|---|
 | `STAIN_FLOOR` | 33 of 255 | **Tuned, and says so.** `DETAIL_EDGE` (10) + `CONE_SLOPE` (23): the least a texel holds and still keeps a cone's rim where it was drawn. |
 | aged stops | `t = 0.35` and `1.0` | Not new: the knots of `appearance_with_fresh` (Bremmer 2011/2012: oxidation is mostly the early, fast phase). |
-| age read | youngest of 3 by 3 texels, `A` byte | **Design default.** The smoothed byte would ring every fresh drop. |
+| age read | spline-weighted mean of the `A` byte over texels with blood, 4 by 4 | **Design default.** The smoothed byte would ring every fresh drop; the youngest of nine was blocky. |
 | new rows | 8, `BLOOD_ROW0 + 4 ..= + 11` | Own layout; `lut_digest` (subsurface and blood tables) is unchanged, the new rows have a golden of their own. |
 
 ## Validation targets
@@ -103,7 +105,7 @@ no texture, sampler, uniform or binding is added, so the WebGL2 limits `CLAUDE.m
 7. **Look**, against Refs Q and N: wall drops that survive the drying, at the count they had; a dried pool and wound dark brown and
    matte, thin edges lighter than thick cores; no brown ring on a fresh drop.
 8. **WebGL2**: `flesh.wesl` re-checked in a browser (headless Chrome over SwiftShader, the `carnage_web` example with `webgl2`).
-9. **Cost**: `hit_tick_cost` and `bench_carnage` no slower; the shader's extra 17 taps are for blood pixels only.
+9. **Cost**: `hit_tick_cost` and `bench_carnage` no slower; the shader's 16 extra reads (and 8 extra table taps, 4 to 8 a blood pixel) are for blood pixels only.
 
 ## Deviations
 
@@ -113,7 +115,7 @@ no texture, sampler, uniform or binding is added, so the WebGL2 limits `CLAUDE.m
 - **The substrate no longer takes thin films at all.** A texel under 33 of 255 is never soaked. A caller's film of 5 of 255 (a smear)
   persisted forever where it used to vanish; that is the pinned-footprint physics, not a bug.
 - **Every recorder digest where blood soaks moves** (the bytes are different); the flesh tables' golden does not.
-- **The shader reads the wet map unsmoothed (`textureLoad`), 9 times a blood pixel.** Marked a design default.
+- **The shader reads the wet map unsmoothed (`textureLoad`), 16 times a blood pixel.** Marked a design default.
 - **The cut-film (`blood_over` over exposed tissue) is not aged**: it has no age (a crater's graze is wet with its own blood by
   construction).
 
