@@ -6,6 +6,24 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+### Changed
+
+- **Blood dries from its edge in, and a dried crust cracks** (iteration 11, AG-150, `docs/research/drying-front.md`). The flesh material drew a
+  film's colour at the one age its stamp carries (`flesh::blood_dried`), and a pool or a run is stamped in one tick, so a pool dried the way a decal
+  changes colour: `capture_skinned --through --floor 512 --dry 120`, frame 359, 0.8.4: a pool, a run and a wall's drops each one flat tone, edge to
+  edge. A pool of blood dries at its contact line first and the front goes in (Smith, Nicloux & Brutin 2020, `doi:10.1038/s41598-020-65465-4`: "the rim
+  dries first. Then this drying front propagates towards the centre of the pool"): a black rim round a red middle, and once dry a crust crazed
+  into plates. `flesh.wesl` now reads the film's own extent in the wet map, as `crater_light` reads a crater's (six directions, seven taps each, out to
+  30 mm on the surface), and draws an aged film at the age its distance from the edge gives it: the rim leads, the middle follows at 0.4 of the clock
+  until the front reaches it, and at an age of one every part is at the end of the CPU's colour walk, as it was. The dry rim is matte while the middle
+  still shines; the outermost 12 mm of a deep film is darkened and drawn at the film's full depth (the coffee ring); a dried film of a pool's depth is
+  crazed in patches into 12 mm plates, 0.35 mm wide, showing the surface the blood lies on, faded out where plates are under twelve pixels across and gone under two, so
+  they are a close-range detail. **No digest moves**: every `capture_skinned` variant and `capture_preset` print what they printed in 0.8.4, twice each; no
+  table, canvas, uniform or binding is added (`the_flesh_tables_are_frozen` and `the_aged_blood_table_is_frozen` pass untouched), `bench_carnage`'s
+  instructions retired are 0.8.4's, and the WebGL2 check (`tools/webgl2/check.sh`) prints `WEBGL2 PIPELINE OK`. Fresh blood costs nothing
+  more; a dried-blood pixel costs 42 more taps of the wet map and, where it cracks, a lattice. **What it does not do, named**: a dried drop (a film under a fifth of the canvas's depth) is
+  still one dark tone, with no ring and no crack, and the cracks are plates, not the radial cracks of the reference pool.
+
 ## [0.8.4] - 2026-11-01
 
 ### Added
