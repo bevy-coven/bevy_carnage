@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.8.7` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.8.8` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.8.8` changed: a wound has a margin and a floor
+
+- **A crater has a wall, a pit, a rim, a lip and a floor of lumps.** The crater was a smooth bowl whose rim had no slope, so a 30 mm torso crater was 57 % of its radius of pale, orange skin and fat round a floor with nothing in it; against six wound-makeup photographs its interior was five times too smooth (texture contrast `hp3` 0.057, where they measure 0.29 to 0.37). `FlayCanvas` now rises over the outer 45 % of the radius and keeps a third of the depth deepening to the centre (the pale ring is 31 % of the radius), tears the rim of a crater of eight texels' radius or more, and `shade` draws the skin's lip (the first 3 mm of depth, paler than the skin round it and raised) and the floor's lumps (16 mm nodules and crevices that stand up in the normal image and glint, fade out where the cortex starts and where a texel is bigger than half a lump). Crater `hp3` 0.236; the preset's own entry and exit close-ups (`capture_skinned --through`) 0.082 to 0.157 and 0.155 to 0.205. **A deliberate model change**: `the_scripted_wound_is_frozen` is re-blessed and every recorder's `flay=` moves, and `capture_flesh`'s digest; every `digest=`, `capture_entrails` and `bench_carnage` are 0.8.7's. No API changes. Named, not done: red nodules under the blood film, no big dark pit, no thick rolled lip, no ribs or flaps, and the highlights that are `flesh.wesl`'s (a WebGL2 re-check this disk could not hold). `docs/research/wound-margin.md`, `docs/media/wound.gif`, `docs/media/wound.png`.
 
 ### What `0.8.7` changed: a spill has lumps in it
 

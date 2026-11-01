@@ -6,6 +6,8 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-11-01
+
 ### Changed
 
 - **A wound has a margin and a floor** (iteration 14, AG-153, `docs/research/wound-margin.md`). The crater was a smooth bowl: a falloff over the whole radius whose rim had no slope, so a 30 mm torso crater was
