@@ -2454,8 +2454,15 @@ pub const SURFACE_STAND_OFF: f32 = 0.05;
 /// **How much wider an exit wound is than the entry**, for [`GoreHit::through`]. That an exit is
 /// larger and more irregular than the entrance — the projectile arrives tumbling or deformed, pushing
 /// tissue ahead of it, with no abrasion collar — is a forensic commonplace (DiMaio, *Gunshot Wounds*);
-/// the factor `1.6` is this crate's own.
+/// the factor `1.6` is this crate's own. The irregularity is [`EXIT_TEAR`]'s.
 pub const EXIT_SCALE: f32 = 1.6;
+
+/// **How torn an exit wound's margin is**, `1.0` (the most [`crate::flaymap::FlayCanvas::paint_world_torn`] tears): the
+/// crater of an exit is laid with a star of five to seven splits, its rim out of round, and an entrance's is the round
+/// hole `paint_world` makes. Until 0.8.4 [`EXIT_SCALE`]'s own doc said an exit was "more irregular" and the crater
+/// was the entrance's, only wider. Glessner Lee's chest plates (`docs/research/torn-exits.md`) are the reference:
+/// the entrance a round hole, the exit a hub of radiating splits. A design default.
+pub const EXIT_TEAR: f32 = 1.0;
 
 /// **A hit, addressed to a dressed entity or to a character.**
 ///
@@ -2525,8 +2532,8 @@ impl GoreHit {
     /// not this crate's — its calibre, its energy, the armour — so the game says so. The preset then
     /// goes through **everything of the body on the shot's line**: a shot through a forearm held
     /// across the chest goes in and out of the forearm, then in and out of the chest. Each way out is an
-    /// exit wound [`EXIT_SCALE`] times the entry's radius, as an exit is larger and more ragged than the
-    /// hole it went in by, and throws its **forward spatter** along the shot onto whatever is behind:
+    /// exit wound [`EXIT_SCALE`] times the entry's radius and torn ([`EXIT_TEAR`]: a hub with radiating
+    /// splits, as an exit is larger and more ragged than the hole it went in by), and throws its **forward spatter** along the shot onto whatever is behind:
     /// the chest the forearm was held over, a wall, the floor. A way back in after the first is as wide
     /// as an exit, since the projectile is the one that came out. Every wound bleeds, every cloth the
     /// ray crosses is holed — in front, between the parts, and behind — and every wound is announced as
@@ -3414,7 +3421,7 @@ fn take_hits(
             }
             let exit_seed = wound_seed(&exit_wound);
             if let Some(mut flay) = flay {
-                let _ = flay.paint_world(mesh, xf, outside, -out, radius_uv * EXIT_SCALE, depth_mm, tick);
+                let _ = flay.paint_world_torn(mesh, xf, outside, -out, radius_uv * EXIT_SCALE, depth_mm, EXIT_TEAR, tick);
                 if let Some(s) = flay_settings.as_deref() {
                     flay.shade(s);
                 }
@@ -5030,6 +5037,66 @@ mod tests {
         assert_eq!(wall_wet, 0.0, "a shot that stopped spattered the wall behind the body");
         assert!(!holed, "a shot that stopped holed the curtain behind the body");
         assert_eq!(normals.len(), 1);
+    }
+
+    /// **A shot that goes through leaves a round entrance and a torn exit.** One shot through a skin box, and each wound's
+    /// crater read on the flaymap in thirty-six directions about its own centre: the entrance is as far out as the hole it was
+    /// sent as in every direction (to within a texel), and the exit, `EXIT_SCALE` wider, runs out in splits past two radii of
+    /// the entrance's, as the exit plate of a chest does (`docs/research/torn-exits.md`). A second identical shot tears
+    /// the same way, which is what a recorder's digest needs.
+    #[test]
+    fn a_shot_through_leaves_a_round_entrance_and_a_torn_exit() {
+        let run = || {
+            let mut app = headless();
+            let body = {
+                let world = app.world_mut();
+                let mesh = world.resource_mut::<Assets<Mesh>>().add(Cuboid::new(0.6, 0.6, 0.2).mesh().build());
+                world.spawn((Mesh3d(mesh), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::skin(Region::Torso).with_canvas(256))).id()
+            };
+            app.world_mut().run_schedule(FixedUpdate);
+            let radius = 0.01;
+            app.world_mut().write_message(GoreHit::impact(body, Vec3::new(0.05, 0.02, 2.0), Vec3::NEG_Z, radius, 5.0).through());
+            app.world_mut().run_schedule(FixedUpdate);
+            let world = app.world();
+            let (Some(flay), Some(gore), Some(wounds)) = (world.get::<FlayCanvas>(body), world.get::<Gore>(body), world.get::<Wounds>(body)) else {
+                panic!("the body was not dressed, or the shot opened no wound")
+            };
+            assert_eq!(wounds.0.len(), 2, "a shot through opened {} wounds", wounds.0.len());
+            let n = flay.size() as f32;
+            // How far out, in the entrance's radii, each of 36 directions is peeled at all: every peeled texel counts for the
+            // wound whose centre it is nearer to, since the two craters share one atlas.
+            let centres = [wounds.0[0].uv * n, wounds.0[1].uv * n];
+            let r_in = radius * gore.density() * n;
+            let reach = |which: usize| {
+                let (me, other) = (centres[which], centres[1 - which]);
+                let mut far = [0.0f32; 36];
+                let span = (2.6 * EXIT_SCALE * r_in).ceil() as i64;
+                for dy in -span..=span {
+                    for dx in -span..=span {
+                        let (x, y) = (me.x as i64 + dx, me.y as i64 + dy);
+                        if x < 0 || y < 0 || flay.depth_at(x as u32, y as u32).is_none_or(|d| d <= 0.0) {
+                            continue;
+                        }
+                        let at = Vec2::new(x as f32 + 0.5, y as f32 + 0.5);
+                        if at.distance(other) < at.distance(me) {
+                            continue;
+                        }
+                        let (px, py) = (at.x - me.x, at.y - me.y);
+                        let turn = py.atan2(px) / core::f32::consts::TAU;
+                        let s = (((turn + 1.0).fract()) * 36.0) as usize % 36;
+                        far[s] = far[s].max((px * px + py * py).sqrt() / r_in);
+                    }
+                }
+                far
+            };
+            (reach(0), reach(1), flay.digest())
+        };
+        let (entry, exit, digest) = run();
+        let farthest = |f: &[f32; 36]| f.iter().copied().fold(0.0, f32::max);
+        assert!(farthest(&entry) <= 1.1, "the entrance is wider than the hole it was sent as: its reach in radii is {entry:?}");
+        assert!(farthest(&exit) >= 2.2, "no split of the exit runs past two and a fifth of the entrance's radii: {exit:?}");
+        assert!(farthest(&exit) >= 2.0 * farthest(&entry), "the exit is not a star beside a round entrance: {entry:?} against {exit:?}");
+        assert_eq!(run().2, digest, "two identical shots tore their exits differently");
     }
 
     /// **A shot that goes through goes through everything of the body on its line.** A forearm box
