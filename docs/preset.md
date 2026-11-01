@@ -133,7 +133,10 @@ same way since 0.5.62; a sheet still takes a larger blob for each, standing for 
 afford to cast. A wall is cast at up
 to 128 droplets a wound, where every other surface takes 24; it is nearly always a few triangles. Give
 a wall a canvas fine enough for the drops, `Gore::wall().with_canvas(512)` for a three-metre wall,
-and mind the bill below.
+and mind the bill below. **A stain under eight texels across is a cone** (0.8.2, `WetCanvas::paint_cone`): the canvas holds the
+stain's edge, as a distance, so it is drawn round and at its own size, and it holds still while wet; from eight texels it is the
+stamp, with its spines and satellites. A canvas coarser than a stain's size draws it no smaller than a texel and four tenths
+across (`wetmap::CONE_MIN_SEMI`), which is the reason to give a floor or a wall the 512.
 
 **A drop lies flat** (0.5.63). The flesh material lifts a film of blood by its depth so a pool's edge
 catches the light as a meniscus does (0.5.47), and it lifted a drop a few texels across the same way:

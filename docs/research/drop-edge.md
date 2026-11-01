@@ -175,8 +175,10 @@ equivalent diameters in the image's own pixels).
    <https://commons.wikimedia.org/wiki/File:Blood,_guts_and_gore_galore,_Moulage_crew_brings_horror_to_life_140723-A-IX584-092.jpg>.
    The floor: a drip and spatter field on a grey floor, round opaque drops from 1 px to 90 px, one cluster merged; the gel wound
    above it is the wound-sheen item.
-3. **Ref 8**: the same photograph series, `...140723-A-IX584-057.jpg`, public domain: wound makeup.
+3. **Ref 8**: the same photograph series, `...140723-A-IX584-057.jpg`, public domain: moulage gel appliances laid out on a table, each a
+   translucent gel piece with dark glossy blood in a cut. Wound makeup, for the wound-sheen item; not used for the drops.
 4. *Evil Dead* (2013), KNB's methylcellulose blood, <https://filmhounds.co.uk/2023/04/17/gory-groovy-the-splatter-of-evil-dead/>,
-   press, reference only: thrown blood is a mass of beads, dark and glossy, a wide size range.
+   press page (read as text, not as an image, this pass; iteration 6 measured its still): the craft source for thrown blood being
+   thick enough to keep a drop's shape.
 5. *Terrifier 3* (2024), Variety, <https://variety.com/2024/artisans/news/terrifier-3-kills-art-the-clown-1236177913/>, press,
-   reference only: flecks and drops on white fur, a spread of sizes (p90 / p10 24).
+   reference only, measured in iteration 6: flecks and drops on white fur, a spread of sizes (p90 / p10 24).
