@@ -86,17 +86,16 @@ smeared pool and thins out over a body's length and stops. Seen from the distanc
 
 ## Reference set
 
-Stock and educational photographs of staged and forensic smears (prop blood and swipe demonstrations); copyrighted by their publishers, kept under `/tmp/c15/refs/`, never committed; this note cites their pages.
-**No film still of a smear was gathered** (Bing's image results for the films were posters and trailers): the gap is named under `## Pending index`. Statistics are `smear_stat`'s.
+Educational and stock photographs of smears; copyrighted by their publishers, kept under `/tmp/c15/refs/`, never committed; this note cites their pages. **No film still of a smear was gathered** (Bing's image
+results for the films were posters and trailers): the gap is named under `## Pending index`. Statistics are `smear_stat`'s (reddish mask, axis by PCA, gradient orientation coherence, coverage by thirds).
+**Three stock handprint images were also downloaded and dropped**: the page of one says it is AI-generated ("generated-ai-fake") and the other two read as the same, so they are evidence of nothing; S2's provenance
+(a stock photograph of a trail and a shoe print) is not stated either, and it is used for the structure measures only.
 
 | Ref | Source | Page | What it shows that the crate must reproduce |
 |---|---|---|---|
 | S1 | Forensic Pocket Guide, *Transfer stains: swipe pattern* | `https://forensicpocketguide.com/processing-bloodstains-transfer-stains/` | four finger-lines of blood, each with a thick rounded head and a tail that thins to a feathered dry-brush streak, parallel and unequal in length; coherence 0.612, streaks along the axis, coverage by thirds 0.236, 0.162, 0.136 |
-| S2 | Dreamstime, *Smear of blood leaving a trail on a floor* | `https://www.dreamstime.com/smear-blood-leaving-trai-floor-disturbing-trailing-sh` | a pool at the head and a tail of about eight fine parallel streaks that run out into voids, on a tiled floor beside a print; L/W 5.1, coherence 0.56, coverage 0.604, 0.338, 0.023 |
-| S3 | SlideServe, *Bloodstain pattern analysis, swipe patterns* | `https://www.slideserve.com/eamon/lecture-26-introduction-to-bloodstain-pattern-analysis` | the same swipe with the SWGSTAIN vocabulary; coherence 0.573 |
-| H1 | Dreamstime, *Bloody handprint on a wall* | `https://www.dreamstime.com/bloody-handprint-wall-large-fresh-bloody-handprint-ol` | a fresh palm and four fingers laid on a wall, a heavy edge and streaks dragged down from each finger, runs under the heel |
-| H2 | Dreamstime, *Fake closeup smeared bloody handprints on a shabby white wall* | `https://www.dreamstime.com/closeup-smeared-bloody-handprints` | prints slid down a wall: a stack of finger streaks per print, fading, one over another |
-| H3 | Adobe Stock, *Fake bloodied handprints streaked across a grungy wall* | `https://stock.adobe.com/images/fake-bloodied-handprints-streaked-across-a-grungy` | prints with drips and smears, wet and dried together |
+| S2 | Dreamstime, *Smear of blood leaving a trail on a floor* (stock) | `https://www.dreamstime.com/smear-blood-leaving-trai-floor-disturbing-trailing-shoe-print-crime-scene-image398733220` | a pool at the head and a tail of about eight fine parallel streaks that run out into voids, on a tiled floor beside a print; L/W 5.1, coherence 0.56, coverage 0.604, 0.338, 0.023 |
+| S3 | SlideServe, *Lecture 26, introduction to bloodstain pattern analysis, swipe patterns* | `https://www.slideserve.com/eamon/lecture-26-introduction-to-bloodstain-pattern-analysis-bpa-continued` | the same swipe with the SWGSTAIN vocabulary; coherence 0.573 |
 
 ## Deviations
 
