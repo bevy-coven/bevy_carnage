@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.8.1` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.8.2` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.8.2` changed: a drop is drawn at the size it is
+
+- **Round, crisp and not diffused into a diamond.** The stains of a wound's spray on a default floor and wall read as rotated squares and rounded diamonds, two to three times too big. The cause was the canvas's data, not the texel or the shader: a speck laid a stain's area as a blur that a shader draws where it crosses 4 % of full, and the spread pass diffused a wet stain into the flat-topped diamond a four-neighbourhood makes. `WetCanvas::paint_cone` writes the stain's edge as a distance (Green, Valve, SIGGRAPH 2007), which the shader's cubic B-spline reproduces exactly, so the line drawn at 4 % is the ellipse; its slope is under what the spread rounds to a byte, so a drop holds still while it is wet. The preset draws every droplet a floor, a wall or a skin takes under eight texels across this way (a wall and a skin used to stamp each one with spines under two texels wide). The hit tick of a heavy wound facing a wall went from 18.8 to 9.3 ms. **Every recorder digest that has such a drop moves, on purpose; `--stroll`, `--quiet` and `bench_carnage` keep theirs.** No shader change. Additive API (`paint_cone`, `CONE_SLOPE`, `CONE_MIN_SEMI`, `CONE_MAX_SEMI`); `docs/research/drop-edge.md`, `docs/media/drops.png`.
 
 ### What `0.8.1` changed: a wounded scene costs the caller about two fifths less a tick
 
