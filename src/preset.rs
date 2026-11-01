@@ -1635,6 +1635,43 @@ pub const SLASH_OPEN_M: f32 = 0.006;
 /// skin rather than one column its own width. This crate's own number.
 pub const BLEED_WELLS: u32 = 3;
 
+/// **How wide a rivulet of blood runs on a vertical surface at the flow of a 2 cm wound, metres**: 4 mm.
+///
+/// A rivulet's width is a property of the fluid and the surface, and goes as the **quarter power** of the flow, not as
+/// the size of the wound it comes from (`docs/research/rivulets.md`): a viscous rivulet of width `w` and contact
+/// angle `theta` carries `Q = (g theta^3 / 420 nu) w^4` (the lubrication limit, derived in the note), so
+/// `w = (420 nu Q / (g theta^3))^(1/4)`, which for blood (`nu` 3.3e-6 to 5.3e-5 m^2/s), `theta` of a radian and 0.1 to 1
+/// ml/s is 1.9 to 6.9 mm. **Tuned**, inside that range and the 1.5 to 5 mm of a pane of glass with fake blood run down it
+/// (reference 2 of the note). Until 0.8.4 a run was as wide as its wound: a bead's `0.6`, a centimetre and more.
+pub const RIVULET_WIDTH_M: f32 = 0.004;
+
+/// **The bead of the wound [`RIVULET_WIDTH_M`] is the width for**, metres: 12 mm, a wound of two centimetres' radius shared
+/// between [`BLEED_WELLS`]. A bead is a well's share of the wound's bleed by area, so the flow it carries goes as its
+/// square and [`rivulet_width`] as the square root of its ratio to this. **Tuned.**
+pub const RIVULET_BEAD_REF_M: f32 = 0.012;
+
+/// **The thinnest a canvas can draw a rivulet that runs, in texels**: 3. A stamp of two texels peaks at 73 of 255 on the
+/// canvas and the drip pass lets a texel go only above `drip_rate`'s 89 (iteration 6 measured the first; `WetSettings`
+/// is the second), so a thinner stamp lays a streak that never moves. The canvas sets the thinnest run it can draw, not the
+/// physics: a canvas twice as fine draws a run half as wide, down to [`rivulet_width`].
+pub const RIVULET_MIN_TEXELS: f32 = 3.0;
+
+/// **How far a rivulet leans away from downhill where it leaves the rim**: the share of the outward direction across the run
+/// that is added to downhill, `0.3`. Blood leaves a hole's lip along its outward normal and bends to downhill, so the
+/// runs of a wound open as a fan and turn down, not three clones side by side. A design default.
+pub const RIVULET_LEAN: f32 = 0.3;
+
+/// **The width of a rivulet from a bead of this size, metres**: [`RIVULET_WIDTH_M`] times the square root of the bead over
+/// [`RIVULET_BEAD_REF_M`] (the flow a bead carries goes as its area and a rivulet's width as the quarter power of the flow),
+/// between half of it and three times. Not under what a canvas can draw: [`RIVULET_MIN_TEXELS`] is the caller's to apply, since
+/// only the canvas knows its texel.
+pub fn rivulet_width(bead_m: f32) -> f32 {
+    if !bead_m.is_finite() || bead_m <= 0.0 {
+        return RIVULET_WIDTH_M * 0.5;
+    }
+    RIVULET_WIDTH_M * libm::sqrtf(bead_m / RIVULET_BEAD_REF_M).clamp(0.5, 3.0)
+}
+
 /// **A slash's line on a wetmap**: where along the cut, and how far out its lips are.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CutLine {
@@ -4426,18 +4463,32 @@ fn bleed(
             // one column the wound's own width.
             let bead = r / (BLEED_WELLS as f32).sqrt();
             let run = if downhill == Vec2::ZERO { [0.0, 1.0] } else { downhill.normalize_or_zero().to_array() };
+            let run_v = Vec2::from(run);
+            let density = gore.density().max(1.0e-6);
+            // What a run is told: a rivulet's own width (not the wound's), never under what this canvas can draw.
+            let width = rivulet_width(bead);
+            let thinnest = RIVULET_MIN_TEXELS / (texels.max(1) as f32 * density);
             for k in 0..BLEED_WELLS {
+                // The wells are places, and so is what differs between them: width, length and lean are fixed for the
+                // wound's life by its seed and the well, never by the tick, so every pulse feeds the same track.
+                let h = |salt: u32| crate::bloodstain::hash_f32(site.bleed.seed ^ k.wrapping_mul(0x27D4_EB2F) ^ salt);
+                let (edge, out) = site.well(k, downhill, density);
+                let minor = (width * (0.75 + 0.5 * h(0x3A))).max(thinnest * (1.0 + 0.5 * h(0x3B)));
+                let major = bead * 2.6 * (0.7 + 0.6 * h(0x3C));
+                // Out of the rim along the outward direction, bending down: downhill and a share of what is across it.
+                let heading = (run_v + RIVULET_LEAN * (out - run_v * out.dot(run_v))).normalize_or(run_v);
                 let shape = StainShape {
-                    major: bead * 2.6,
-                    minor: bead * 0.6,
+                    major,
+                    minor,
                     spines: 0,
                     satellites: 0,
-                    direction: run,
+                    direction: heading.to_array(),
                     seed: site.bleed.seed ^ tick ^ k.wrapping_mul(0x27D4_EB2F),
                 };
-                // Centred half a bead out past the lip or the rim, so it sits on the skin.
-                let (edge, out) = site.well(k, downhill, gore.density());
-                let at = site.uv + edge + out * (0.5 * bead * gore.density());
+                // The stamp starts 0.8 of a bead inside the lip or the rim, under the blood in the crater, and runs
+                // out from there, so a longer run is longer below the wound and never above it.
+                let top = site.uv + edge - out * (0.8 * bead * density);
+                let at = top + heading * (0.5 * major * density);
                 wet.paint_uv_with(at, &shape_on(gore, &shape, texels), tick, &edges);
             }
             // What runs off the body onto the world is the world's share of the blood.
