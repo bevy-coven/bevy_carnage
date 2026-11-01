@@ -6,6 +6,27 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+### Added
+
+- **`FlayCanvas::paint_uv_torn` and `paint_world_torn`** (iteration 10, AG-149, `docs/research/torn-exits.md`): the crater of `paint_uv` and
+  `paint_world` with a margin torn the way an exit wound is, for a `tear` in `[0, 1]`. Over zero, the rim is moved out of round by two low
+  harmonics of the angle and five to seven thin splits are laid over the crater, each at its own angle and length (a few short, most
+  long), bent and rippled, tapering to a point, at `TEAR_SPLIT_DEPTH` (0.5) of the crater's depth; a `tear` of zero or NaN is `paint_uv` byte for
+  byte. Every number is a hash of the centre texel and the angles go through `libm`: the same hit in the same place tears the same way on
+  every run. New public constants `flaymap::TEAR_REACH` (1.3), `TEAR_SPLIT_DEPTH` (0.5) and `TEAR_SPLIT_WIDTH` (2.0 texels), and
+  `preset::EXIT_TEAR` (1.0).
+
+### Changed
+
+- **An exit wound is torn, not just wide** (AG-149). `EXIT_SCALE`'s doc said an exit was "larger and more ragged than the hole it went in
+  by"; the crater it was given was the entrance's round crater, 1.6 times wider, so one shot through a body left two circles. The preset's
+  exit now calls `paint_world_torn` with `EXIT_TEAR`: a small hub with five to seven radiating splits, as a forensic exit is ("stellate or slit-like",
+  Medscape, *Forensic Pathology of Firearm Wounds*; "bigger, more asymmetrical, and everted", the PMC review of gunshot wound patterns),
+  and as Frances Glessner Lee's chest plates of about 1940 model it with a revolver's lead bullet (the entrance a small round hole, the exit a
+  hub of six or seven bent splits). An entrance, a way back in after the first, and every other hit are round as they were. **Only `flay=` moves**
+  in the recorders that have an exit (`capture_skinned --through` and `--guard`): no wet byte changes, so `digest=` holds, and every other recorder
+  variant's digests equal 0.8.3's. The mask is built once per exit wound.
+
 ## [0.8.3] - 2026-11-01
 
 ### Changed

@@ -1163,3 +1163,86 @@ and the two lib-test binaries copied out of the cache, the references, a Pillow,
 77 G free before and 83 G after (the builds had taken 22 G of the 99 G the pass began with). The throwaway probe `tests/zz_dry_probe.rs` was deleted before the first commit, and the scratch edit to `capture_skinned`
 is the `--dry` knob, committed. Left, not mine and not deleted: the branches `loop/iter-1`, `loop/iter-1b`, `loop/iter-2`, `loop/iter-3`, `loop/iter-4` (merged), `loop/iter-4-floor-stains`, `loop/iter-5`,
 `loop/iter-6`, `loop/iter-7` and `loop/iter-8` (merged), and other loops' `/tmp` directories (`/tmp/c1`, `/tmp/c12-1`, `/tmp/c12-2`, `/tmp/c12-3`). Mine and kept: `loop/iter-9` (merged, pushed).
+
+## Iteration 10 — 2026-11-01 — an exit wound is torn, an entrance is round (AG-149)
+
+**Item and why it ranked first.** `gh issue list` is empty (no bug, no `consumer` request); `git branch --list 'wiggum/parked-*'` finds nothing (the only parked tree on this clone is
+`loop/iter-4-floor-stains`, adopted in iteration 6); `origin/loop-stats`' last audit row (pass 16, `v0.8.3`) has nothing `missing`. `catalog_recent` (limit 200): nothing in a domain (psychology and
+relationships bulk, `sig2024_*` and `sig2026_*` rendering titles), so no `Research: corpus` commit; `system_status` healthy. Sanctuary (cloned and read, removed) consumes
+`fracture_skeleton`, `BondGraph::islands` and the region queries, and hand-rolls nothing around the preset. Ranked from iteration 9's backlog and what this pass looked at:
+(1) **blood runs as rivulets, not a curtain** (built, measured, reverted: below); (2) the dried colour's hue and rim (a shader term, a 38-minute cold wasm build to check); (3) the wall spray's size spread
+(resolution-bound); (4) a heavy wound facing a wall (measured now: 11 ms a hit, 12 ms a tick for 45 hits of 8 cm one tick apart; one hit is 0.27 ms of every tick for 30 s: not an emergency);
+(5) `digest=` for a body that breaks. **Picked (new, found by looking): a documented promise the crate did not keep.** `EXIT_SCALE`'s doc and `GoreHit::through`'s say an exit is "larger and more ragged
+than the hole it went in by"; the crater an exit was given was the entrance's round smoothstep disc, 1.6 times wider, so a shot through a body left two circles. It beat the others because it was
+finishable inside the pass, exact (a `tear` of zero is `paint_uv` byte for byte, so nothing else moves), checkable against a public-domain forensic reference, and it is the one wound-shape cue a
+forensic pathologist and a horror artist both use: a small round hole in, a star out.
+
+**The rivulet item, and what it found** (`docs/research/rivulets.md`, committed with its outcome). The chest wound of `capture_skinned` read as one painted curtain: three runs each 8 texels wide (28 mm
+at the torso's 3.5 mm a texel) three texels apart, where blood runs on a vertical surface are 2 to 5 mm (derived in the note from the lubrication limit, `w = (420 nu Q / (g theta^3))^(1/4)`, 1.9 to 6.9 mm for
+blood; measured on a pane of fake blood, 1.5 to 3 mm). Built: `rivulet_width`, per-well width and length by hash, an outward lean. Measured with a throwaway integration test on the real `WetCanvas` and then on
+the renderer: **the canvas bounds a run.** A stamp of two texels peaks at 73 of 255, under the drip threshold of 89, so the thinnest run is three; the spread pass lets a byte go from a difference of 25, so
+that run is six or seven texels wide after 400 ticks; and the three wells sit 5 texels apart on the rim. Fanned wider they merged into a skirt with one finger, worse than the curtain. **Reverted**
+(`git checkout src/preset.rs`); what would move it is named in the note: a canvas twice as fine along the run, a drip pass that conserves under a per-texel sideways step (`DripStep::across` is a function of the
+line alone: that is its whole conservation argument), and wells spaced by the wound's circumference.
+
+**What changed** (`f2d5b2f` research, `56a8b4b`, `174830e`):
+
+- `FlayCanvas::paint_uv_torn(uv, radius_uv, depth_mm, tear, tick)` and `paint_world_torn` (and `paint_uv` / `paint_world`, now the same call at `tear` 0): for a `tear` over zero the crater's rim is moved out of
+  round by two low harmonics of the angle and `5 + 3h` thin splits are laid over it (each at its own angle and length, a few short and most long, tapering to a point, bent and rippled, `TEAR_SPLIT_WIDTH` 2.0 texels at the
+  root, `TEAR_SPLIT_DEPTH` 0.5 of the crater's depth, reaching `TEAR_REACH` 1.3 radii past the rim at most). Every number is `hash_f32` of the centre texel (a place), the angles go through `libm`, the weights are bytes.
+  The mask is built per split inside its own bounding box and the crater inside its own: 1.22 ms an exit crater of radius 15 texels the first way I wrote it, 0.65 ms with an exact reject (same bytes: `flay=` proves it),
+  **0.30 ms** with the boxes (same bytes), against 0.045 for a plain crater.
+- `preset::EXIT_TEAR` (1.0) and one call: the exit of a `through()` shot is `paint_world_torn`. An entrance, a way back in after the first, and every other hit are round as they were.
+- **Tests** (5 new, none removed or loosened): `a_torn_crater_is_a_star_and_a_plain_one_is_round`, `a_split_is_shallower_than_the_crater_it_runs_from`, `a_tear_is_a_pure_function_of_the_place_and_zero_is_none`
+  (zero and NaN are `paint_uv` to the byte; the same hit twice is the same bytes; a hit a texel over differs), `a_torn_crater_at_a_corner_stays_on_the_canvas`, and in `preset`
+  `a_shot_through_leaves_a_round_entrance_and_a_torn_exit` (**fails with `EXIT_TEAR` at 0.0**: the exit's reach is 1.4 to 1.5 radii in every direction; passes at 1.0). `the_scripted_wound_is_frozen` untouched.
+
+**Sources.** Physics (forensic pathology): Medscape, *Forensic Pathology of Firearm Wounds* ("Exit wounds ... may have a stellate configuration or, particularly in the event of a low-velocity exit wound, have a
+slit-like configuration"); the PMC review *Gunshot Wound Patterns: A Narrative Review From a Forensic Medical Perspective* ("Usually, exit wounds are bigger, more asymmetrical, and everted, especially when bones are broken");
+both read through `web_search`, neither in the corpus (`Pending index`: DiMaio's *Gunshot Wounds*, which `EXIT_SCALE` already cites). Horror and practical-effects references under `/tmp/c10/refs/` (removed) and cited by URL
+in the note: Frances Glessner Lee's chest plates (about 1940), Wikimedia Commons `Experimental_gunshot_exit_wound.jpg` and `Experimental_gunshot_entrance_wound_-_dist_to_target_25_inch.jpg` (public domain: the entrance
+a small round hole and specks, the exit a hub of seven bent, rippled splits of two to nine hub radii), a US Army moulage wound on a mannequin (public domain, ragged margin, chunky clots), prosthetic wounds (public domain),
+Tom Savini ("A wound has to read true, not just wet"). Technique: Vlachos, *Rendering Wounds in Left 4 Dead 2*, GDC 2010 ("Use projected texture for rough edges and blood layer": a shipping game authors the torn edge as
+a texture, so every exit is one star; here it is a function of the place).
+
+**Critique and verdict** (`/tmp/c10/compare-exit.png`, `docs/media/exit.png`; the scratch is removed). **The torn exit margin: GREAT for what it fixes.** Frame 125 and 300 of `capture_skinned --through`, the back
+(entrance) and the front (exit), 0.8.3 and now: the entrance is byte-identical in both builds (two pixels of 40 000 differ by 2 of 765, the GPU); the 0.8.3 exit was a circle a bit wider than the entrance, now it is a
+notched hub with five splits, the longest 2.4 radii, bent and rippled, raw red on the skin, and at frame 300 they stand out of the run of blood below them. Beside the exit plate (Ref 1) it reads as the same
+thing at a glance: a hub and splits of different lengths radiating all round, against Ref 2's one small round hole. **Not great, named, and not this item**: against Ref 1 the hub is a big dark disc (the exit is 1.6 times
+the entrance's radius) where the plate's is a speck; the splits are one or two texels (3.5 mm) wide with a stair-stepped edge at 3x and have no raised, everted lip (Ref 3, the moulage, has chunky torn flesh); and
+**three round lumps of blood sit on the rim at frames 125 to 200**, the first stamps of the wound's three wells (`preset::bleed`), which read as blisters and dominate the silhouette of entrance and exit alike. Rounds: one
+(the first version's splits were rays, straight and a hair wide with a zig-zag edge; bend, ripple, a squared length spread, a width of 2.0 and a lower ripple frequency gave the version above). Stopped because what is left is the
+lumps (the rivulet item's own bound) and relief (a shader term).
+
+**Numbers.**
+
+- *Reproducibility* (every `capture_skinned` variant and `capture_preset` twice on the final build): all 9 pairs equal. Against 0.8.3 (re-measured at the start of this pass, equal to iteration 9's table) **only `flay=` moves,
+  and only where a shot goes through**: `--through` `066d165e0ab24b95` to `cd0fa7fe3d12816b`, `--guard` `0d1841c84aa56b1d` to `be2ad4550edc221d`. Every `digest=` equals 0.8.3's (no wet byte changes): default and `--blows`
+  `5f8eb5573aea933f`, `--break` `f89e1d5e3bcfc119`, `--shirt` `579e84b9d3ccfe51`, `--through` `cfcabf28b3d9b0a6`, `--guard` `33118d5449e57748`, `--stroll` `6cb633ae2cf7941c`, `--quiet` `f83a631a7426808d`,
+  `capture_preset` `04758d82ec10aa5b`; and `flay=` of every other variant and of the preset equals 0.8.3's. `flay_digest` prints `0xbfb5f3227bedb388`. The baseline binary was rebuilt from `18da8b1` in a worktree and
+  reproduces the 0.8.3 `--through` line (`flay=066d165e0ab24b95`), so the frames of the sheet are 0.8.3's.
+- *Cost*: a torn exit crater is 0.30 ms once per exit wound (0.045 plain), measured with a throwaway test of 2 000 paints at radius 15 texels. `bench_carnage` never calls a canvas: **15.771 and 15.787 billion
+  instructions retired** before, **15.794 and 15.768** after (`/usr/bin/time -l`, repeatable to 0.1 %; the host was at load 4 and refused 8 of 11 timed runs: "NO STABLE PLATEAU", a reading of the load); `carnage_frame_ms` 0.968,
+  0.978, 0.972, 1.002 before and 0.908, 0.989, 0.984 after, p99 27.1 to 27.9 before and 30.4 after (one stable run). Digest `0x4366a8b64352c85a` before and after.
+- *Locks and gate* (on the branch, in the loop's order): `cargo build` rc 0 45 s; `cargo build --release` rc 0 74 s; `cargo test --no-fail-fast` rc 0 in 1 441 s (471 passed, 0 failed, 8 ignored over every binary and the doctests;
+  466 before, +5); `cargo build --examples` rc 0; no warning in either build. Every golden in section 3 passes untouched. Not run: rustfmt (not clean at `main`), `tools/qa.sh` (no ImageMagick on this host), clippy (no standing gate),
+  `tools/webgl2/check.sh` (`flesh.wesl` is untouched).
+
+**Assumed decisions (owner may override).** (1) `tear` is an argument of two new methods and `paint_uv` / `paint_world` keep their signatures: not a `FlaySettings` dial, which would be a setting that picks between two
+craters. (2) The splits are 0.5 of the crater's depth, a design default, so a split opens the skin and shows fat and dermis and does not bore. (3) A way back in after the first (as wide as an exit) stays round:
+it is an entrance into the next part. (4) A PATCH release, `0.8.4`: new public items only; the digests moving is the point.
+
+**Found, not fixed.** (1) Three round lumps on a wound's rim for the first two seconds (the wells' first stamps). (2) The splits have no relief: an everted lip needs the depth map read by the shader as a height. (3) The shored
+exit is not drawn (the crate does not know what is behind a body). (4) `docs/research/torn-exits.md`'s forensic quotes are from web pages, not the corpus. (5) `cargo build --release --examples` after a worktree build into the
+same `CARGO_TARGET_DIR` left the uplinked example from the worktree and "Finished" in 1.7 s: cargo does not relink a fresh-looking unit; touch a source, or build the baseline into its own target directory.
+
+### Ranked backlog for iteration 11
+
+1. **The wound's rim lumps and the rivulets** (this pass's reverted item, with its measurements in `docs/research/rivulets.md`): space the wells by the wound's circumference, not its area, and make the first
+   stamp not a round lump; a drip pass that conserves under a per-texel sideways step so a run can wander; a finer canvas along a run. Measured limit: a run is at least 6 texels wide after 400 ticks.
+2. **Dried blood's hue and its rim** (iteration 9's item 1, re-measured): the real pool of a court exhibit (public domain, Kelly Thomas) is `(131, 93, 68)` at the median with a lighter thin margin `(164, 145, 114)` and a
+   dark thick core `(82, 66, 52)`, R minus B 63; ours dries to `(77, 51, 46)`, R minus B about 30. A shader term: thickness-driven local age (thin film dries first) and `appearance.craquelure` on thick crust.
+3. **The spray's size spread, resolution-aware** (iteration 9's item 2): an amount under the shader's draw edge (10 of 255) is invisible today; it could carry a density of sub-texel droplets the shader draws as micro-specks,
+   with no new state. A shader term and a WebGL2 check.
+4. **A heavy wound on a wall** (11 ms a hit, 12 ms a tick at 45 hits of 8 cm): stamp each droplet at the tick it arrives.
+5. **`digest=` for a body that breaks**, `#[non_exhaustive]` on the error enums, the Bevy 0.19 citation sweep; `vfx` on Bevy 0.20 still waits on `bevy_hanabi`.
