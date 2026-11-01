@@ -59,7 +59,7 @@ The left GIF above, with keys to aim it yourself; `T` cycles the violence settin
 
 ## What you can do
 
-- **Hurt a character with one message**: `GoreHit::impact`, `blunt`, `burn` and `slash` peel skin, fat and muscle to bone, bruise and burn under the skin, and cut wounds that gape: [quick start](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/quick-start.md).
+- **Hurt a character with one message**: `GoreHit::impact`, `blunt`, `burn` and `slash` peel skin, fat and muscle to bone, bruise and burn under the skin, and cut wounds that gape; a shot sent `through()` leaves a round entrance and a torn, star-shaped exit ([the pair, 0.8.3 and now](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/media/exit.png)): [quick start](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/quick-start.md).
 - **Make wounds bleed where they are**: a pulsing bleed runs downhill on the pose on screen, pools on the floor and dries dark brown where it fell, a wall's spatter keeping every drop it landed as, on skinned, animated bodies too: [`docs/preset.md`](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/preset.md).
 - **Throw a spray that reads as drops**: each droplet a wound throws lands as its own round stain at the size it is, on a floor, a wall or a skin, and holds still while it is wet: [the gallery](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/gallery.md).
 - **Break a body into its own pieces**: bake once, then shoot a shoulder and the arm comes off, with watertight cut faces and convex colliders: [the API](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/api.md).
@@ -76,7 +76,7 @@ The left GIF above, with keys to aim it yourself; `T` cycles the violence settin
 
 | `bevy_carnage` | Bevy |
 |---|---|
-| 0.6 – 0.7 | 0.20 |
+| 0.6 – 0.8 | 0.20 |
 | 0.5 | 0.19 |
 
 ## Learn more

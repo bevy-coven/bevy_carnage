@@ -383,6 +383,19 @@ vertical wall and the layer bands would never show; the falloff is what makes th
 is the crate's whole visual. The stamp's edge length is forced **odd** so the footprint is symmetric
 about its centre texel — an even one would drift a crater by half a texel per hit.
 
+#### An exit is torn, an entrance is not (0.8.4)
+
+`paint_uv_torn` and `paint_world_torn` take a `tear` in `[0, 1]`, and **`tear` of zero (or NaN) is `paint_uv` to the byte**: `paint_uv`
+is that call, so an entrance, a way back in, and every caller that never tears are what they were, and `the_scripted_wound_is_frozen` is
+untouched. A torn crater is a hub (the crater's falloff, its rim out of round by two harmonics of the angle) with five to seven thin
+splits over it, taken by the larger byte at `TEAR_SPLIT_DEPTH` of the crater's depth: forensically an exit is burst outward and stellate
+(`docs/research/torn-exits.md`, Glessner Lee's exit plate), an entrance a round hole. **Every number is a hash of the centre texel** (a
+place, never a clock or a counter), the angles go through `libm`, and the weights are bytes, so the same hit tears the same on every
+machine. The mask is built from each split's own bounding box and the crater's, never over the whole square: the first version tested every
+texel against every split and cost 1.2 ms an exit against 0.3 ms now, **with the same bytes** (`flay=` of `--through` is the proof: change a
+mask loop and compare it). The preset tears only the exit of a `through()` shot (`EXIT_TEAR`); the shored exit (an exit against clothing or a
+wall, which shows a collar like an entrance's) is not drawn, because the crate does not know what is behind a body.
+
 #### The bone handoff fires exactly once
 
 `Handoff::bone_reached` is true on the first paint call in which any texel crosses
