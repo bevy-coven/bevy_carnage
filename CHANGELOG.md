@@ -6,6 +6,8 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-31
+
 ### Changed
 
 - **A drop is drawn at the size it is: round, crisp, and not diffused into a diamond** (iteration 8, AG-147,
