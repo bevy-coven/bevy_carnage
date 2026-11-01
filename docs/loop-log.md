@@ -1149,6 +1149,17 @@ was looked at dried on both builds and the shirt's blood is only a little darker
 4. **`digest=` for a body that breaks** (iteration 5's item 1): a per-frame wet trace beside `flay=` and `dermis=`.
 5. **The horror-film items** (wound sheen, fracture debris, a cut film that ages), `#[non_exhaustive]` on the error enums, the Bevy 0.19 citation sweep; `vfx` on Bevy 0.20 still waits on `bevy_hanabi`.
 
-**Merged tree and release.** <filled in below>
+**Merged tree and release.** `origin/main` had not moved (`a63726c`): merged `loop/iter-9` into it (`f7cf84e`, `--no-ff`), bumped to `0.8.3` (`dcfcd09`, `release: v0.8.3`: the changelog,
+`Cargo.toml` and `Cargo.lock`, the Status and a `0.8.3` entry in `docs/guide/history.md`, which `tests/readme.rs` reads; the README's `"0.8"` install line and `docs/guide/install.md` already name the
+minor) and re-ran the gate on that tree: `cargo build` rc 0; `cargo build --release` rc 0 120 s; `cargo test --no-fail-fast` rc 0 in 1 418 s (466 passed, 0 failed, 8 ignored over every binary and the
+doctests, `readme` among them); `cargo build --examples` rc 0. `cargo semver-checks check-release --baseline-version 0.8.2 --only-explicit-features --features serde,flesh` (13 min with a cold
+`CARGO_TARGET_DIR`): 202 checks pass, 58 skip, "no semver update required", so a PATCH. `main` pushed (`a63726c..dcfcd09`) and `loop/iter-9` with it. `cargo publish --dry-run` packaged 206 files, 5.2 MiB (2.3 MiB
+compressed; `docs/media/*.gif` is now excluded as `docs/*.gif` was, or the 2.9 MB clip would have been in it); **released `0.8.3`** (https://crates.io/crates/bevy_carnage/0.8.3, tag `v0.8.3` at `dcfcd09`; the
+crates.io API answers `0.8.3`, not yanked). `docs/research/corpus.md`'s iteration 9 re-scan note went in the commit after the tag, so it is not in the published package.
 
-**Cleanup.** <filled in below>
+**Cleanup.** Removed, all mine: the worktree `~/c9_web` and its `~/c9_web-target` (2.4 GB; the WebGL2 harness's wasm build, made by a subagent on my behalf: `git worktree remove` refused it because its tracked
+files were my own tree's copies and the swapped `Cargo.toml`, so I deleted the directory I had created and ran `git worktree prune`), `/tmp/c9` (3.3 GB: baseline and after frames of every variant, the binaries
+and the two lib-test binaries copied out of the cache, the references, a Pillow, NumPy and SciPy venv, the harness's scratch, the GIF frames), `/tmp/c9-semver` (470 MB) and `target/package` in the clone's cache; `df`:
+77 G free before and 83 G after (the builds had taken 22 G of the 99 G the pass began with). The throwaway probe `tests/zz_dry_probe.rs` was deleted before the first commit, and the scratch edit to `capture_skinned`
+is the `--dry` knob, committed. Left, not mine and not deleted: the branches `loop/iter-1`, `loop/iter-1b`, `loop/iter-2`, `loop/iter-3`, `loop/iter-4` (merged), `loop/iter-4-floor-stains`, `loop/iter-5`,
+`loop/iter-6`, `loop/iter-7` and `loop/iter-8` (merged), and other loops' `/tmp` directories (`/tmp/c1`, `/tmp/c12-1`, `/tmp/c12-2`, `/tmp/c12-3`). Mine and kept: `loop/iter-9` (merged, pushed).

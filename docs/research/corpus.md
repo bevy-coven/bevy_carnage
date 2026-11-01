@@ -46,6 +46,12 @@ no `Research: corpus` commit. `system_status`: distill, both scribes and qdrant 
 720 conversions queued). `distill_search` answered, and returned only Comiskey et al. 2018 for four queries on drop-size
 and stain-count distributions (it holds the numbers in Figs. 7 and 9, which the markdown does not extract; `doc_link`'s
 gateway answered 504 from this host).
+Iteration 9 (2026-11-01, 03:45 UTC) read it at limit 200 against the same window (psychology and relationship-violence bulk, then the
+`sig2024_*` and `sig2026_*` geometry and rendering titles of 2026-10-31 02:10 to 02:22): nothing is blood-, wound-, fracture- or gore-specific, so no
+`Research: corpus` commit. `system_status` healthy (two scribes, distill idle on CUDA, 18 673 documents). `distill_search` answered and returned
+Smith, Nicloux & Brutin 2020 (the pinned pool: quoted in `dry-blood.md`), Bremmer et al. 2011 (PLoS ONE, below) and Comiskey et al. 2018 again; the
+percolation exponent (Fisher's, 2.186 in three dimensions; Stauffer, *Scaling theory of percolation clusters*, Phys. Rep. 54, and
+`doi:10.1142/S0129183198000261`) is **not** in the corpus and was read as a web summary only.
 
 ## Blood rheology and haemodynamics
 
@@ -55,6 +61,7 @@ gateway answered 504 from this host).
 | `10.1016/j.forsciint.2016.08.005` | Laan et al., *Morphology of drying blood pools* | `docs/bloodstain-citations.md` (`dry`) |
 | `10.1038/s41598-020-65465-4` | Smith, Nicloux & Brutin, *A new forensic tool to date human blood pools* | `docs/bloodstain-citations.md` (`dry`) |
 | `10.1016/j.forsciint.2011.07.027` | Bremmer et al., *Forensic quest for age determination of bloodstains* | `docs/bloodstain-citations.md` (`dry::SRGB_*`) |
+| `10.1371/journal.pone.0021845` | Bremmer et al., *Biphasic oxidation of oxy-hemoglobin in bloodstains*, PLoS ONE 6 (2011) | `docs/research/dry-blood.md` (the colour walk's early, fast phase: `flesh::AGE_KNOT`) |
 
 ## Droplet ballistics, impact and bloodstain pattern analysis
 
