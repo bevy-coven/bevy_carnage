@@ -101,6 +101,19 @@ pub const CONE_MAX_SEMI: f32 = 4.0;
 /// be drawn as nothing: measured, the peak of the smoothed field is under the edge below a radius of 0.6.
 pub const CONE_MIN_SEMI: f32 = 0.7;
 
+/// **The film a stain keeps once the substrate has had its share**, of 255: `33`. A drying drop or pool is pinned to the surface
+/// and loses height, not area (Smith, Nicloux & Brutin 2020, `doi:10.1038/s41598-020-65465-4`: "the pool is pinned to the surface
+/// and the liquid phase evaporates at the surface. The volume loss corresponds then to a decrease in height"), but the soak
+/// ([`WetSettings::absorbency`](crate::wetmap::WetSettings::absorbency)) took up to 38 bytes from every texel, which was a spatter
+/// drop's whole film: a drop of a texel and a half's radius was gone once dry, and the rest shrank from the rim. A wet texel is now
+/// soaked down to this level and no lower, and a texel already under it not at all.
+///
+/// **Tuned, and says so**: [`DETAIL_EDGE`] (10 of 255) plus one [`CONE_SLOPE`] step (23), the least a texel holds and still keeps
+/// a cone's ring where it was drawn. Every texel of a cone is within one step of its neighbours, so levelling its inside to this
+/// moves the 4 % contour by under a tenth of a texel and makes no difference of 25 for the spread pass to creep on
+/// (`docs/research/dry-blood.md`). A pool's 255 still goes to `255 − 38`; only what was thin stops dissolving.
+pub const STAIN_FLOOR: u8 = 33;
+
 /// **How much a cone is drawn past its stain's edge to make up for the B-spline**: `0.15 · (1.85 − r)²` texels for a
 /// semi-axis `r` under `1.85`. The spline smooths a cone's rim a little inward, and the loss falls with the radius;
 /// the numbers are a fit to the drawn radius, measured over 16 offsets each of radii from 0.7 to 2.4 texels
@@ -1536,7 +1549,9 @@ impl WetCanvas {
                     }
                     let by = |age: u16| self.absorbed.get((age as usize).min(top)).copied().unwrap_or(0);
                     let taken = by(new_age).saturating_sub(by(age));
-                    let new_amount = amount.saturating_sub(taken);
+                    // **The substrate takes the film above a stain and leaves the stain**: a texel goes no lower than
+                    // `STAIN_FLOOR`, and one already under it loses nothing. A drying drop loses height, not area.
+                    let new_amount = amount.saturating_sub(taken).max(amount.min(STAIN_FLOOR));
                     *cell = (new_amount, if new_amount == 0 { 0 } else { new_age });
                 }
             }
@@ -2542,7 +2557,7 @@ mod tests {
                         continue;
                     }
                     let taken = s.absorbed_by(new_age as u32).saturating_sub(s.absorbed_by(age as u32));
-                    let new_amount = amount.saturating_sub(taken.min(255) as u8);
+                    let new_amount = amount.saturating_sub(taken.min(255) as u8).max(amount.min(STAIN_FLOOR));
                     *cell = (new_amount, if new_amount == 0 { 0 } else { new_age });
                 }
             }
