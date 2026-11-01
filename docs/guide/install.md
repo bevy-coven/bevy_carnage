@@ -9,7 +9,7 @@ bevy_carnage = "0.8"
 
 Requires **Bevy 0.20** and a Rust toolchain with **edition 2024**. That one line brings the whole family: `bevy_carnage::blood` (the material), `::wetmap`, `::viscera`, `::cross_section`, `::flaymap`, `::laceration` and `::fracture_modes` are the seven sibling crates re-exported whole, so nothing has to be named twice and no two versions of a leaf can meet in one graph.
 
-`0.7` is on crates.io. The release before it, `0.5.18`, is a Bevy 0.19 crate; a Bevy 0.19 project stays on `"0.5"`. To follow the repository instead of a release: `bevy_carnage = { git = "https://github.com/bevy-coven/bevy_carnage" }`.
+`0.8` is on crates.io. The last release before `0.7.0`, `0.5.18`, is a Bevy 0.19 crate; a Bevy 0.19 project stays on `"0.5"`. To follow the repository instead of a release: `bevy_carnage = { git = "https://github.com/bevy-coven/bevy_carnage" }`.
 
 | feature | default | what it does |
 |---|---|---|

@@ -882,7 +882,10 @@ the bare texels, the spans), each measured; stopped because the next levers move
 **Assumed decisions (owner may override)**: (1) the cost item stays exact: a sample budget or a resolution-aware spine count would move
 pixels and every digest, and `tests/wetmap.rs` pins four samples at 32 texels, so those are separate items (measured table in the
 note); (2) `RIM_BUCKETS` 32 (16, 32 and 64 cost the same for a big stamp within the host's noise; the table is 10 to 19 us at 32 and 37 at 64);
-(3) no release this pass: `v0.8.0` was tagged at 16:23 CDT, the six-hour rule holds, and an exact cost change needs no version of its own.
+(3) a PATCH release, `0.8.1`, this pass: the prompt this pass started under limited releases to one in six hours (`v0.8.0` was tagged at 16:23 CDT), but the owner
+pushed `0c5109c` to `main` at 19:26 CDT, replacing that limit ("every pass that changed the package releases it ... there is no time limit between releases"), so the
+later word was followed; the change is exact and non-breaking (`cargo semver-checks`, 202 checks pass, "no semver update required"). **Demo (`demo?`)**: none: the change
+is not visible (all 6 480 recorder frames are byte-identical to 0.8.0's), so there is no GIF to cut and `docs/media/` is unchanged.
 
 **Found, not fixed.** (1) The first stamp in a process costs 1.5 ms (cold: not investigated). (2) `drip` is untouched (about 20 ns a covered
 texel, the next largest pass). (3) The `hit_tick_cost` scene piles 45 hits on one wall: a realistic single heavy hit is 9 to 16 ms

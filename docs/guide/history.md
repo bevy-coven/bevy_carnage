@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.8.0` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.8.1` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.8.1` changed: a wounded scene costs the caller about two fifths less a tick
+
+- **The same bytes in fewer instructions.** A heavy wound facing a wall took 28 ms of one tick and the blood it left kept the scene at 26 ms a tick while it was wet; the stamp's spines, the canvases' shading, spread and soak, and what a tick covers (a spray's own blood, not the tiles it fell in) are cheaper now, each held to its definition by a test. The tick after the last hit of a bullet scene went from 4.8 to 2.8 ms and of a heavy wound facing a wall from 26.5 to 15.4; the hit tick of the heavy wound from 28.5 to 18.7. Nothing a caller sees moves: every recorder digest and all 6 480 recorder frames are `0.8.0`'s. No API change. `docs/research/wet-tick-cost.md` has the measurements and what is left.
 
 ### What `0.8.0` changed: a floor takes a wound's spray as drops
 

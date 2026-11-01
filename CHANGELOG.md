@@ -6,6 +6,8 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-31
+
 ### Changed
 
 - **A wounded scene costs the caller about two fifths less a tick, with every byte unchanged** (iteration 7, AG-146,
