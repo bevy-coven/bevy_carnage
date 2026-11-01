@@ -322,7 +322,7 @@ pub(crate) fn value_noise(x: f32, y: f32, tile: f32, seed: u32) -> f32 {
 
 /// Worley (cellular) noise: distances to the nearest and second-nearest feature points, in cell
 /// units, periodic along `y` with period `tile` cells.
-fn worley(x: f32, y: f32, tile: f32, seed: u32) -> (f32, f32) {
+pub(crate) fn worley(x: f32, y: f32, tile: f32, seed: u32) -> (f32, f32) {
     let py = tile.round().max(1.0) as i32;
     let (cx, cy) = (x.floor() as i32, y.floor() as i32);
     let mut f1 = f32::INFINITY;
