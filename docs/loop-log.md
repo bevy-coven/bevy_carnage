@@ -932,7 +932,7 @@ was made (the baseline built into the shared cache). Left, not mine and not dele
 pixels, (2) the wall stipple's look beside Ref 1, (3) `digest=` for a body that breaks, (4) `#[non_exhaustive]` on the error enums,
 (5) the horror-film items (no ImageMagick on this host; a Pillow venv stood in). Picked (2), and it turned out to contain (1): what
 looked like "the floor's texel" (iteration 6) and "the shader's edge on a few texels" (iteration 7) was **the canvas's own data**,
-and the fix is a CPU primitive that is also five to ten times cheaper than the stamp it replaces for a small drop. Not a shader
+and the fix is a CPU primitive that is also far cheaper than the stamp it replaces for a small drop (a throwaway test, 20 000 drops on a 512 canvas: a cone 0.6 µs at a radius of 0.7 texel, 2.3 at 1.5, 2.5 at 3; a stamp of 4 and 8 texels with 24 spines and 24 satellites, 25 and 32). Not a shader
 change, so no WebGL2 re-check: `flesh.wesl` and `flesh_prepass.wesl` are byte for byte as they were.
 
 **What was measured before any change** (`docs/research/drop-edge.md`; a scratch dump of the floor's CPU canvas from
@@ -1019,8 +1019,8 @@ a 3 m wall; the resolution is the caller's. (5) `paint_speck` is public and unus
 
 ### Ranked backlog for iteration 9
 
-1. **The spray as a whole** (the NOT YET above): a mist for walls and skins (a cone is a few microseconds, so 90 drops a wound is about a third of
-   a millisecond; today `floor_mist` is the floor's alone and `a_wall_and_a_skin_take_no_mist` pins it, so a *separate* dial), a power-law size draw
+1. **The spray as a whole** (the NOT YET above): a mist for walls and skins (a cone is 0.6 to 2.5 µs, so 90 drops a wound is about 0.2 ms, before the
+   cast that finds them a surface; today `floor_mist` is the floor's alone and `a_wall_and_a_skin_take_no_mist` pins it, so a *separate* dial), a power-law size draw
    for the mist (the leaf's is uniform in diameter and frozen by `the_spatter_model_is_frozen`, so a preset-side draw or a `BloodSettings` field, the
    owner's word), and a tail on an oblique impact (the exclamation mark). Target: p90/p50 towards Ref 1's 3.75.
 2. **A dried drop keeps its footprint** (found-not-fixed 1): the substrate's cut should darken and thin a film, not erase its rim; it changes `advance`,
