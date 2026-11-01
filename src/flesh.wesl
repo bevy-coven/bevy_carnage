@@ -33,9 +33,10 @@ struct FleshParams {
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(100) var<uniform> flesh: FleshParams;
-// Both tables in one image (`flesh::luts`): the subsurface table in its top-left corner, the blood
-// table in its last four rows. One image because every texture here counts against the sixteen a stage
-// may sample on WebGL2, and a camera's environment map takes two more.
+// All the tables in one image (`flesh::luts`): the subsurface table in its top-left corner, the blood
+// table in the four rows after it and the same blood aged to two stops of its colour walk in the last eight.
+// One image because every texture here counts against the sixteen a stage may sample on WebGL2, and a
+// camera's environment map takes two more.
 @group(constants::MATERIAL_BIND_GROUP) @binding(101) var flesh_luts: texture_2d<f32>;
 // One sampler for all four: linear, clamped, level zero — see `FleshExtension`.
 @group(constants::MATERIAL_BIND_GROUP) @binding(102) var flesh_sampler: sampler;
@@ -52,10 +53,14 @@ const FLAG_FLAY: u32 = 2u;
 const FLAG_DERMIS: u32 = 4u;
 const SSS_ROWS: f32 = 16.0;
 const SSS_COLS: f32 = 64.0;
-// The packed tables' size, and the row the blood table starts at: `flesh::LUTS_WIDTH`, `LUTS_HEIGHT`.
+// The packed tables' size, and the rows the blood tables start at: `flesh::LUTS_WIDTH`, `LUTS_HEIGHT`.
+// `BLOOD_AGED_ROW0` is the aged table: four rows at the methaemoglobin stop, then four at the end (hemichrome).
 const LUTS_W: f32 = 256.0;
-const LUTS_H: f32 = 84.0;
+const LUTS_H: f32 = 92.0;
 const BLOOD_ROW0: f32 = 80.0;
+const BLOOD_AGED_ROW0: f32 = 84.0;
+// How far through its drying a film is at the first aged stop: `flesh::AGE_KNOT`.
+const AGE_KNOT: f32 = 0.35;
 const LAYERS: f32 = 5.0;
 const SSS_MIN_RADIUS_MM: f32 = 0.5;
 const SSS_MAX_RADIUS_MM: f32 = 64.0;
@@ -168,28 +173,72 @@ fn wrap_diffuse(layer: f32, ndotl: f32, radius_mm: f32) -> vec3<f32> {
     return textureSampleLevel(flesh_luts, flesh_sampler, vec2<f32>(x / LUTS_W, y / LUTS_H), 0.0).rgb;
 }
 
-// One row `r` of the blood table at film fraction `u`, decoded from the sRGB its bytes are written in:
-// the packed image is `Rgba8Unorm`, so the decode an `Rgba8UnormSrgb` image did in hardware is done
-// here.
-fn blood_row(u: f32, r: f32) -> vec3<f32> {
+// One row of the packed image at film fraction `u`, still in the sRGB its bytes are written in: the packed image is
+// `Rgba8Unorm`, so the decode an `Rgba8UnormSrgb` image did in hardware is done in `srgb_to_linear`.
+fn blood_row_encoded(u: f32, row: f32) -> vec3<f32> {
     let x = clamp(u * LUTS_W, 0.5, LUTS_W - 0.5);
-    let e = textureSampleLevel(flesh_luts, flesh_sampler, vec2<f32>(x / LUTS_W, (BLOOD_ROW0 + r + 0.5) / LUTS_H), 0.0).rgb;
+    return textureSampleLevel(flesh_luts, flesh_sampler, vec2<f32>(x / LUTS_W, (row + 0.5) / LUTS_H), 0.0).rgb;
+}
+
+fn srgb_to_linear(e: vec3<f32>) -> vec3<f32> {
     return select(pow((e + 0.055) / 1.055, vec3<f32>(2.4)), e / 12.92, e <= vec3<f32>(0.04045));
 }
 
+// **One row `r` of the blood table at film fraction `u`, `dried` of the way through its colour walk** (`0` fresh, `1`
+// dry), decoded. The walk is `bloodstain::dry::appearance_with_fresh`'s: fresh to the methaemoglobin stop by `AGE_KNOT`, on
+// to hemichrome at the end, interpolated in encoded sRGB between the table's rows and the aged table's, as the CPU
+// interpolates it. Fresh blood takes the first branch and is the colour it always was, to the bit.
+fn blood_row(u: f32, r: f32, dried: f32) -> vec3<f32> {
+    if dried <= 0.0 {
+        return srgb_to_linear(blood_row_encoded(u, BLOOD_ROW0 + r));
+    }
+    let early = dried < AGE_KNOT;
+    let row_a = select(BLOOD_AGED_ROW0 + r, BLOOD_ROW0 + r, early);
+    let row_b = select(BLOOD_AGED_ROW0 + 4.0 + r, BLOOD_AGED_ROW0 + r, early);
+    let f = select((dried - AGE_KNOT) / (1.0 - AGE_KNOT), dried / AGE_KNOT, early);
+    return srgb_to_linear(mix(blood_row_encoded(u, row_a), blood_row_encoded(u, row_b), clamp(f, 0.0, 1.0)));
+}
+
 // The film's reflectance over `base`, from the black/white rows of the blood table, interpolated by
-// the base per channel. Row pairs: arterial (0, 1), venous (2, 3); the saturation dial picks a mix.
-fn blood_over(base: vec3<f32>, depth_mm: f32) -> vec3<f32> {
+// the base per channel, `dried` of the way through its colour walk. Row pairs: arterial (0, 1), venous (2, 3); the
+// saturation dial picks a mix.
+fn blood_over(base: vec3<f32>, depth_mm: f32, dried: f32) -> vec3<f32> {
     let u = clamp(depth_mm / BLOOD_LUT_MAX_MM, 0.0, 1.0);
-    let art_black = blood_row(u, 0.0);
-    let art_white = blood_row(u, 1.0);
-    let ven_black = blood_row(u, 2.0);
-    let ven_white = blood_row(u, 3.0);
+    let art_black = blood_row(u, 0.0, dried);
+    let art_white = blood_row(u, 1.0, dried);
+    let ven_black = blood_row(u, 2.0, dried);
+    let ven_white = blood_row(u, 3.0, dried);
     // `wet.w` is SO₂; venous 0.75 → 0, arterial 0.97 → 1.
     let a = clamp((flesh.wet.w - 0.75) / 0.22, 0.0, 1.0);
     let black = mix(ven_black, art_black, a);
     let white = mix(ven_white, art_white, a);
     return black + (white - black) * base;
+}
+
+// **How dry the blood a fragment is on is**, `0` fresh to `1` dry: one minus the wetness byte, averaged over the texels the
+// wet map's spline reads (the four by four round the fragment, by the spline's own weights) **that have blood in them**, read at
+// the texels and not through the spline. The spline's own wetness falls to zero at the rim of every drop, where the bare
+// texels beside it carry none, which would draw a brown ring on every fresh one; weighting by "has blood" is the
+// drop's own age out to the edge it is drawn to, and is smooth where two ages meet. A dried texel has blood and no wetness,
+// so it counts as dry. Anything drawn has blood in the spline's support, so the weight is never zero for it.
+fn blood_dried(uv: vec2<f32>) -> f32 {
+    let dims = vec2<i32>(textureDimensions(wet_map));
+    let p = uv * vec2<f32>(dims) - 0.5;
+    let f = fract(p);
+    let at = vec2<i32>(floor(p));
+    let wx = bspline(f.x);
+    let wy = bspline(f.y);
+    var wet = 0.0;
+    var weight = 0.0;
+    for (var dy = 0; dy < 4; dy = dy + 1) {
+        for (var dx = 0; dx < 4; dx = dx + 1) {
+            let t = textureLoad(wet_map, clamp(at + vec2<i32>(dx - 1, dy - 1), vec2<i32>(0), dims - vec2<i32>(1)), 0);
+            let w = wx[dx] * wy[dy] * select(0.0, 1.0, t.r > 0.0);
+            wet = wet + w * t.a;
+            weight = weight + w;
+        }
+    }
+    return 1.0 - wet / max(weight, 1.0e-6);
 }
 
 // **The normal of a surface lifted above the one at `N`**, given how fast the lift changes across the
@@ -258,6 +307,7 @@ fn fragment(
     // ---- The canvases: what is wet, what is peeled. ------------------------------------------
     var amount = 0.0;      // film depth byte, 0..1
     var wetness = 0.0;     // fresh 1 → dry 0
+    var dried = 0.0;       // the blood's own age: fresh 0 → dry 1
     var depth_frac = 0.0;  // depth over the layer span
     var peeled = 0.0;      // 1 where the skin is gone
     var film_n = pbr_input.N;            // the normal of a film's own surface
@@ -274,6 +324,9 @@ fn fragment(
         let aa = max(fwidth(w.r), 1.0e-4);
         amount = w.r * clamp((w.r - WET_EDGE) / aa + 0.5, 0.0, 1.0);
         wetness = w.a;
+        if amount > 0.0 {
+            dried = blood_dried(in.uv);
+        }
 @if(!PREPASS_PIPELINE) {
         // **A film has a surface.** Its depth, smooth to its second derivative, is a height above
         // what it lies on, and that height tilts the normal: a pool's edge curves down to the floor
@@ -396,7 +449,7 @@ fn fragment(
         // How wet it shines: a half where a cap's rim film lies, a little on a graze, all of it deep.
         let shine = mix(2.0 * rim, 1.0, thick) * exposed;
         let tissue = pbr_input.material.base_color.rgb;
-        pbr_input.material.base_color = vec4<f32>(mix(tissue, blood_over(tissue, film_mm), exposed), pbr_input.material.base_color.a);
+        pbr_input.material.base_color = vec4<f32>(mix(tissue, blood_over(tissue, film_mm, 0.0), exposed), pbr_input.material.base_color.a);
         pbr_input.material.perceptual_roughness = mix(pbr_input.material.perceptual_roughness, 0.45, shine);
         cut_coat = flesh.wet.x * shine;
     }
@@ -421,7 +474,7 @@ fn fragment(
     if amount > 0.0 {
         let depth_mm = amount * flesh.wet.z;
         let base = pbr_input.material.base_color.rgb;
-        pbr_input.material.base_color = vec4<f32>(blood_over(base, depth_mm), pbr_input.material.base_color.a);
+        pbr_input.material.base_color = vec4<f32>(blood_over(base, depth_mm, dried), pbr_input.material.base_color.a);
         // A wet film smooths whatever it lies on; a dried one is matte again.
         pbr_input.material.perceptual_roughness = mix(pbr_input.material.perceptual_roughness, wet_rough, wetness * pool);
         pbr_input.N = film_n;
