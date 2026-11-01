@@ -1,6 +1,6 @@
 # Where bevy_carnage_loop's time goes
 
-Written by `tools/loop/steps.py publish` after every pass; the rows are in [`bevy_carnage_loop.tsv`](bevy_carnage_loop.tsv). Updated 2026-11-01 00:31Z.
+Written by `tools/loop/steps.py publish` after every pass; the rows are in [`bevy_carnage_loop.tsv`](bevy_carnage_loop.tsv). Updated 2026-11-01 03:13Z.
 
 ## What the last passes shipped
 
@@ -13,27 +13,27 @@ From [`bevy_carnage_loop-audit.tsv`](bevy_carnage_loop-audit.tsv): commits on ma
 ## The last 12 passes
 
 ```text
-12 pass(es), 2434 steps, 22.2 h of pass time
+12 pass(es), 3636 steps, 28.2 h of pass time
 
 category                       hours  share  steps  mean s
-wait: gate                      7.67  34.5%     26  1061.3
-wait: build                     4.94  22.2%     32   556.2
-wait: tests                     2.56  11.5%     25   368.7
-model                           2.52  11.3%   1088     8.4
-wait: other                     2.47  11.1%     23   385.8
-shell                           0.64   2.9%    367     6.3
-wait: clip                      0.64   2.9%      9   254.1
-cargo test                      0.20   0.9%     49    14.9
-wait: release                   0.20   0.9%      2   360.4
-cargo build                     0.11   0.5%     26    14.7
-edit files                      0.05   0.2%    228     0.8
-web                             0.04   0.2%     12    12.8
-remote wait                     0.04   0.2%      7    18.5
-eval                            0.03   0.2%     21     5.9
-git                             0.03   0.2%     74     1.7
+wait: gate                      8.78  31.1%     30  1054.1
+wait: build                     6.00  21.3%     47   459.7
+model                           4.05  14.3%   1651     8.8
+wait: other                     3.33  11.8%     41   292.5
+wait: tests                     2.80   9.9%     38   265.4
+shell                           1.02   3.6%    548     6.7
+wait: clip                      0.80   2.8%     14   204.8
+cargo test                      0.61   2.2%     89    24.6
+wait: release                   0.23   0.8%      3   275.3
+cargo build                     0.18   0.6%     41    15.7
+remote wait                     0.09   0.3%     12    26.2
+edit files                      0.07   0.2%    340     0.7
+web                             0.05   0.2%     16    11.6
+git                             0.05   0.2%     96     1.8
+push gate                       0.04   0.1%     24     5.6
 
 phase                          hours  share  steps  mean s
-orient                         22.25 100.0%   2418    33.1
+orient                         28.24 100.0%   3615    28.1
 
 slowest single steps
   pass   12    1862s  tool  wait: gate           Waiting for merged-tree gate
@@ -56,27 +56,27 @@ slowest single steps
 ## Every pass recorded
 
 ```text
-13 pass(es), 2537 steps, 26.3 h of pass time
+15 pass(es), 3741 steps, 32.3 h of pass time
 
 category                       hours  share  steps  mean s
-wait: build                     8.92  33.9%     40   802.5
-wait: gate                      7.67  29.1%     26  1061.3
-model                           2.61   9.9%   1137     8.3
-wait: tests                     2.56   9.7%     25   368.7
-wait: other                     2.47   9.4%     23   385.8
-shell                           0.65   2.5%    376     6.2
-wait: clip                      0.64   2.4%      9   254.1
-cargo test                      0.20   0.8%     49    14.9
-wait: release                   0.20   0.8%      2   360.4
-cargo build                     0.11   0.4%     28    13.6
-edit files                      0.06   0.2%    235     0.9
-web                             0.04   0.2%     12    12.8
-remote wait                     0.04   0.1%      7    18.5
-eval                            0.03   0.1%     21     5.9
-git                             0.03   0.1%     75     1.6
+wait: build                     9.97  30.9%     55   652.9
+wait: gate                      8.78  27.2%     30  1054.1
+model                           4.14  12.8%   1702     8.8
+wait: other                     3.33  10.3%     41   292.5
+wait: tests                     2.80   8.7%     38   265.4
+shell                           1.02   3.2%    557     6.6
+wait: clip                      0.80   2.5%     14   204.8
+cargo test                      0.61   1.9%     89    24.6
+wait: release                   0.23   0.7%      3   275.3
+cargo build                     0.18   0.6%     43    15.0
+remote wait                     0.09   0.3%     12    26.2
+edit files                      0.08   0.2%    347     0.8
+web                             0.05   0.2%     16    11.6
+git                             0.05   0.1%     97     1.7
+push gate                       0.04   0.1%     24     5.6
 
 phase                          hours  share  steps  mean s
-orient                         26.33 100.0%   2521    37.6
+orient                         32.32 100.0%   3720    31.3
 
 slowest single steps
   pass   12    1862s  tool  wait: gate           Waiting for merged-tree gate

@@ -2536,3 +2536,1207 @@ pass	seq	phase	kind	category	tool	start	seconds	detail
 13	759	orient	model	model		2026-10-31T21:08:30Z	8.8	
 13	760	orient	tool	shell	bash	2026-10-31T21:08:39Z	0.0	[launched bg_41] Running cargo semver-checks against 0.7.0 :: cd /Users/ladvien/bevy_carnage_loop && CARGO_TARGET_DIR=/tmp/c6/semver-target cargo semver-checks check-release --baseline-version 0.7.0 --only-explicit-feature
 13	761	orient	model	model		2026-10-31T21:08:39Z	6.9	
+13	762	orient	tool	wait: other	wait	2026-10-31T21:08:46Z	746.6	Waiting for semver-checks
+13	763	orient	model	model		2026-10-31T21:21:12Z	18.2	
+13	764	orient	tool	shell	bash	2026-10-31T21:21:31Z	0.0	cd /Users/ladvien/bevy_carnage_loop && sed -n 5,9p docs/guide/history.md | cut -c1-700; sed -n 36,45p CHANGELOG.md | cut -c1-120; grep -n "^## \[" CHANGELOG.md 
+13	765	orient	model	model		2026-10-31T21:21:31Z	8.1	
+13	766	orient	tool	cargo build	bash	2026-10-31T21:21:39Z	49.8	cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' import re # CHANGELOG p='CHANGELOG.md' s=open(p).read() assert "## [Unreleased]\n" in s s=s.replace("##
+13	767	orient	model	model		2026-10-31T21:22:29Z	5.0	
+13	768	orient	tool	cargo test	bash	2026-10-31T21:22:34Z	0.0	[launched bg_42] cd /Users/ladvien/bevy_carnage_loop && cargo test --test readme --test leaf --test qa_roster 2>&1 | grep -E "^error|test result|FAILED|panicked" | head; git add
+13	769	orient	model	model		2026-10-31T21:22:34Z	1.7	
+13	770	orient	tool	wait: release	wait	2026-10-31T21:22:35Z	105.0	Waiting for release checks and dry run
+13	771	orient	model	model		2026-10-31T21:24:20Z	12.0	
+13	772	orient	tool	cargo publish	bash	2026-10-31T21:24:32Z	17.4	cd /Users/ladvien/bevy_carnage_loop && cargo publish 2>&1 | tail -6
+13	773	orient	model	model		2026-10-31T21:24:50Z	2.3	
+13	774	orient	tool	push gate	bash	2026-10-31T21:24:52Z	4.3	cd /Users/ladvien/bevy_carnage_loop && git tag -a v0.8.0 -m v0.8.0 && git push origin main 2>&1 | tail -1 && git push origin v0.8.0 2>&1 | tail -1 && cargo info
+13	775	orient	model	model		2026-10-31T21:24:56Z	4.1	
+13	776	orient	tool	shell	bash	2026-10-31T21:25:01Z	0.4	curl -s -m 20 -A 'bevy_carnage-loop (release check)' https://crates.io/api/v1/crates/bevy_carnage/0.8.0 | python3 -c "import json,sys; d=json.load(sys.stdin); v
+13	777	orient	model	model		2026-10-31T21:25:01Z	8.4	
+13	778	orient	tool	shell	bash	2026-10-31T21:25:09Z	2.9	df -h /tmp | tail -1; du -sh /tmp/c6 /Users/ladvien/target/bevy_carnage-loop/package 2>/dev/null; ls -d /tmp/c* /tmp/b2* 2>/dev/null | head -20; cd /Users/ladvi
+13	779	orient	model	model		2026-10-31T21:25:12Z	5.9	
+13	780	orient	tool	shell	bash	2026-10-31T21:25:18Z	10.2	rm -rf /tmp/c6 /Users/ladvien/target/bevy_carnage-loop/package && df -h /tmp | tail -1; ls /tmp/c6 2>&1 | head -1
+13	781	orient	model	model		2026-10-31T21:25:28Z	9.3	
+13	782	orient	tool	push gate	bash	2026-10-31T21:25:38Z	2.9	cd /Users/ladvien/bevy_carnage_loop && cat >> docs/loop-log.md <<'EOF' **Merged tree and release.** Merged `loop/iter-6` into `main` (`423556a`, `--no-ff`) and 
+13	783	orient	model	model		2026-10-31T21:25:41Z	13.8	
+13	784	orient	tool	learn	learn	2026-10-31T21:25:54Z	0.0	Recording durable lessons from this iteration
+13	785	orient	tool	todo	todo	2026-10-31T21:25:54Z	0.0	All phases complete
+13	786	orient	model	model		2026-10-31T21:25:54Z	3.1	
+13	787	orient	tool	todo	todo	2026-10-31T21:25:58Z	0.0	Done
+13	788	orient	tool	todo	todo	2026-10-31T21:25:58Z	0.0	Done
+13	789	orient	tool	todo	todo	2026-10-31T21:25:58Z	0.0	Done
+13	790	orient	tool	todo	todo	2026-10-31T21:25:58Z	0.0	Done
+13	791	orient	model	model		2026-10-31T21:25:58Z	26.0	
+14	1	orient	model	model		2026-10-31T21:26:54Z	3.6	
+14	2	orient	tool	read files	read	2026-10-31T21:26:57Z	0.0	Reading memory summary :: memory://root/memory_summary.md
+14	3	orient	tool	git	bash	2026-10-31T21:26:57Z	1.0	Checking repo state :: cd /Users/ladvien/bevy_carnage_loop && git status --short | head -20; git branch --show-current; git log --oneline -n 15; git branch --list 'wiggum/parked-*' 'l
+14	4	orient	model	model		2026-10-31T21:26:58Z	3.3	
+14	5	orient	tool	shell	bash	2026-10-31T21:27:02Z	0.7	Dates and log headings :: cd /Users/ladvien/bevy_carnage_loop && date; date -u; grep -n '^## Iteration' docs/loop-log.md | tail -12; git log -1 --format='%ci %h' v0.8.0; git tag | tail -
+14	6	orient	model	model		2026-10-31T21:27:02Z	1.2	
+14	7	orient	tool	read files	read	2026-10-31T21:27:03Z	0.1	Reading iteration 6 log :: docs/loop-log.md:658-796
+14	8	orient	model	model		2026-10-31T21:27:03Z	6.2	
+14	9	orient	tool	github	bash	2026-10-31T21:27:10Z	1.4	Triage open issues and parked work :: cd /Users/ladvien/bevy_carnage_loop && gh issue list --repo bevy-coven/bevy_carnage --state open --limit 100 --json number,title,labels,createdAt --jq '.[] | "#
+14	10	orient	model	model		2026-10-31T21:27:11Z	8.8	
+14	11	orient	tool	shell	bash	2026-10-31T21:27:20Z	0.0	Survey layout and env :: cd /Users/ladvien/bevy_carnage_loop && echo "CTD=$CARGO_TARGET_DIR"; ls; ls src src/* | head -80; wc -l src/*.rs | sort -n | tail -20; ls /tmp | head -50
+14	12	orient	model	model		2026-10-31T21:27:20Z	5.4	
+14	13	orient	tool	cargo build	bash	2026-10-31T21:27:25Z	0.0	[launched bg_1] Building release examples baseline :: mkdir -p /tmp/c7/before /tmp/c7/after /tmp/c7/refs /tmp/c7/bin_before && cd /Users/ladvien/bevy_carnage_loop && git rev-parse HEAD > /tmp/c7/base_sha.txt && cat
+14	14	orient	tool	search	grep	2026-10-31T21:27:25Z	0.2	Locating the stamp rasteriser :: src
+14	15	orient	model	model		2026-10-31T21:27:25Z	3.9	
+14	16	orient	tool	read files	read	2026-10-31T21:27:29Z	0.0	Reading rasterise :: src/bloodstain/stain.rs:100-440
+14	17	orient	model	model		2026-10-31T21:27:29Z	6.5	
+14	18	orient	tool	search	grep	2026-10-31T21:27:36Z	0.0	Finding the stamp pipeline in the canvas :: src/wetmap/canvas.rs
+14	19	orient	model	model		2026-10-31T21:27:36Z	1.6	
+14	20	orient	tool	read files	read	2026-10-31T21:27:38Z	0.1	Reading stamp() :: src/wetmap/canvas.rs:700-810
+14	21	orient	tool	read files	read	2026-10-31T21:27:38Z	0.1	Reading throw_spray :: src/preset.rs:2940:+200
+14	22	orient	model	model		2026-10-31T21:27:38Z	4.2	
+14	23	orient	tool	read files	read	2026-10-31T21:27:42Z	0.2	Reading throw_spray :: src/preset.rs:2930-3200
+14	24	orient	model	model		2026-10-31T21:27:42Z	5.5	
+14	25	orient	tool	read files	read	2026-10-31T21:27:47Z	0.0	Reading hit_tick_cost test :: src/preset.rs:7195:+140
+14	26	orient	model	model		2026-10-31T21:27:47Z	2.1	
+14	27	orient	tool	read files	read	2026-10-31T21:27:50Z	0.1	Reading hit_tick_cost test :: src/preset.rs:7195-7264
+14	28	orient	tool	search	grep	2026-10-31T21:27:50Z	0.1	Finding mask_px, edge_span, paint_drop :: src
+14	29	orient	model	model		2026-10-31T21:27:50Z	27.0	
+14	30	orient	tool	read files	read	2026-10-31T21:28:17Z	0.0	Reading system_status device doc :: xd://mcp__home_still_system_status
+14	31	orient	model	model		2026-10-31T21:28:17Z	1.8	
+14	32	orient	tool	edit files	write	2026-10-31T21:28:19Z	12.5	Preflight home-still status :: xd://mcp__home_still_system_status
+14	33	orient	tool	edit files	write	2026-10-31T21:28:31Z	7.3	Scanning corpus for new sources :: xd://mcp__home_still_catalog_recent
+14	34	orient	model	model		2026-10-31T21:28:38Z	24.9	
+14	35	orient	tool	shell	bash	2026-10-31T21:29:03Z	0.1	Checking libm usage :: cd /Users/ladvien/bevy_carnage_loop && cat src/bloodstain/mod.rs | grep -n "mod m\b\|pub mod m\|mod m " ; ls src/bloodstain; grep -n "libm" Cargo.toml; ls ~/.ca
+14	36	orient	model	model		2026-10-31T21:29:03Z	2.2	
+14	37	orient	tool	read files	read	2026-10-31T21:29:06Z	0.0	Reading the m math module :: src/bloodstain/mod.rs:40-130
+14	38	orient	tool	shell	bash	2026-10-31T21:29:06Z	0.0	Checking libm sqrtf implementation :: cd /Users/ladvien/bevy_carnage_loop && grep -n 'name = "libm"' -A2 Cargo.lock; cat ~/.cargo/registry/src/index.crates.io-*/libm-0.2.16/src/math/sqrtf.rs | head 
+14	39	orient	model	model		2026-10-31T21:29:06Z	2.3	
+14	40	orient	tool	shell	bash	2026-10-31T21:29:08Z	0.0	Inspecting libm sqrtf source :: cd ~/.cargo/registry/src/index.crates.io-*/libm-0.2.16/ && find . -name 'sqrt*' | head; grep -rn "sqrt" src/math/generic/sqrt.rs 2>/dev/null | head -20; grep -n
+14	41	orient	model	model		2026-10-31T21:29:08Z	1.6	
+14	42	orient	tool	shell	bash	2026-10-31T21:29:10Z	0.1	Inspecting libm sqrtf source :: d=$(ls -d ~/.cargo/registry/src/index.crates.io-*/libm-0.2.16); echo $d; find $d -name '*sqrt*'; grep -n "pub fn sqrtf" -B3 -A14 $d/src/math/sqrtf.rs
+14	43	orient	model	model		2026-10-31T21:29:10Z	2.4	
+14	44	orient	tool	shell	bash	2026-10-31T21:29:12Z	0.1	Inspecting sqrtf in libm 0.2.16 :: d=~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libm-0.2.16; grep -n "fn sqrtf" -B3 -A14 $d/src/math/sqrt.rs; grep -n "arch" $d/Cargo.toml | head; ls $
+14	45	orient	model	model		2026-10-31T21:29:12Z	41.0	
+14	46	orient	tool	search	grep	2026-10-31T21:29:53Z	0.0	Finding wall cast constants :: src/preset.rs
+14	47	orient	tool	search	grep	2026-10-31T21:29:53Z	0.1	Finding edge_samples users :: tests;examples;docs/guide;README.md;CHANGELOG.md
+14	48	orient	model	model		2026-10-31T21:29:53Z	4.2	
+14	49	orient	tool	read files	read	2026-10-31T21:29:58Z	0.0	Reading edge_samples test :: tests/wetmap.rs:60-140
+14	50	orient	model	model		2026-10-31T21:29:58Z	10.5	
+14	51	orient	tool	shell	bash	2026-10-31T21:30:08Z	0.1	Surveying research notes :: cd /Users/ladvien/bevy_carnage_loop && ls docs docs/research; grep -n '^## ' docs/research/floor-spatter.md; wc -l docs/research/*.md; tail -40 docs/research/co
+14	52	orient	model	model		2026-10-31T21:30:08Z	8.1	
+14	53	orient	tool	web	web_search	2026-10-31T21:30:16Z	8.5	Searching horror blood spatter wall references :: practical effects blood spatter on wall horror film behind the scenes Evil Dead 2013 blood spray wall
+14	54	orient	tool	shell	bash	2026-10-31T21:30:16Z	8.5	Fetching prior reference stills :: cd /tmp/c7/refs && curl -sL -m 60 -o ref1.jpg 'https://commons.wikimedia.org/wiki/Special:FilePath/Blood_Spatter_Texture_-_FREE.jpg?width=1280' -w '%{http_code}
+14	55	orient	model	model		2026-10-31T21:30:25Z	4.9	
+14	56	orient	tool	read files	read	2026-10-31T21:30:30Z	1.8	Viewing wall spatter reference :: /tmp/c7/refs/ref1.jpg
+14	57	orient	model	model		2026-10-31T21:30:32Z	3.9	
+14	58	orient	tool	wait: build	wait	2026-10-31T21:30:36Z	833.6	Waiting for baseline build
+14	59	orient	model	model		2026-10-31T21:44:29Z	1.9	
+14	60	orient	tool	shell	bash	2026-10-31T21:44:31Z	0.0	Checking baseline build result :: tail -5 /tmp/c7/build_before.log; uptime; ls $CARGO_TARGET_DIR/release/examples | grep -v '\.d$' | head -60
+14	61	orient	model	model		2026-10-31T21:44:31Z	3.5	
+14	62	orient	tool	shell	bash	2026-10-31T21:44:35Z	22.1	Running baseline bench three times :: cd /tmp/c7 && E=$CARGO_TARGET_DIR/release/examples && for b in bench_carnage capture_preset capture_skinned canvas_digest flay_digest dry_timeline rheology stai
+14	63	orient	model	model		2026-10-31T21:44:57Z	3.8	
+14	64	orient	tool	cargo test	bash	2026-10-31T21:45:00Z	60.0	[launched bg_2] Building release lib test binary baseline :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib --no-run 2>&1 | tail -4
+14	65	orient	model	model		2026-10-31T21:46:00Z	4.1	
+14	66	orient	tool	read files	read	2026-10-31T21:46:05Z	0.1	Reading shape_on and paint_drop :: src/preset.rs:1000-1110
+14	67	orient	tool	read files	read	2026-10-31T21:46:05Z	0.1	Reading hard_stain :: src/preset.rs:430-520
+14	68	orient	model	model		2026-10-31T21:46:05Z	7.6	
+14	69	orient	tool	wait: tests	wait	2026-10-31T21:46:12Z	81.9	Waiting for lib test build
+14	70	orient	model	model		2026-10-31T21:47:34Z	2.0	
+14	71	orient	tool	shell	bash	2026-10-31T21:47:36Z	4.6	Running baseline hit_tick_cost :: cp /Users/ladvien/target/bevy_carnage-loop/release/deps/bevy_carnage-9a7343abd6cb32f7 /tmp/c7/bin_before/libtest_before && cd /Users/ladvien/bevy_carnage_loop &
+14	72	orient	model	model		2026-10-31T21:47:41Z	5.5	
+14	73	orient	tool	shell	bash	2026-10-31T21:47:46Z	4.5	Running baseline hit_tick_cost again with all metrics :: cd /Users/ladvien/bevy_carnage_loop && /tmp/c7/bin_before/libtest_before hit_tick_cost --ignored --nocapture 2>&1 | grep -E 'METRIC' | sort | tee /tmp/c7/before
+14	74	orient	model	model		2026-10-31T21:47:51Z	8.8	
+14	75	orient	tool	shell	bash	2026-10-31T21:48:00Z	0.0	Checking profiler availability :: which samply xctrace sample perf flamegraph 2>&1 | head; cd /Users/ladvien/bevy_carnage_loop && grep -n '^\[profile' -A6 Cargo.toml
+14	76	orient	model	model		2026-10-31T21:48:00Z	2.4	
+14	77	orient	tool	shell	bash	2026-10-31T21:48:02Z	2.0	Sampling the baseline hit tick :: cd /Users/ladvien/bevy_carnage_loop && (/tmp/c7/bin_before/libtest_before hit_tick_cost --ignored --nocapture > /tmp/c7/before/prof_run.txt 2>&1 &) ; sleep 0.6;
+14	78	orient	model	model		2026-10-31T21:48:04Z	5.5	
+14	79	orient	tool	sleep	bash	2026-10-31T21:48:10Z	6.4	Sampling baseline hit tick via script :: cd /Users/ladvien/bevy_carnage_loop && cat > /tmp/c7/prof.sh <<'EOF' #!/bin/bash BIN=$1; OUT=$2 $BIN hit_tick_cost --ignored --nocapture > $OUT.run.txt 2>&1 & p
+14	80	orient	model	model		2026-10-31T21:48:16Z	1.2	
+14	81	orient	tool	read files	read	2026-10-31T21:48:17Z	0.1	Reading top-of-stack profile :: /tmp/c7/before/sample.txt:310-360
+14	82	orient	model	model		2026-10-31T21:48:17Z	6.1	
+14	83	orient	tool	shell	bash	2026-10-31T21:48:23Z	0.0	Reading sample header :: sed -n 1,60p /tmp/c7/before/sample.txt | cut -c1-200; grep -n "Thread_\|Total number in stack" /tmp/c7/before/sample.txt | head
+14	84	orient	model	model		2026-10-31T21:48:23Z	5.6	
+14	85	orient	tool	shell	bash	2026-10-31T21:48:29Z	3.6	Resampling baseline from earlier :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's/sleep 1.2/sleep 0.25/; s/sample $pid 3 1/sample $pid 4 1/' /tmp/c7/prof.sh && /tmp/c7/prof.sh /tmp/c7/bin_befor
+14	86	orient	model	model		2026-10-31T21:48:33Z	1.4	
+14	87	orient	tool	shell	bash	2026-10-31T21:48:34Z	0.0	Reading top-of-stack functions :: sed -n 297,340p /tmp/c7/before/sample.txt | cut -c1-220; cat /tmp/c7/before/sample.txt.run.txt | grep median
+14	88	orient	model	model		2026-10-31T21:48:34Z	9.1	
+14	89	orient	tool	shell	bash	2026-10-31T21:48:43Z	0.0	Looking at sampled threads :: cd /tmp/c7/before && grep -n "Thread_" sample.txt | cut -c1-120; grep -c rasterise sample.txt; grep -n "throw_spray\|take_hits" sample.txt | head
+14	90	orient	model	model		2026-10-31T21:48:43Z	5.5	
+14	91	orient	tool	git	bash	2026-10-31T21:48:49Z	0.4	Creating iteration branch :: cd /Users/ladvien/bevy_carnage_loop && git checkout -b loop/iter-7 && git status --short | head
+14	92	orient	tool	read files	read	2026-10-31T21:48:49Z	0.4	Reading mask_px context :: src/wetmap/canvas.rs:1180-1200
+14	93	orient	model	model		2026-10-31T21:48:49Z	5.1	
+14	94	orient	tool	edit files	edit	2026-10-31T21:48:54Z	0.0	Adding temporary stamp probe :: [src/wetmap/canvas.rs#15C1] PUT 731.=733: + let t_ras = std::time::Instant::now(); // PROBE + if !rasterise(shape, fine_px, &mut self.fine) { + return; + } + PR
+14	95	orient	model	model		2026-10-31T21:48:54Z	6.3	
+14	96	orient	tool	edit files	edit	2026-10-31T21:49:00Z	0.0	Adding PROBE static and print :: [src/wetmap/canvas.rs#8FF0] PUT <18: +/// PROBE: temporary stamp counters. +pub static PROBE: [std::sync::atomic::AtomicU64; 6] = [const { std::sync::atomic::At
+14	97	orient	tool	edit files	edit	2026-10-31T21:49:00Z	0.0	Printing probe in hit_tick_cost :: [src/preset.rs#3919] PUT 7254.=7254: + let probe = |i: usize| crate::wetmap::canvas::PROBE[i].swap(0, std::sync::atomic::Ordering::Relaxed); // PROBE + let (ras
+14	98	orient	model	model		2026-10-31T21:49:00Z	4.8	
+14	99	orient	tool	cargo test	bash	2026-10-31T21:49:05Z	60.0	[launched bg_3] Building probe lib test :: cd /Users/ladvien/bevy_carnage_loop && grep -n "mod canvas" src/wetmap/mod.rs && sed -i 's/^mod canvas;/pub(crate) mod canvas;/' src/wetmap/mod.rs && grep -n "m
+14	100	orient	model	model		2026-10-31T21:50:05Z	7.4	
+14	101	orient	tool	read files	read	2026-10-31T21:50:13Z	0.0	Reading distill_search schema :: xd://mcp__home_still_distill_search
+14	102	orient	model	model		2026-10-31T21:50:13Z	3.0	
+14	103	orient	tool	edit files	write	2026-10-31T21:50:16Z	4.7	Searching corpus for adaptive supersampling :: xd://mcp__home_still_distill_search
+14	104	orient	tool	edit files	write	2026-10-31T21:50:20Z	0.5	Searching corpus for stain spine physics :: xd://mcp__home_still_distill_search
+14	105	orient	bg	shell	bash	2026-10-31T21:49:06Z	74.8	bg_3 completed: grep -n "mod canvas" src/wetmap/mod.rs && sed -i 's/^mod canvas;/pub(crate) mod canvas;/' src/wetmap/mod.rs && grep -...
+14	106	orient	model	model		2026-10-31T21:50:21Z	6.1	
+14	107	orient	tool	shell	bash	2026-10-31T21:50:27Z	4.6	Running probe lib test :: cd /Users/ladvien/bevy_carnage_loop && uptime && /Users/ladvien/target/bevy_carnage-loop/release/deps/bevy_carnage-9a7343abd6cb32f7 hit_tick_cost --ignored --no
+14	108	orient	model	model		2026-10-31T21:50:32Z	45.0	
+14	109	orient	tool	read files	read	2026-10-31T21:51:17Z	0.0	Reading rasterise exactness test :: src/bloodstain/stain.rs:660-777
+14	110	orient	tool	search	grep	2026-10-31T21:51:17Z	0.0	Finding spine constants :: src/bloodstain/stain.rs
+14	111	orient	model	model		2026-10-31T21:51:17Z	26.0	
+14	112	orient	tool	shell	bash	2026-10-31T21:51:43Z	0.0	Locating test loop lines :: cd /Users/ladvien/bevy_carnage_loop && grep -n "const HITS: usize = 45;" src/preset.rs && grep -n '("floor2", 0u32, false' src/preset.rs && sed -n 7236,7244p sr
+14	113	orient	model	model		2026-10-31T21:51:43Z	2.1	
+14	114	orient	tool	edit files	edit	2026-10-31T21:51:45Z	0.1	Temporary env overrides for profiling :: [src/preset.rs#454B] PUT 7226.=7226: + let HITS: usize = std::env::var("HITS").ok().and_then(|v| v.parse().ok()).unwrap_or(45); // PROBE + let only = std::env::
+14	115	orient	model	model		2026-10-31T21:51:45Z	4.6	
+14	116	orient	tool	cargo test	bash	2026-10-31T21:51:49Z	60.0	[launched bg_4] Rebuilding probe lib test :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib --no-run 2>&1 | grep -E "^error|Finished|Executable" | head
+14	117	orient	model	model		2026-10-31T21:52:49Z	37.6	
+14	118	orient	tool	wait: build	wait	2026-10-31T21:53:27Z	37.8	Waiting for probe build
+14	119	orient	model	model		2026-10-31T21:54:05Z	3.8	
+14	120	orient	tool	sleep	bash	2026-10-31T21:54:09Z	12.1	Sampling the heavy wall hit for 8 seconds :: cd /Users/ladvien/bevy_carnage_loop && cp /Users/ladvien/target/bevy_carnage-loop/release/deps/bevy_carnage-9a7343abd6cb32f7 /tmp/c7/bin_before/libtest_probe &&
+14	121	orient	model	model		2026-10-31T21:54:21Z	1.7	
+14	122	orient	tool	shell	bash	2026-10-31T21:54:22Z	0.0	Reading heavy wall top-of-stack profile :: sed -n 426,470p /tmp/c7/before/sample_wallbig.txt | cut -c1-200 | sed -e 's/_RNv[A-Za-z0-9_]*bevy_carnage//' | head -50
+14	123	orient	model	model		2026-10-31T21:54:22Z	8.6	
+14	124	orient	tool	shell	bash	2026-10-31T21:54:31Z	0.2	Summarising sampled call tree :: cd /tmp/c7/before && python3 - <<'EOF' import re lines=open('sample_wallbig.txt').read().split('\n') start=[i for i,l in enumerate(lines) if 'Call graph' in l][
+14	125	orient	model	model		2026-10-31T21:54:31Z	9.8	
+14	126	orient	tool	search	grep	2026-10-31T21:54:41Z	0.0	Finding scheduled systems :: src/preset.rs
+14	127	orient	model	model		2026-10-31T21:54:41Z	5.7	
+14	128	orient	tool	search	grep	2026-10-31T21:54:47Z	0.0	Locating system function heads :: src/preset.rs
+14	129	orient	model	model		2026-10-31T21:54:47Z	12.4	
+14	130	orient	tool	read files	read	2026-10-31T21:54:59Z	0.0	Reading headless test app :: src/preset.rs:4848-4882
+14	131	orient	model	model		2026-10-31T21:54:59Z	5.4	
+14	132	orient	tool	edit files	edit	2026-10-31T21:55:05Z	0.1	Adding per-system markers to headless chain :: [src/preset.rs#71C9] PUT 4875.=4875: + .add_systems(FixedUpdate, ( + (probe_mark(0), advance_clock, probe_mark(1), dress, probe_mark(2), reset_gore, probe_mark(
+14	133	orient	model	model		2026-10-31T21:55:05Z	9.0	
+14	134	orient	tool	shell	bash	2026-10-31T21:55:14Z	0.0	Finding insertion lines :: cd /Users/ladvien/bevy_carnage_loop && grep -n "let mut ms = Vec::with_capacity(HITS);\|let probe = |i: usize|" src/preset.rs
+14	135	orient	model	model		2026-10-31T21:55:14Z	3.1	
+14	136	orient	tool	edit files	edit	2026-10-31T21:55:17Z	0.1	Reset and print per-system spans :: [src/preset.rs#0650] PUT 7269.=7269: + let mut ms = Vec::with_capacity(HITS); + for s in SPAN.iter() { s.store(0, std::sync::atomic::Ordering::Relaxed); } // PR
+14	137	orient	model	model		2026-10-31T21:55:17Z	3.4	
+14	138	orient	tool	cargo test	bash	2026-10-31T21:55:20Z	60.0	[launched bg_5] Rebuilding probe with system spans :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib --no-run 2>&1 | grep -E "^error|^warning: unused|Finished|Executable" | head;
+14	139	orient	model	model		2026-10-31T21:56:20Z	2.8	
+14	140	orient	tool	wait: build	wait	2026-10-31T21:56:23Z	32.8	Waiting for probe build
+14	141	orient	model	model		2026-10-31T21:56:56Z	2.3	
+14	142	orient	tool	shell	bash	2026-10-31T21:56:58Z	4.8	Per-system hit tick costs :: cd /Users/ladvien/bevy_carnage_loop && uptime && /Users/ladvien/target/bevy_carnage-loop/release/deps/bevy_carnage-9a7343abd6cb32f7 hit_tick_cost --ignored --no
+14	143	orient	model	model		2026-10-31T21:57:03Z	8.1	
+14	144	orient	tool	shell	bash	2026-10-31T21:57:11Z	0.0	Locating tick pipeline functions :: cd /Users/ladvien/bevy_carnage_loop && sed -n 4800,4845p src/preset.rs | head -0; grep -n "fn tick_canvases" src/preset.rs; grep -n "pub fn tick\b\|pub fn tick(
+14	145	orient	model	model		2026-10-31T21:57:11Z	1.7	
+14	146	orient	tool	read files	read	2026-10-31T21:57:13Z	0.0	Reading WetCanvas::tick :: src/wetmap/canvas.rs:900-1000
+14	147	orient	tool	read files	read	2026-10-31T21:57:13Z	0.0	Reading tick_canvases :: src/preset.rs:4779-4816
+14	148	orient	model	model		2026-10-31T21:57:13Z	10.0	
+14	149	orient	tool	read files	read	2026-10-31T21:57:23Z	0.0	Reading Live, mark, covered :: src/wetmap/canvas.rs:1430-1620
+14	150	orient	model	model		2026-10-31T21:57:23Z	9.8	
+14	151	orient	tool	shell	bash	2026-10-31T21:57:33Z	0.0	Finding sort line :: cd /Users/ladvien/bevy_carnage_loop && grep -n "ms.sort_by(f64::total_cmp);" src/preset.rs | tail -2
+14	152	orient	model	model		2026-10-31T21:57:33Z	3.7	
+14	153	orient	tool	edit files	edit	2026-10-31T21:57:36Z	0.0	Adding aftermath tick measurement :: [src/preset.rs#5F59] PUT <7287: + { // PROBE: the ticks after the last hit + let mut after = Vec::new(); + for _ in 0..90 { + let t = std::time::Instant::now();
+14	154	orient	tool	cargo test	bash	2026-10-31T21:57:36Z	1.9	Rebuilding probe with aftermath ticks :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib --no-run 2>&1 | grep -E "^error|Finished|Executable" | head
+14	155	orient	model	model		2026-10-31T21:57:38Z	3.3	
+14	156	orient	tool	edit files	edit	2026-10-31T21:57:42Z	0.1	Adding aftermath tick measurement (retry) :: [src/preset.rs#5F59] PUT <7287: + { // PROBE: the ticks after the last hit + let mut after = Vec::new(); + for _ in 0..90 { + let t = std::time::Instant::now();
+14	157	orient	tool	cargo test	bash	2026-10-31T21:57:42Z	60.0	[launched bg_6] Rebuilding probe with aftermath ticks :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib --no-run 2>&1 | grep -E "^error|Finished|Executable" | head
+14	158	orient	model	model		2026-10-31T21:58:42Z	4.5	
+14	159	orient	tool	read files	read	2026-10-31T21:58:46Z	0.0	Reading shade pass :: src/wetmap/canvas.rs:1343-1443
+14	160	orient	model	model		2026-10-31T21:58:46Z	16.1	
+14	161	orient	tool	edit files	edit	2026-10-31T21:59:02Z	0.0	Adding per-pass probes inside tick :: [src/wetmap/canvas.rs#8BE0] PUT 933.=941: + let t0 = std::time::Instant::now(); // PROBE + let (mut runs, mut snap) = (std::mem::take(&mut self.runs), std::mem:
+14	162	orient	tool	shell	bash	2026-10-31T21:59:02Z	0.0	Checking probe placement in tick :: cd /Users/ladvien/bevy_carnage_loop && sed -n 925,935p src/wetmap/canvas.rs; sed -n 955,990p src/wetmap/canvas.rs
+14	163	orient	model	model		2026-10-31T21:59:02Z	6.1	
+14	164	orient	tool	edit files	edit	2026-10-31T21:59:08Z	0.0	Print per-pass tick probes :: [src/preset.rs#9C19] PUT >7298: + { // PROBE + use std::sync::atomic::Ordering::Relaxed; + let p = &crate::wetmap::canvas::PROBE; + let ticks = p[12].swap(0, Re
+14	165	orient	tool	wait: build	wait	2026-10-31T21:59:09Z	0.0	Waiting for in-flight build
+14	166	orient	bg	cargo test	bash	2026-10-31T21:57:46Z	82.5	bg_6 completed: cargo test --release --lib --no-run 2>&1 | grep -E "^error|Finished|Executable" | head
+14	167	orient	model	model		2026-10-31T21:59:09Z	3.1	
+14	168	orient	tool	cargo test	bash	2026-10-31T21:59:12Z	10.5	Rebuilding lib test with all probes :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib --no-run 2>&1 | grep -E "^error|Finished|Executable" -A5 | head -20
+14	169	orient	model	model		2026-10-31T21:59:22Z	2.6	
+14	170	orient	tool	cargo test	bash	2026-10-31T21:59:25Z	59.5	Enlarging PROBE array and rebuilding :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's/pub static PROBE: \[std::sync::atomic::AtomicU64; 6\] = \[const { std::sync::atomic::AtomicU64::new(0) }; 6\];/
+14	171	orient	model	model		2026-10-31T22:00:24Z	2.3	
+14	172	orient	tool	shell	bash	2026-10-31T22:00:26Z	12.8	Per-pass tick costs and aftermath :: cd /Users/ladvien/bevy_carnage_loop && uptime && /Users/ladvien/target/bevy_carnage-loop/release/deps/bevy_carnage-9a7343abd6cb32f7 hit_tick_cost --ignored --no
+14	173	orient	model	model		2026-10-31T22:00:39Z	21.1	
+14	174	orient	tool	read files	read	2026-10-31T22:01:00Z	0.0	Reading drip, spread, advance passes :: src/wetmap/canvas.rs:1218-1360
+14	175	orient	model	model		2026-10-31T22:01:00Z	7.5	
+14	176	orient	tool	shell	bash	2026-10-31T22:01:08Z	0.0	Locating per-texel helper functions :: cd /Users/ladvien/bevy_carnage_loop && grep -n "fn absorbed_by\|fn is_wet\|fn wetness\|fn dry_span\|fn drip_threshold\|fn over\b\|fn enc\b\|fn luminance" src/we
+14	177	orient	model	model		2026-10-31T22:01:08Z	1.7	
+14	178	orient	tool	shell	bash	2026-10-31T22:01:10Z	0.0	Reading helper functions :: cd /Users/ladvien/bevy_carnage_loop && sed -n 120,175p src/wetmap/settings.rs; sed -n 1736,1835p src/wetmap/canvas.rs
+14	179	orient	model	model		2026-10-31T22:01:10Z	5.6	
+14	180	orient	tool	shell	bash	2026-10-31T22:01:15Z	0.0	Reading appearance_with_fresh :: cd /Users/ladvien/bevy_carnage_loop && grep -n "pub fn appearance_with_fresh" -B3 -A70 src/bloodstain/dry.rs | head -140
+14	181	orient	model	model		2026-10-31T22:01:15Z	22.8	
+14	182	orient	tool	cargo test	bash	2026-10-31T22:01:38Z	60.0	[launched bg_7] Adding blood-texel count probe and rebuilding :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' import re p='src/wetmap/canvas.rs' s=open(p).read() old=" PROBE[10].fetch_add(runs.iter().map(|r| ((r.x
+14	183	orient	model	model		2026-10-31T22:02:38Z	12.6	
+14	184	orient	tool	wait: build	wait	2026-10-31T22:02:51Z	4.1	Waiting for probe build
+14	185	orient	model	model		2026-10-31T22:02:55Z	2.3	
+14	186	orient	tool	shell	bash	2026-10-31T22:02:57Z	13.1	Per-pass costs with blood-texel counts :: cd /Users/ladvien/bevy_carnage_loop && uptime && /Users/ladvien/target/bevy_carnage-loop/release/deps/bevy_carnage-9a7343abd6cb32f7 hit_tick_cost --ignored --no
+14	187	orient	model	model		2026-10-31T22:03:10Z	66.5	
+14	188	orient	tool	read files	read	2026-10-31T22:04:17Z	0.0	Reading stain.rs header :: src/bloodstain/stain.rs:1-46
+14	189	orient	model	model		2026-10-31T22:04:17Z	12.4	
+14	190	orient	tool	edit files	write	2026-10-31T22:04:29Z	22.3	Searching corpus for spine physics quote :: xd://mcp__home_still_distill_search
+14	191	orient	model	model		2026-10-31T22:04:51Z	42.3	
+14	192	orient	tool	edit files	write	2026-10-31T22:05:34Z	0.0	Writing the research note :: docs/research/wet-tick-cost.md
+14	193	orient	model	model		2026-10-31T22:05:34Z	3.8	
+14	194	orient	tool	edit files	edit	2026-10-31T22:05:38Z	0.0	Remove an unmeasured claim from the note :: [docs/research/wet-tick-cost.md#0C1E] PUT 91.=92: +`RIM_BUCKETS = 64` (a design default: the bound's looseness against its tables' cost, to be settled by measur
+14	195	orient	model	model		2026-10-31T22:05:38Z	3.7	
+14	196	orient	tool	read files	read	2026-10-31T22:05:41Z	0.0	Checking edited parameters section :: docs/research/wet-tick-cost.md:86-100
+14	197	orient	model	model		2026-10-31T22:05:41Z	4.0	
+14	198	orient	tool	git	bash	2026-10-31T22:05:45Z	0.8	Committing research note alone :: cd /Users/ladvien/bevy_carnage_loop && git add docs/research/wet-tick-cost.md && git commit -q -m "Research: wet-tick-cost (a heavy wound on a wall and the canv
+14	199	orient	model	model		2026-10-31T22:05:46Z	6.1	
+14	200	orient	tool	shell	bash	2026-10-31T22:05:52Z	20.1	Starting baseline recorder runs :: cd /tmp/c7 && cat > runrec.sh <<'EOF' #!/bin/bash # usage: runrec.sh BINDIR OUTROOT BIN=$1; OUT=$2 mkdir -p $OUT for run in 1 2; do /usr/bin/time -p $BIN/captur
+14	201	orient	model	model		2026-10-31T22:06:12Z	3.3	
+14	202	orient	tool	shell	bash	2026-10-31T22:06:16Z	0.0	[launched bg_8] Running baseline recorders (async) :: cd /tmp/c7 && ./runrec.sh /tmp/c7/bin_before /tmp/c7/before/rec; tail -3 /tmp/c7/before/rec/preset_1.txt
+14	203	orient	model	model		2026-10-31T22:06:16Z	18.1	
+14	204	orient	tool	shell	bash	2026-10-31T22:06:34Z	0.0	Reading the no-panic sweep :: cd /Users/ladvien/bevy_carnage_loop && grep -n "panicking" -A25 tests/leaf.rs | head -80
+14	205	orient	model	model		2026-10-31T22:06:34Z	1.6	
+14	206	orient	tool	search	grep	2026-10-31T22:06:35Z	0.0	Finding the no-panic sweep :: tests/leaf.rs
+14	207	orient	model	model		2026-10-31T22:06:35Z	3.2	
+14	208	orient	tool	search	grep	2026-10-31T22:06:38Z	0.0	Locating the no-panic test :: tests
+14	209	orient	model	model		2026-10-31T22:06:38Z	11.9	
+14	210	orient	tool	edit files	edit	2026-10-31T22:06:50Z	0.0	Rewriting rasterise's skip logic with bucketed rim bounds :: [src/bloodstain/stain.rs#B408] PUT 296.=370: + // **Ways to skip work that cannot change a byte**, each exact rather than approximate, and each held + // to the
+14	211	orient	model	model		2026-10-31T22:06:50Z	20.0	
+14	212	orient	tool	edit files	edit	2026-10-31T22:07:10Z	0.0	Adding RimBounds and its constants before rasterise :: [src/bloodstain/stain.rs#C017] PUT <234: +/// **Angular buckets [`RimBounds`] tabulates a stain's rim in**: `64`, a bucket a ninth of a radian wide. A design de
+14	213	orient	model	model		2026-10-31T22:07:10Z	9.7	
+14	214	orient	tool	edit files	edit	2026-10-31T22:07:20Z	0.0	Fix bucket width wording :: [src/bloodstain/stain.rs#1686] PUT 234.=234: +/// **Angular buckets [`RimBounds`] tabulates a stain's rim in**: `64`, a bucket a tenth of a radian wide. A desig
+14	215	orient	model	model		2026-10-31T22:07:20Z	3.5	
+14	216	orient	tool	shell	bash	2026-10-31T22:07:24Z	0.0	Finding the oracle test tail :: cd /Users/ladvien/bevy_carnage_loop && grep -n "fn rasterise_writes_the_mask_its_definition_does" -B7 src/bloodstain/stain.rs | head -3; tail -30 src/bloodstain
+14	217	orient	model	model		2026-10-31T22:07:24Z	8.3	
+14	218	orient	tool	edit files	edit	2026-10-31T22:07:32Z	0.0	Adding exactness tests for the full spine ceiling and real impacts :: [src/bloodstain/stain.rs#DB98] PUT >870: + + /// **The same, at the ceiling and for the stains a wall takes.** Every shape of the first test has few satellites 
+14	219	orient	model	model		2026-10-31T22:07:32Z	6.4	
+14	220	orient	tool	edit files	edit	2026-10-31T22:07:38Z	0.0	Adding exactness tests (retry) :: [src/bloodstain/stain.rs#DB98] PUT >870: + + /// **The same, at the ceiling and for the stains a wall takes.** Every shape of the first test has few satellites 
+14	221	orient	model	model		2026-10-31T22:07:38Z	6.2	
+14	222	orient	tool	cargo test	bash	2026-10-31T22:07:45Z	60.0	[launched bg_9] Running stain exactness tests :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib bloodstain::stain 2>&1 | tail -20
+14	223	orient	model	model		2026-10-31T22:08:45Z	4.1	
+14	224	orient	tool	shell	bash	2026-10-31T22:08:49Z	0.1	Reading dry_ticks and film LUT fields :: cd /Users/ladvien/bevy_carnage_loop && grep -n "pub fn dry_ticks" -B6 -A22 src/bloodstain/dry.rs; grep -n "FILM_LEVELS\|film_lut\|film_key\|DRY_REF_TICKS\|DRY_R
+14	225	orient	model	model		2026-10-31T22:08:49Z	20.8	
+14	226	orient	tool	read files	read	2026-10-31T22:09:10Z	0.1	Re-reading shade for editing :: src/wetmap/canvas.rs:1356-1425
+14	227	orient	model	model		2026-10-31T22:09:10Z	10.5	
+14	228	orient	tool	read files	read	2026-10-31T22:09:20Z	0.0	Reading rest of shade :: src/wetmap/canvas.rs:1429-1460
+14	229	orient	model	model		2026-10-31T22:09:20Z	10.7	
+14	230	orient	tool	edit files	edit	2026-10-31T22:09:31Z	0.0	Replace shade's one-slot memo with a (level, age) table :: [src/wetmap/canvas.rs#9407] PUT 1380.=1418: + // **A table on `(level, age)`.** What a texel's blood looks like is a pure function of the film's + // depth leve
+14	231	orient	model	model		2026-10-31T22:09:31Z	6.1	
+14	232	orient	tool	shell	bash	2026-10-31T22:09:37Z	0.1	Finding edit anchors :: cd /Users/ladvien/bevy_carnage_loop && grep -n "let want = \[amount, rough_byte, 0, wetness(amount, age, span)\];" src/wetmap/canvas.rs; grep -n "film_key: Opti
+14	233	orient	model	model		2026-10-31T22:09:37Z	6.1	
+14	234	orient	tool	edit files	edit	2026-10-31T22:09:43Z	0.1	Wetness memo, struct fields, constants :: [src/wetmap/canvas.rs#A8ED] PUT 1455.=1455: + let wet = if amount == 0 { + 0 + } else { + if age as u32 != wet_age { + wet_age = age as u32; + wet_byte = wetnes
+14	235	orient	model	model		2026-10-31T22:09:43Z	5.5	
+14	236	orient	tool	edit files	edit	2026-10-31T22:09:49Z	0.1	Wetness memo, struct fields, constants (retry) :: [src/wetmap/canvas.rs#A8ED] PUT 1455.=1455: + let wet = if amount == 0 { + 0 + } else { + if age as u32 != wet_age { + wet_age = age as u32; + wet_byte = wetnes
+14	237	orient	model	model		2026-10-31T22:09:49Z	4.4	
+14	238	orient	tool	shell	bash	2026-10-31T22:09:53Z	0.1	Checking derives on WetCanvas :: cd /Users/ladvien/bevy_carnage_loop && sed -n 82,92p src/wetmap/canvas.rs; grep -n "derive" src/wetmap/canvas.rs | head
+14	239	orient	model	model		2026-10-31T22:09:54Z	3.3	
+14	240	orient	tool	edit files	edit	2026-10-31T22:09:57Z	0.0	Derive Debug on Shaded :: [src/wetmap/canvas.rs#4624] PUT 34.=34: +#[derive(Clone, Copy, Debug)]
+14	241	orient	model	model		2026-10-31T22:09:57Z	1.8	
+14	242	orient	tool	edit files	edit	2026-10-31T22:09:59Z	0.1	Derive Debug on Shaded (retry) :: [src/wetmap/canvas.rs#4624] PUT 34.=34: +#[derive(Clone, Copy, Debug)]
+14	243	orient	model	model		2026-10-31T22:09:59Z	39.7	
+14	244	orient	tool	shell	bash	2026-10-31T22:10:39Z	0.0	Locating pass function lines :: cd /Users/ladvien/bevy_carnage_loop && grep -n " fn spread\| fn advance\| fn shade\| fn drip" src/wetmap/canvas.rs
+14	245	orient	bg	cargo test	bash	2026-10-31T22:07:56Z	162.5	bg_9 completed: cargo test --release --lib bloodstain::stain 2>&1 | tail -20
+14	246	orient	model	model		2026-10-31T22:10:39Z	21.1	
+14	247	orient	tool	read files	read	2026-10-31T22:11:00Z	0.0	Reading spread and advance for rewrite :: src/wetmap/canvas.rs:1296-1383
+14	248	orient	model	model		2026-10-31T22:11:00Z	16.5	
+14	249	orient	tool	edit files	edit	2026-10-31T22:11:16Z	0.0	Rewrite spread and advance inner loops (exact) :: [src/wetmap/canvas.rs#F277] PUT 1298.=1352: + fn spread(&mut self, runs: &[Live], snap: &[Live], s: &WetSettings) { + let k = s.spread_rate.clamp(0.0, 1.0) * 0.
+14	250	orient	model	model		2026-10-31T22:11:16Z	6.1	
+14	251	orient	tool	edit files	edit	2026-10-31T22:11:22Z	0.0	Add absorbed table fields :: [src/wetmap/canvas.rs#FEA8] PUT 147.=147: + shaded_for: Option<(u32, u32, u32, u32, u32)>, + /// What the substrate has taken of a texel's blood by each age, a 
+14	252	orient	model	model		2026-10-31T22:11:22Z	5.1	
+14	253	orient	tool	cargo test	bash	2026-10-31T22:11:27Z	60.0	[launched bg_10] Compiling changes (lib tests) :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib --no-run 2>&1 | grep -E "^(error|warning: unused)|Finished|Executable" -A7 | head -50
+14	254	orient	model	model		2026-10-31T22:12:27Z	11.8	
+14	255	orient	tool	shell	bash	2026-10-31T22:12:39Z	0.3	Listing canvas.rs unit tests :: cd /Users/ladvien/bevy_carnage_loop && grep -n "^mod tests\|^ fn \|#\[test\]" src/wetmap/canvas.rs | sed -n 1,80p | grep -n "mod tests" ; awk '/^mod tests/{f=1}
+14	256	orient	model	model		2026-10-31T22:12:40Z	1.9	
+14	257	orient	tool	read files	read	2026-10-31T22:12:41Z	0.0	Reading live-tiles equivalence tests :: src/wetmap/canvas.rs:2205-2304
+14	258	orient	model	model		2026-10-31T22:12:41Z	14.1	
+14	259	orient	tool	wait: build	wait	2026-10-31T22:12:56Z	82.0	Waiting for compile
+14	260	orient	model	model		2026-10-31T22:14:18Z	12.8	
+14	261	orient	tool	read files	read	2026-10-31T22:14:30Z	0.0	Reading test module header :: src/wetmap/canvas.rs:1926-1945
+14	262	orient	model	model		2026-10-31T22:14:30Z	18.7	
+14	263	orient	tool	edit files	edit	2026-10-31T22:14:49Z	0.0	Add by-definition oracles for spread, advance and shade :: [src/wetmap/canvas.rs#3051] PUT >2291: + + /// **The spread pass by its definition**: the four neighbours in order, the flux a float multiply and a round each, 
+14	264	orient	bg	shell	bash	2026-10-31T22:06:29Z	500.6	bg_8 completed: ./runrec.sh /tmp/c7/bin_before /tmp/c7/before/rec; tail -3 /tmp/c7/before/rec/preset_1.txt
+14	265	orient	model	model		2026-10-31T22:14:49Z	2.9	
+14	266	orient	tool	shell	bash	2026-10-31T22:14:52Z	0.0	Reading baseline recorder digests :: cd /tmp/c7/before/rec && for f in preset_1 preset_2 skinned_default_1 skinned_default_2 skinned_through_1 skinned_through_2 skinned_guard_1 skinned_guard_2 skin
+14	267	orient	model	model		2026-10-31T22:14:52Z	6.1	
+14	268	orient	tool	cargo test	bash	2026-10-31T22:14:58Z	60.0	[launched bg_11] Running wetmap unit tests including oracles :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib wetmap:: 2>&1 | grep -vE "^\s*(Compiling|warning|-->|\||=|[0-9]+ \|)" | tail -40
+14	269	orient	model	model		2026-10-31T22:15:58Z	3.8	
+14	270	orient	tool	shell	bash	2026-10-31T22:16:02Z	0.1	Viewing remeasure loop in tick :: cd /Users/ladvien/bevy_carnage_loop && grep -n "Re-measured over what was covered" src/wetmap/canvas.rs && sed -n 985,1015p src/wetmap/canvas.rs
+14	271	orient	model	model		2026-10-31T22:16:02Z	4.2	
+14	272	orient	tool	read files	read	2026-10-31T22:16:06Z	0.0	Reading remeasure loop for edit :: src/wetmap/canvas.rs:985-1002
+14	273	orient	model	model		2026-10-31T22:16:06Z	5.9	
+14	274	orient	tool	edit files	edit	2026-10-31T22:16:12Z	0.1	Remeasure the live tiles once a row and tile, not once a texel :: [src/wetmap/canvas.rs#5F78] PUT 991.=1001: + // A texel with blood takes its tile's rectangle in; along a row the texels of one tile are consecutive, so the row
+14	275	orient	model	model		2026-10-31T22:16:12Z	6.8	
+14	276	orient	tool	wait: tests	wait	2026-10-31T22:16:19Z	13.0	Waiting for wetmap unit tests
+14	277	orient	model	model		2026-10-31T22:16:32Z	8.6	
+14	278	orient	tool	edit files	edit	2026-10-31T22:16:41Z	0.0	Remove the blood-texel counting probe :: [src/wetmap/canvas.rs#5057] CUT 984.=984
+14	279	orient	model	model		2026-10-31T22:16:41Z	4.8	
+14	280	orient	tool	cargo test	bash	2026-10-31T22:16:46Z	60.0	[launched bg_12] Building probe lib test with all changes :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib --no-run 2>&1 | grep -E "^error|Finished|Executable" -A6 | head -20 && cp /Users/ladvien/targe
+14	281	orient	model	model		2026-10-31T22:17:46Z	13.0	
+14	282	orient	tool	wait: build	wait	2026-10-31T22:17:59Z	3.5	Waiting for probe build
+14	283	orient	model	model		2026-10-31T22:18:02Z	2.3	
+14	284	orient	tool	shell	bash	2026-10-31T22:18:05Z	13.5	Comparing probe binaries before and after :: cd /Users/ladvien/bevy_carnage_loop && for b in libtest_probe libtest_probe_new1; do echo "=== $b"; /tmp/c7/bin_before/$b hit_tick_cost --ignored --nocapture 2>
+14	285	orient	model	model		2026-10-31T22:18:18Z	16.2	
+14	286	orient	tool	shell	bash	2026-10-31T22:18:34Z	15.8	Checking stamp-count determinism across builds :: cd /tmp/c7 && for b in libtest_before libtest_probe libtest_probe_new1; do for i in 1 2; do echo "== $b $i: $(CASE=floor2_wall_big ./bin_before/$b hit_tick_cost
+14	287	orient	model	model		2026-10-31T22:18:50Z	30.6	
+14	288	orient	tool	cargo test	bash	2026-10-31T22:19:21Z	51.2	Trying a 16-texel live tile :: cd /Users/ladvien/bevy_carnage_loop && grep -n "^const LIVE_TILE" src/wetmap/canvas.rs && sed -i 's/^const LIVE_TILE: i64 = 32;/const LIVE_TILE: i64 = 16;/' src
+14	289	orient	model	model		2026-10-31T22:20:12Z	24.5	
+14	290	orient	tool	shell	bash	2026-10-31T22:20:36Z	1.7	Single heavy hit on a fresh wall, old against new :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's/^const LIVE_TILE: i64 = 16;/const LIVE_TILE: i64 = 32;/' src/wetmap/canvas.rs && grep -n "^const LIVE_TILE" src
+14	291	orient	model	model		2026-10-31T22:20:38Z	14.6	
+14	292	orient	tool	shell	bash	2026-10-31T22:20:53Z	0.0	Locating end of stain tests :: cd /Users/ladvien/bevy_carnage_loop && tail -5 src/bloodstain/stain.rs
+14	293	orient	model	model		2026-10-31T22:20:53Z	1.3	
+14	294	orient	tool	read files	read	2026-10-31T22:20:54Z	0.0	Reading test tail for anchor :: src/bloodstain/stain.rs:905-911
+14	295	orient	model	model		2026-10-31T22:20:54Z	7.5	
+14	296	orient	tool	edit files	edit	2026-10-31T22:21:02Z	0.0	Add a throwaway ignored microbench for rasterise :: [src/bloodstain/stain.rs#C460] PUT >910: + + // PROBE + #[test] + #[ignore] + fn probe_rasterise_cost() { + let s = BloodSettings::default(); + for (label, spee
+14	297	orient	tool	cargo test	bash	2026-10-31T22:21:02Z	46.5	Microbenchmark rasterise :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib probe_rasterise_cost -- --ignored --nocapture 2>&1 | grep -E "^PROBE|^error" -A5 | cut -c1-200
+14	298	orient	model	model		2026-10-31T22:21:48Z	19.6	
+14	299	orient	tool	shell	bash	2026-10-31T22:22:08Z	0.0	Finding probe lines :: cd /Users/ladvien/bevy_carnage_loop && grep -n "PROBE\[0\].fetch_add" src/wetmap/canvas.rs | head -3; grep -n 'println!("PROBE {label}' src/preset.rs
+14	300	orient	model	model		2026-10-31T22:22:08Z	1.9	
+14	301	orient	tool	read files	read	2026-10-31T22:22:10Z	0.0	Reading stamp probe lines :: src/wetmap/canvas.rs:765-775
+14	302	orient	tool	read files	read	2026-10-31T22:22:10Z	0.0	Reading test print lines :: src/preset.rs:7285-7289
+14	303	orient	model	model		2026-10-31T22:22:10Z	7.3	
+14	304	orient	tool	edit files	edit	2026-10-31T22:22:17Z	0.0	Record per-stamp samples for the distribution :: [src/wetmap/canvas.rs#73C2] PUT 771.=771: + PROBE[0].fetch_add(t_ras.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE + if let Ok(mu
+14	305	orient	tool	edit files	edit	2026-10-31T22:22:17Z	0.1	Print the stamp distribution :: [src/preset.rs#A89D] PUT >7287: + if std::env::var("STAMPS").is_ok() { // PROBE + let mut v = crate::wetmap::canvas::STAMPS.lock().map(|mut v| std::mem::take(&m
+14	306	orient	tool	cargo test	bash	2026-10-31T22:22:17Z	10.7	Stamp size distribution on the fresh heavy wall hit :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib --no-run 2>&1 | grep -E "^error|Finished|Executable" -A6 | head -12; cp /Users/ladvien/target/
+14	307	orient	model	model		2026-10-31T22:22:28Z	4.3	
+14	308	orient	tool	edit files	edit	2026-10-31T22:22:32Z	0.0	Record per-stamp samples (retry) :: [src/wetmap/canvas.rs#73C2] PUT 771.=771: + PROBE[0].fetch_add(t_ras.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed); // PROBE + if let Ok(mu
+14	309	orient	model	model		2026-10-31T22:22:32Z	2.8	
+14	310	orient	tool	cargo test	bash	2026-10-31T22:22:35Z	60.0	[launched bg_13] Stamp size distribution on the fresh heavy wall hit :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib --no-run 2>&1 | grep -E "^error|Finished|Executable" -A6 | head -12; cp /Users/ladvien/target/
+14	311	orient	model	model		2026-10-31T22:23:35Z	21.2	
+14	312	orient	tool	wait: other	wait	2026-10-31T22:23:56Z	27.4	Waiting for stamp distribution run
+14	313	orient	model	model		2026-10-31T22:24:24Z	61.1	
+14	314	orient	tool	cargo test	bash	2026-10-31T22:25:25Z	35.1	Microbench with 32 buckets :: cd /Users/ladvien/bevy_carnage_loop && sed -i 's/^const RIM_BUCKETS: usize = 64;/const RIM_BUCKETS: usize = 32;/' src/bloodstain/stain.rs && grep -n "^const RIM
+14	315	orient	model	model		2026-10-31T22:26:00Z	5.2	
+14	316	orient	tool	shell	bash	2026-10-31T22:26:05Z	0.0	Finding microbench loop :: cd /Users/ladvien/bevy_carnage_loop && grep -n "let reps = 200;" src/bloodstain/stain.rs
+14	317	orient	model	model		2026-10-31T22:26:05Z	1.3	
+14	318	orient	tool	read files	read	2026-10-31T22:26:06Z	0.0	Reading the microbench body :: src/bloodstain/stain.rs:915-947
+14	319	orient	model	model		2026-10-31T22:26:06Z	7.4	
+14	320	orient	tool	edit files	edit	2026-10-31T22:26:14Z	0.0	Make the microbench robust and match real sizes :: [src/bloodstain/stain.rs#26AB] PUT 917.=945: + for (label, speed, diameter, angle) in [("wall 25m/s 6mm 90deg", 25.0, 0.006, 90.0f32), ("wall 25m/s 3mm 90deg", 
+14	321	orient	tool	cargo test	bash	2026-10-31T22:26:14Z	60.0	[launched bg_14] Compare bucket counts with min-of-batches timing :: cd /Users/ladvien/bevy_carnage_loop && for B in 32 64 16; do sed -i "s/^const RIM_BUCKETS: usize = [0-9]*;/const RIM_BUCKETS: usize = $B;/" src/bloodstain/stain
+14	322	orient	model	model		2026-10-31T22:27:14Z	17.5	
+14	323	orient	tool	wait: other	wait	2026-10-31T22:27:31Z	33.7	Waiting for bucket comparison
+14	324	orient	model	model		2026-10-31T22:28:05Z	5.6	
+14	325	orient	tool	shell	bash	2026-10-31T22:28:11Z	0.0	Set buckets to 32 :: cd /Users/ladvien/bevy_carnage_loop && sed -i "s/^const RIM_BUCKETS: usize = [0-9]*;/const RIM_BUCKETS: usize = 32;/" src/bloodstain/stain.rs && grep -n "^const
+14	326	orient	model	model		2026-10-31T22:28:11Z	3.2	
+14	327	orient	tool	read files	read	2026-10-31T22:28:14Z	0.0	Reading anchor for probe test :: src/wetmap/canvas.rs:2466-2474
+14	328	orient	model	model		2026-10-31T22:28:14Z	7.5	
+14	329	orient	tool	edit files	edit	2026-10-31T22:28:21Z	0.0	Throwaway probe: coverage difference between sample counts :: [src/wetmap/canvas.rs#73DF] PUT <2465: + // PROBE + #[test] + #[ignore] + fn probe_edge_samples_difference() { + let blood = crate::bloodstain::BloodSettings::d
+14	330	orient	tool	cargo test	bash	2026-10-31T22:28:21Z	60.0	[launched bg_15] Measure coverage difference between sample counts :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib probe_edge_samples_difference -- --ignored --nocapture 2>&1 | grep -E "^PROBE|^error" -A6 | cu
+14	331	orient	model	model		2026-10-31T22:29:21Z	5.4	
+14	332	orient	tool	wait: other	wait	2026-10-31T22:29:27Z	0.0	Waiting for coverage probe
+14	333	orient	model	model		2026-10-31T22:29:27Z	25.2	
+14	334	orient	tool	shell	bash	2026-10-31T22:29:52Z	1.0	System spans for one heavy hit :: cd /tmp/c7 && for i in 1 2 3; do HITS=1 CASE=floor2_wall_big ./bin_before/libtest_probe_new2 hit_tick_cost --ignored --nocapture 2>&1 | grep -E "^SYSTEMS|^TICKP
+14	335	orient	model	model		2026-10-31T22:29:53Z	7.2	
+14	336	orient	tool	shell	bash	2026-10-31T22:30:00Z	5.2	45 heavy hits: system spans, new build :: cd /tmp/c7 && for i in 1 2; do CASE=floor2_wall_big_nomist ./bin_before/libtest_probe_new2 hit_tick_cost --ignored --nocapture 2>&1 | grep -E "^SYSTEMS|METRIC h
+14	337	orient	model	model		2026-10-31T22:30:06Z	11.2	
+14	338	orient	tool	git	bash	2026-10-31T22:30:17Z	0.3	Restore probe-only files and list remaining probes :: cd /Users/ladvien/bevy_carnage_loop && git checkout src/preset.rs src/wetmap/mod.rs && git status --short && grep -n "PROBE" src/wetmap/canvas.rs src/bloodstain
+14	339	orient	model	model		2026-10-31T22:30:17Z	3.4	
+14	340	orient	tool	read files	read	2026-10-31T22:30:20Z	0.0	Reading microbench region to remove :: src/bloodstain/stain.rs:906-936
+14	341	orient	model	model		2026-10-31T22:30:20Z	2.0	
+14	342	orient	tool	edit files	edit	2026-10-31T22:30:22Z	0.0	Delete the rasterise microbench :: [src/bloodstain/stain.rs#C6D6] CUT 911.=933
+14	343	orient	tool	shell	bash	2026-10-31T22:30:22Z	0.0	List canvas.rs probe lines :: cd /Users/ladvien/bevy_carnage_loop && grep -n "PROBE\|STAMPS" src/wetmap/canvas.rs | cut -c1-110
+14	344	orient	model	model		2026-10-31T22:30:22Z	4.6	
+14	345	orient	tool	read files	read	2026-10-31T22:30:27Z	0.0	Reading probe regions in canvas.rs :: src/wetmap/canvas.rs:16-21,754-757,766-778,841-845,964-990,1022-1027,2461-2500
+14	346	orient	model	model		2026-10-31T22:30:27Z	15.3	
+14	347	orient	tool	edit files	edit	2026-10-31T22:30:42Z	0.1	Remove every probe from canvas.rs :: [src/wetmap/canvas.rs#D114] CUT 18.=21 CUT 756.=756 CUT 768.=768 CUT 772.=777 CUT 843.=843 CUT 967.=967 CUT 971.=971 PUT 972.=986: + if !runs.is_empty() { + sel
+14	348	orient	tool	shell	bash	2026-10-31T22:30:42Z	0.3	Verify probes gone :: cd /Users/ladvien/bevy_carnage_loop && grep -n "PROBE\|STAMPS\|Instant" src/wetmap/canvas.rs src/bloodstain/stain.rs | head; git diff --stat; git diff src/wetma
+14	349	orient	model	model		2026-10-31T22:30:43Z	13.0	
+14	350	orient	tool	search	grep	2026-10-31T22:30:56Z	0.1	Finding heap_bytes :: src/wetmap/canvas.rs
+14	351	orient	model	model		2026-10-31T22:30:56Z	7.0	
+14	352	orient	tool	read files	read	2026-10-31T22:31:03Z	0.0	Reading heap_bytes :: src/wetmap/canvas.rs:376-402
+14	353	orient	model	model		2026-10-31T22:31:03Z	3.4	
+14	354	orient	tool	edit files	edit	2026-10-31T22:31:06Z	0.0	Count the two new tables in heap_bytes :: [src/wetmap/canvas.rs#4A3C] PUT 379.=383: + /// **The bytes this canvas holds in the main world**, apart from its two images: the `(amount, + /// age)` buffer a
+14	355	orient	model	model		2026-10-31T22:31:06Z	6.6	
+14	356	orient	tool	cargo test	bash	2026-10-31T22:31:13Z	60.2	[launched bg_16] Running the whole lib test suite :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib 2>&1 | grep -E "^test result|FAILED|failed|panicked|error(\[|:)" | head -20; cp /Users/ladvien
+14	357	orient	model	model		2026-10-31T22:32:13Z	5.7	
+14	358	orient	tool	shell	bash	2026-10-31T22:32:19Z	0.1	Reading CHANGELOG head :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,40p CHANGELOG.md | cut -c1-260
+14	359	orient	model	model		2026-10-31T22:32:19Z	4.2	
+14	360	orient	tool	wait: tests	wait	2026-10-31T22:32:23Z	86.0	Waiting for lib tests
+14	361	orient	model	model		2026-10-31T22:33:49Z	4.9	
+14	362	orient	tool	shell	bash	2026-10-31T22:33:54Z	0.7	Diff test lists before and after :: cd /tmp/c7/bin_before && ./libtest_before --list 2>/dev/null | grep -c ': test$'; ./libtest_after1 --list 2>/dev/null | grep -c ': test$'; ./libtest_after1 --li
+14	363	orient	model	model		2026-10-31T22:33:55Z	7.0	
+14	364	orient	tool	git	bash	2026-10-31T22:34:02Z	0.6	Committing the implementation :: cd /Users/ladvien/bevy_carnage_loop && git add src/bloodstain/stain.rs src/wetmap/canvas.rs && git commit -q -F - <<'EOF' rasterise, spread, advance and shade c
+14	365	orient	model	model		2026-10-31T22:34:03Z	5.7	
+14	366	orient	tool	shell	bash	2026-10-31T22:34:08Z	46.5	Alternating A/B of hit_tick_cost, six runs each :: cd /tmp/c7 && cat > ab.py <<'EOF' import subprocess, re, statistics, sys, collections bins = {'before': '/tmp/c7/bin_before/libtest_before', 'after': sys.argv[1
+14	367	orient	model	model		2026-10-31T22:34:55Z	8.4	
+14	368	orient	tool	read files	read	2026-10-31T22:35:03Z	0.0	Reading anchor for temp bench :: src/bloodstain/stain.rs:905-911
+14	369	orient	model	model		2026-10-31T22:35:03Z	5.0	
+14	370	orient	tool	edit files	edit	2026-10-31T22:35:08Z	0.0	Temporary microbench: cost split by spines and satellites :: [src/bloodstain/stain.rs#A9E5] PUT >910: + + // PROBE + #[test] + #[ignore] + fn probe_rasterise_split() { + let s = BloodSettings::default(); + let base = stai
+14	371	orient	tool	cargo test	bash	2026-10-31T22:35:08Z	44.3	Run the cost split microbench :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib probe_rasterise_split -- --ignored --nocapture 2>&1 | grep -E "^PROBE|^error" -A5 | cut -c1-20
+14	372	orient	model	model		2026-10-31T22:35:53Z	29.0	
+14	373	orient	tool	read files	read	2026-10-31T22:36:22Z	0.0	Reading temp bench to delete :: src/bloodstain/stain.rs:909-936
+14	374	orient	model	model		2026-10-31T22:36:22Z	12.0	
+14	375	orient	tool	edit files	edit	2026-10-31T22:36:34Z	0.0	Delete the temporary microbench :: [src/bloodstain/stain.rs#0C9E] CUT 911.=934
+14	376	orient	tool	cargo build	bash	2026-10-31T22:36:34Z	45.7	Gate step 1: cargo build (declared features) :: cd /Users/ladvien/bevy_carnage_loop && git status --short; git diff --stat; (cargo build 2>&1 | tail -3)
+14	377	orient	model	model		2026-10-31T22:37:19Z	4.6	
+14	378	orient	tool	cargo build	bash	2026-10-31T22:37:24Z	0.0	[launched bg_17] Gate: release build then release examples :: cd /Users/ladvien/bevy_carnage_loop && cargo build --release 2>&1 | tail -3; echo "rc_release=$?"; cargo build --release --examples 2>&1 | tail -3
+14	379	orient	model	model		2026-10-31T22:37:24Z	17.0	
+14	380	orient	tool	read files	read	2026-10-31T22:37:41Z	0.0	Reading note sections to update :: docs/research/wet-tick-cost.md:60-125
+14	381	orient	model	model		2026-10-31T22:37:41Z	7.3	
+14	382	orient	tool	wait: build	wait	2026-10-31T22:37:48Z	945.4	Waiting for release build and examples
+14	383	orient	model	model		2026-10-31T22:53:34Z	3.8	
+14	384	orient	tool	shell	bash	2026-10-31T22:53:38Z	59.1	Alternating bench_carnage before and after :: cd /tmp/c7 && E=$CARGO_TARGET_DIR/release/examples && mkdir -p bin_after && for b in bench_carnage capture_preset capture_skinned canvas_digest flay_digest dry_
+14	385	orient	model	model		2026-10-31T22:54:37Z	5.2	
+14	386	orient	tool	shell	bash	2026-10-31T22:54:42Z	0.0	[launched bg_18] Running after-change recorders twice per variant :: cd /tmp/c7 && ./runrec.sh /tmp/c7/bin_after /tmp/c7/after/rec; echo done
+14	387	orient	model	model		2026-10-31T22:54:42Z	8.5	
+14	388	orient	tool	edit files	edit	2026-10-31T22:54:50Z	0.0	CHANGELOG entry for iteration 7 :: [CHANGELOG.md#_] PUT >6: + +### Changed + +- **A wounded scene costs the caller less a tick, with every byte unchanged** (iteration 7, AG-146, `docs/research/we
+14	389	orient	model	model		2026-10-31T22:54:50Z	4.7	
+14	390	orient	tool	search	grep	2026-10-31T22:54:55Z	0.0	Finding CLAUDE.md insertion points :: CLAUDE.md
+14	391	orient	model	model		2026-10-31T22:54:55Z	1.9	
+14	392	orient	tool	read files	read	2026-10-31T22:54:57Z	0.1	Reading CLAUDE.md anchor for bloodstain rule :: CLAUDE.md:150-162
+14	393	orient	tool	read files	read	2026-10-31T22:54:57Z	0.0	Reading CLAUDE.md anchor for wetmap rule :: CLAUDE.md:203-212
+14	394	orient	model	model		2026-10-31T22:54:57Z	6.6	
+14	395	orient	tool	edit files	edit	2026-10-31T22:55:04Z	0.0	Record the exactness rules in CLAUDE.md :: [CLAUDE.md#2559] PUT >154: + +#### A faster `rasterise` is the same mask, byte for byte + +`stain::rasterise` is the hottest function of a wound on a wall (a dr
+14	396	orient	model	model		2026-10-31T22:55:04Z	5.6	
+14	397	orient	tool	wait: clip	wait	2026-10-31T22:55:09Z	236.4	Waiting for after recorders
+14	398	orient	model	model		2026-10-31T22:59:06Z	3.8	
+14	399	orient	tool	shell	bash	2026-10-31T22:59:09Z	15.9	Compare recorder digests and every frame :: cd /tmp/c7 && for f in preset_1 preset_2 skinned_default_1 skinned_default_2 skinned_through_1 skinned_through_2 skinned_guard_1 skinned_guard_2 skinned_shirt_1
+14	400	orient	model	model		2026-10-31T22:59:25Z	5.9	
+14	401	orient	tool	shell	bash	2026-10-31T22:59:31Z	60.0	[launched bg_19] Compare terminal example outputs :: cd /tmp/c7 && for ex in canvas_digest dry_timeline stain_sweep pattern_classes rheology flay_digest; do ./bin_before/$ex > before/$ex.out 2>&1; ./bin_after/$ex 
+14	402	orient	model	model		2026-10-31T23:00:31Z	5.1	
+14	403	orient	tool	clip record/render	bash	2026-10-31T23:00:36Z	0.3	List frames and image tools :: ls /tmp/c7/after/rec/skinned_through_1 | sed -n '1,3p;355,360p'; ls /tmp/c7/after/rec/preset_1 | tail -2; python3 -c "import PIL; print(PIL.__version__)" 2>&1; 
+14	404	orient	model	model		2026-10-31T23:00:37Z	1.4	
+14	405	orient	tool	read files	read	2026-10-31T23:00:38Z	0.2	Viewing the wall spatter frame of --through :: /tmp/c7/after/rec/skinned_through_1/frame0359.png
+14	406	orient	model	model		2026-10-31T23:00:38Z	61.1	
+14	407	orient	tool	shell	bash	2026-10-31T23:01:40Z	0.1	Check remaining terminal example outputs :: cd /tmp/c7 && ls -la before/*.out after/*.out | awk '{print $5, $9}'; for ex in pattern_classes rheology flay_digest; do [ -s before/$ex.out ] && [ -s after/$ex
+14	408	orient	model	model		2026-10-31T23:01:40Z	3.6	
+14	409	orient	tool	wait: other	wait	2026-10-31T23:01:43Z	168.1	Waiting for terminal examples
+14	410	orient	model	model		2026-10-31T23:04:31Z	5.6	
+14	411	orient	tool	shell	bash	2026-10-31T23:04:37Z	0.0	Inspect pattern_classes example :: cd /Users/ladvien/bevy_carnage_loop && head -30 examples/pattern_classes.rs | cut -c1-160; grep -n "rasterise\|WetCanvas\|paint_" examples/pattern_classes.rs ex
+14	412	orient	model	model		2026-10-31T23:04:37Z	3.9	
+14	413	orient	tool	shell	bash	2026-10-31T23:04:41Z	1.1	Kill the stray interactive example :: pgrep -fl "pattern_classes|bin_before|bin_after" | head; pkill -f "bin_(before|after)/pattern_classes"; sleep 1; pgrep -fl "pattern_classes" | head -3; echo ok
+14	414	orient	model	model		2026-10-31T23:04:42Z	5.7	
+14	415	orient	tool	search	grep	2026-10-31T23:04:48Z	0.0	Locate hit_tick_cost :: src/preset.rs
+14	416	orient	model	model		2026-10-31T23:04:48Z	1.4	
+14	417	orient	tool	read files	read	2026-10-31T23:04:49Z	0.1	Reading hit_tick_cost to extend :: src/preset.rs:7214-7264
+14	418	orient	model	model		2026-10-31T23:04:49Z	7.1	
+14	419	orient	tool	edit files	edit	2026-10-31T23:04:56Z	0.1	Add the wet-tick metric to hit_tick_cost :: [src/preset.rs#3919] PUT 7216.=7222: + /// **What one hit costs the tick it lands on, and what the blood it leaves costs every tick after**, in a [`room`]: a + 
+14	420	orient	model	model		2026-10-31T23:04:56Z	10.2	
+14	421	orient	tool	cargo test	bash	2026-10-31T23:05:07Z	60.0	[launched bg_20] Build baseline+metric lib test in a worktree :: cd /Users/ladvien/bevy_carnage_loop && git diff -- src/preset.rs > /tmp/c7/metric.patch && wc -l /tmp/c7/metric.patch && git add src/preset.rs && git commit -q 
+14	422	orient	model	model		2026-10-31T23:06:07Z	9.8	
+14	423	orient	tool	edit files	edit	2026-10-31T23:06:16Z	0.0	Update the research note: model as built, parameters :: [docs/research/wet-tick-cost.md#9B58] PUT 69.=93: +## Model adopted + +No model change. Four exact reductions, each held to the thing it replaces, in the order 
+14	424	orient	model	model		2026-10-31T23:06:16Z	5.4	
+14	425	orient	tool	read files	read	2026-10-31T23:06:22Z	0.0	Reading RIM_BUCKETS doc :: src/bloodstain/stain.rs:233-240
+14	426	orient	model	model		2026-10-31T23:06:22Z	2.7	
+14	427	orient	tool	edit files	edit	2026-10-31T23:06:25Z	0.1	Fix the RIM_BUCKETS doc to 32 :: [src/bloodstain/stain.rs#A9E5] PUT 234.=236: +/// **Angular buckets [`RimBounds`] tabulates a stain's rim in**: `32`, a bucket a fifth of a radian wide. A desig
+14	428	orient	model	model		2026-10-31T23:06:25Z	5.0	
+14	429	orient	tool	wait: build	wait	2026-10-31T23:06:30Z	187.7	Waiting for baseline worktree build
+14	430	orient	model	model		2026-10-31T23:09:37Z	5.8	
+14	431	orient	tool	cargo test	bash	2026-10-31T23:09:43Z	60.0	[launched bg_21] Build final lib test binary and copy both :: cp /Users/ladvien/target/bevy_carnage-loop/release/deps/bevy_carnage-9a7343abd6cb32f7 /tmp/c7/bin_before/libtest_base_metric && cd /Users/ladvien/bevy_carnage_l
+14	432	orient	model	model		2026-10-31T23:10:43Z	6.6	
+14	433	orient	tool	shell	bash	2026-10-31T23:10:50Z	0.2	Write the A/B script :: cd /tmp/c7 && cat > ab2.py <<'EOF' import subprocess, re, statistics, sys, collections bins = {'before': '/tmp/c7/bin_before/libtest_base_metric', 'after': '/tm
+14	434	orient	tool	wait: tests	wait	2026-10-31T23:10:50Z	88.1	Waiting for final lib test build
+14	435	orient	model	model		2026-10-31T23:12:18Z	2.4	
+14	436	orient	tool	shell	bash	2026-10-31T23:12:20Z	60.0	[launched bg_22] Final alternated A/B, eight runs each :: cd /tmp/c7 && uptime && python3 ab2.py 8
+14	437	orient	model	model		2026-10-31T23:13:20Z	6.0	
+14	438	orient	tool	clip record/render	bash	2026-10-31T23:13:26Z	0.7	Build side-by-side comparison sheet with ffmpeg :: cd /tmp/c7 && ffmpeg -loglevel error -y -i refs/ref1.jpg -i after/rec/skinned_through_1/frame0359.png -i refs/ref7.jpg -filter_complex "[0:v]scale=-2:520[a];[1:
+14	439	orient	model	model		2026-10-31T23:13:27Z	1.6	
+14	440	orient	tool	read files	read	2026-10-31T23:13:29Z	0.4	Viewing the reference comparison sheet :: /tmp/c7/compare-wall-spray.png
+14	441	orient	model	model		2026-10-31T23:13:29Z	7.4	
+14	442	orient	tool	wait: other	wait	2026-10-31T23:13:37Z	93.8	Waiting for A/B
+14	443	orient	model	model		2026-10-31T23:15:10Z	15.5	
+14	444	orient	tool	shell	bash	2026-10-31T23:15:26Z	0.0	Audit writers of albedo_px and rough_px :: cd /Users/ladvien/bevy_carnage_loop && grep -n "albedo_px\|rough_px" src/wetmap/canvas.rs | grep -v "^.*///" | cut -c1-150
+14	445	orient	model	model		2026-10-31T23:15:26Z	16.9	
+14	446	orient	tool	search	grep	2026-10-31T23:15:43Z	0.0	Locate spread and shade insertion points :: src/wetmap/canvas.rs
+14	447	orient	model	model		2026-10-31T23:15:43Z	1.8	
+14	448	orient	tool	read files	read	2026-10-31T23:15:45Z	0.0	Reading spread insertion area :: src/wetmap/canvas.rs:1320-1332
+14	449	orient	tool	read files	read	2026-10-31T23:15:45Z	0.0	Reading shade insertion area :: src/wetmap/canvas.rs:1446-1456
+14	450	orient	model	model		2026-10-31T23:15:45Z	4.4	
+14	451	orient	tool	edit files	edit	2026-10-31T23:15:49Z	0.0	Skip empty texels with empty surroundings in spread and shade (exact) :: [src/wetmap/canvas.rs#1573] PUT 1451.=1451: + let Some(&(amount, age)) = self.wet.get(i) else { continue }; + // A texel with no blood whose pixels already say 
+14	452	orient	model	model		2026-10-31T23:15:49Z	6.4	
+14	453	orient	tool	shell	bash	2026-10-31T23:15:56Z	0.0	Verify the empty look invariant in constructor and clear :: cd /Users/ladvien/bevy_carnage_loop && grep -n "base_rough_rgba" src/wetmap/canvas.rs | head -5; grep -n "let base_rough_rgba" -A2 src/wetmap/canvas.rs | head; 
+14	454	orient	model	model		2026-10-31T23:15:56Z	6.1	
+14	455	orient	tool	cargo test	bash	2026-10-31T23:16:02Z	55.2	Test wetmap with the empty-texel skips :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib wetmap:: 2>&1 | grep -E "^test result|FAILED|panicked|^error" -A5 | head -20; cp /Users/ladvie
+14	456	orient	model	model		2026-10-31T23:16:57Z	6.0	
+14	457	orient	tool	shell	bash	2026-10-31T23:17:03Z	60.0	[launched bg_23] A/B of the skip build against baseline :: cd /tmp/c7 && sed -i "s#'after': '/tmp/c7/bin_before/libtest_after_final'#'after': sys.argv[2] if len(sys.argv) > 2 else '/tmp/c7/bin_before/libtest_after_final
+14	458	orient	model	model		2026-10-31T23:18:03Z	3.7	
+14	459	orient	tool	wait: other	wait	2026-10-31T23:18:07Z	54.3	Waiting for A/B
+14	460	orient	model	model		2026-10-31T23:19:01Z	18.2	
+14	461	orient	tool	cargo build	bash	2026-10-31T23:19:19Z	0.0	[launched bg_24] Commit and rebuild release examples (final code) :: cd /Users/ladvien/bevy_carnage_loop && git add src/wetmap/canvas.rs src/bloodstain/stain.rs && git commit -q -m "A tick skips the bare texels whose surroundings
+14	462	orient	model	model		2026-10-31T23:19:19Z	18.2	
+14	463	orient	tool	shell	bash	2026-10-31T23:19:37Z	0.1	Write the critique scratch file :: mkdir -p /tmp/c7 && cat > /tmp/c7/critique.md <<'EOF' # Critique, iteration 7 (a wounded scene's cost; exact reductions) Captures: /tmp/c7/after/rec/skinned_thr
+14	464	orient	model	model		2026-10-31T23:19:37Z	60.3	
+14	465	orient	tool	shell	bash	2026-10-31T23:20:38Z	0.1	Survey live/runs/boxes usages :: cd /Users/ladvien/bevy_carnage_loop && grep -n "self\.live\|\.live\b\|covered(\|self\.runs\|self\.snap\b\|self\.boxes\|self\.cuts\|boxes:\|cuts:\|runs:\|snap:" 
+14	466	orient	model	model		2026-10-31T23:20:38Z	6.1	
+14	467	orient	tool	edit files	write	2026-10-31T23:20:44Z	0.1	Stop the in-flight examples build; code changes first :: proc://bg_24/kill
+14	468	orient	tool	read files	read	2026-10-31T23:20:44Z	0.0	Reading covered() to rewrite :: src/wetmap/canvas.rs:1585-1665
+14	469	orient	model	model		2026-10-31T23:20:44Z	18.2	
+14	470	orient	tool	read files	read	2026-10-31T23:21:02Z	0.0	Reading live field docs :: src/wetmap/canvas.rs:150-182
+14	471	orient	model	model		2026-10-31T23:21:02Z	7.1	
+14	472	orient	tool	edit files	edit	2026-10-31T23:21:09Z	0.0	Fields: live doc, spans and active scratch :: [src/wetmap/canvas.rs#2573] PUT 158.=178: + /// **For each tile of [`LIVE_TILE`] texels square, the smallest rectangle holding the blood painted into it since t
+14	473	orient	model	model		2026-10-31T23:21:09Z	2.3	
+14	474	orient	tool	shell	bash	2026-10-31T23:21:12Z	0.0	Find ctor, heap_bytes and clear anchors :: cd /Users/ladvien/bevy_carnage_loop && grep -n "boxes: Vec::new()," src/wetmap/canvas.rs; grep -n "self.boxes.capacity()" src/wetmap/canvas.rs; grep -n " self.l
+14	475	orient	model	model		2026-10-31T23:21:12Z	2.2	
+14	476	orient	tool	read files	read	2026-10-31T23:21:14Z	0.0	Reading ctor lines :: src/wetmap/canvas.rs:322-328
+14	477	orient	tool	read files	read	2026-10-31T23:21:14Z	0.0	Reading heap_bytes lines :: src/wetmap/canvas.rs:393-397
+14	478	orient	tool	read files	read	2026-10-31T23:21:14Z	0.0	Reading clear lines :: src/wetmap/canvas.rs:452-460
+14	479	orient	model	model		2026-10-31T23:21:14Z	2.7	
+14	480	orient	tool	edit files	edit	2026-10-31T23:21:17Z	0.0	Ctor, heap_bytes and clear for spans and active :: [src/wetmap/canvas.rs#3BA2] PUT 326.=326: + boxes: Vec::new(), + spans: Vec::new(), + active: Vec::new(), PUT 395.=395: + + (self.runs.capacity() + self.snap.ca
+14	481	orient	tool	read files	read	2026-10-31T23:21:17Z	0.0	Reading tick body to rewrite :: src/wetmap/canvas.rs:962-1016
+14	482	orient	model	model		2026-10-31T23:21:17Z	12.4	
+14	483	orient	tool	edit files	edit	2026-10-31T23:21:29Z	0.0	Rewrite tick's coverage and remeasure to use row spans :: [src/wetmap/canvas.rs#1E05] PUT 963.=1010: + // Where blood can be after this tick: the stretches of blood the last tick left and the tiles painted since, each 
+14	484	orient	tool	shell	bash	2026-10-31T23:21:29Z	0.0	Locate covered and consts :: cd /Users/ladvien/bevy_carnage_loop && grep -n "^const TICK_REACH\|^fn covered\|^const LIVE_TILE" src/wetmap/canvas.rs
+14	485	orient	model	model		2026-10-31T23:21:29Z	6.1	
+14	486	orient	tool	read files	read	2026-10-31T23:21:35Z	0.0	Reading covered header for edit :: src/wetmap/canvas.rs:1588-1625
+14	487	orient	model	model		2026-10-31T23:21:35Z	7.6	
+14	488	orient	tool	edit files	edit	2026-10-31T23:21:43Z	0.3	New covered: boxes from spans and tiles, swept by row :: [src/wetmap/canvas.rs#15A1] PUT 1597.=1600: +/// **The tile a canvas tracks the blood a paint adds in, texels square: 32.** Each keeps the rectangle round its o
+14	489	orient	model	model		2026-10-31T23:21:43Z	3.3	
+14	490	orient	tool	read files	read	2026-10-31T23:21:47Z	0.0	Reading the half-replaced covered body :: src/wetmap/canvas.rs:1636-1696
+14	491	orient	model	model		2026-10-31T23:21:47Z	2.9	
+14	492	orient	tool	edit files	edit	2026-10-31T23:21:49Z	0.0	Remove the stale duplicate lines and fix the gap jump :: [src/wetmap/canvas.rs#08B4] PUT 1651.=1662: + if cuts.is_empty() { + // A gap between boxes: jump to the row the next one begins on. + y = boxes.get(next).map_o
+14	493	orient	tool	cargo build	bash	2026-10-31T23:21:50Z	60.0	[launched bg_25] Compile check the span coverage :: cd /Users/ladvien/bevy_carnage_loop && cargo build --release 2>&1 | grep -E "^(error|warning)" -A8 | head -50
+14	494	orient	model	model		2026-10-31T23:22:50Z	6.3	
+14	495	orient	tool	wait: build	wait	2026-10-31T23:22:56Z	38.2	Waiting for compile
+14	496	orient	model	model		2026-10-31T23:23:34Z	2.7	
+14	497	orient	tool	cargo test	bash	2026-10-31T23:23:37Z	60.0	[launched bg_26] Run wetmap tests on the span coverage :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib wetmap:: 2>&1 | grep -E "^test result|FAILED|panicked|^error|failed" -A6 | head -30; cp /Users
+14	498	orient	model	model		2026-10-31T23:24:37Z	6.5	
+14	499	orient	tool	wait: tests	wait	2026-10-31T23:24:43Z	48.3	Waiting for wetmap tests
+14	500	orient	model	model		2026-10-31T23:25:32Z	1.9	
+14	501	orient	tool	shell	bash	2026-10-31T23:25:33Z	60.0	[launched bg_27] A/B of the span coverage build against baseline :: cd /tmp/c7 && uptime && python3 ab2.py 6 /tmp/c7/bin_before/libtest_after_spans
+14	502	orient	model	model		2026-10-31T23:26:33Z	15.8	
+14	503	orient	tool	wait: other	wait	2026-10-31T23:26:49Z	208.6	Waiting for A/B
+14	504	orient	model	model		2026-10-31T23:30:18Z	8.7	
+14	505	orient	tool	shell	bash	2026-10-31T23:30:27Z	60.0	[launched bg_28] Measure instructions retired per build :: cd /Users/ladvien/bevy_carnage_loop && for b in libtest_base_metric libtest_after_final libtest_after_skip libtest_after_spans; do for i in 1 2; do /usr/bin/tim
+14	506	orient	model	model		2026-10-31T23:31:27Z	6.2	
+14	507	orient	tool	wait: other	wait	2026-10-31T23:31:33Z	289.0	Waiting for instruction counts
+14	508	orient	model	model		2026-10-31T23:36:22Z	18.5	
+14	509	orient	tool	search	grep	2026-10-31T23:36:40Z	0.0	Locate the coverage test :: src/wetmap/canvas.rs
+14	510	orient	model	model		2026-10-31T23:36:40Z	2.4	
+14	511	orient	tool	read files	read	2026-10-31T23:36:43Z	0.1	Read test end for anchor :: src/wetmap/canvas.rs:2299-2312
+14	512	orient	model	model		2026-10-31T23:36:43Z	6.9	
+14	513	orient	tool	edit files	edit	2026-10-31T23:36:50Z	0.1	Add a regression test for a spray's coverage :: [src/wetmap/canvas.rs#E549] PUT >2309: + + /// **A spray is covered by its own blood, not by the tiles it fell in.** Forty drops of five texels scattered over a
+14	514	orient	tool	read files	read	2026-10-31T23:36:50Z	0.0	Read tick comment lines to fix :: src/wetmap/canvas.rs:975-980
+14	515	orient	model	model		2026-10-31T23:36:50Z	4.7	
+14	516	orient	tool	edit files	edit	2026-10-31T23:36:55Z	0.1	Fix the remeasure comment :: [src/wetmap/canvas.rs#D1C6] PUT 975.=977: + // Re-measured over what was covered: outside it every texel is still `(0, 0)`. A row's blood is a stretch from one 
+14	517	orient	tool	cargo test	bash	2026-10-31T23:36:55Z	60.0	[launched bg_29] Run wetmap tests including the new coverage test :: cd /Users/ladvien/bevy_carnage_loop && cargo test --release --lib wetmap:: 2>&1 | grep -E "^test result|FAILED|panicked|^error|failed|a_spray" -A8 | head -30; c
+14	518	orient	model	model		2026-10-31T23:37:55Z	6.5	
+14	519	orient	tool	wait: tests	wait	2026-10-31T23:38:01Z	122.3	Waiting for wetmap tests
+14	520	orient	model	model		2026-10-31T23:40:04Z	7.9	
+14	521	orient	tool	cargo test	bash	2026-10-31T23:40:12Z	60.0	[launched bg_30] Prove the new test fails on the baseline coverage :: cd ~/c7_base && python3 - <<'EOF' p='src/wetmap/canvas.rs' s=open(p).read() marker=" /// Tick one canvas with `tick` and another with every pass over every texe
+14	522	orient	model	model		2026-10-31T23:41:12Z	4.6	
+14	523	orient	tool	git	bash	2026-10-31T23:41:16Z	0.7	Commit the span coverage :: cd /Users/ladvien/bevy_carnage_loop && git add src/wetmap/canvas.rs && git commit -q -m "A tick covers a spray's own blood, not the tiles it fell in (AG-146) Th
+14	524	orient	model	model		2026-10-31T23:41:17Z	8.7	
+14	525	orient	tool	wait: tests	wait	2026-10-31T23:41:25Z	116.2	Waiting for baseline coverage test run
+14	526	orient	model	model		2026-10-31T23:43:22Z	4.1	
+14	527	orient	tool	cargo build	bash	2026-10-31T23:43:26Z	0.0	[launched bg_31] Final release examples build :: cd /Users/ladvien/bevy_carnage_loop && git status --short && cargo build --release --examples 2>&1 | tail -2
+14	528	orient	model	model		2026-10-31T23:43:26Z	6.3	
+14	529	orient	tool	read files	read	2026-10-31T23:43:32Z	0.0	Read note's validation section :: docs/research/wet-tick-cost.md:96-125
+14	530	orient	model	model		2026-10-31T23:43:32Z	4.9	
+14	531	orient	tool	wait: build	wait	2026-10-31T23:43:37Z	546.8	Waiting for final release examples build
+14	532	orient	model	model		2026-10-31T23:52:44Z	3.0	
+14	533	orient	tool	shell	bash	2026-10-31T23:52:47Z	42.8	Bench alternation on the final binaries :: cd /tmp/c7 && rm -rf bin_after2 && mkdir -p bin_after2 after2 && E=$CARGO_TARGET_DIR/release/examples && for b in bench_carnage capture_preset capture_skinned c
+14	534	orient	model	model		2026-10-31T23:53:30Z	6.6	
+14	535	orient	tool	shell	bash	2026-10-31T23:53:36Z	30.2	Bench instructions retired before and after :: cd /tmp/c7 && for i in 1 2; do for w in before after2; do d=bin_$w; /usr/bin/time -l ./$d/bench_carnage > /tmp/c7/bn_$w.out 2> /tmp/c7/bn_$w.err; echo "$w: $(gr
+14	536	orient	model	model		2026-10-31T23:54:07Z	4.8	
+14	537	orient	tool	shell	bash	2026-10-31T23:54:11Z	0.0	[launched bg_32] Run final recorders twice per variant :: cd /tmp/c7 && ./runrec.sh /tmp/c7/bin_after2 /tmp/c7/after2/rec; echo done
+14	538	orient	model	model		2026-10-31T23:54:11Z	6.8	
+14	539	orient	tool	read files	read	2026-10-31T23:54:18Z	0.0	Read Model adopted to rewrite :: docs/research/wet-tick-cost.md:69-92
+14	540	orient	model	model		2026-10-31T23:54:18Z	11.2	
+14	541	orient	tool	edit files	edit	2026-10-31T23:54:29Z	0.0	Rewrite Model adopted items 3-4 and add 5-6 and the levers not taken :: [docs/research/wet-tick-cost.md#5425] PUT 71.=71: +No model change. Five exact reductions, each held to the thing it replaces, in the order they were made: PUT 
+14	542	orient	model	model		2026-10-31T23:54:29Z	9.2	
+14	543	orient	tool	read files	read	2026-10-31T23:54:39Z	0.0	Read levers bullets to fix claims :: docs/research/wet-tick-cost.md:100-115
+14	544	orient	model	model		2026-10-31T23:54:39Z	4.1	
+14	545	orient	tool	edit files	edit	2026-10-31T23:54:43Z	0.1	Correct the stamp-time claims to what was measured :: [docs/research/wet-tick-cost.md#9A75] PUT 104.=105: + batches); the satellites cost 15 ns. One heavy wound facing a wall is 49 stamps (`STAMPS by px`, one fresh
+14	546	orient	model	model		2026-10-31T23:54:43Z	4.2	
+14	547	orient	tool	wait: clip	wait	2026-10-31T23:54:47Z	229.3	Waiting for final recorders
+14	548	orient	model	model		2026-10-31T23:58:36Z	4.6	
+14	549	orient	tool	shell	bash	2026-10-31T23:58:41Z	16.4	Compare final digests and every frame to baseline :: cd /tmp/c7 && same=0; diff=0; for f in preset_1 preset_2 skinned_default_1 skinned_default_2 skinned_through_1 skinned_through_2 skinned_guard_1 skinned_guard_2
+14	550	orient	model	model		2026-10-31T23:58:57Z	5.9	
+14	551	orient	tool	shell	bash	2026-10-31T23:59:03Z	10.9	Recount frame comparison over directories only :: cd /tmp/c7 && tot=0; bad=0; for n in preset_1 preset_2 skinned_default_1 skinned_default_2 skinned_through_1 skinned_through_2 skinned_guard_1 skinned_guard_2 s
+14	552	orient	model	model		2026-10-31T23:59:14Z	6.4	
+14	553	orient	tool	shell	bash	2026-10-31T23:59:21Z	60.0	[launched bg_33] Final alternated A/B and instruction count :: cd /tmp/c7 && uptime && python3 ab2.py 8 /tmp/c7/bin_before/libtest_after_spans2 && for b in libtest_after_spans2; do /usr/bin/time -l /tmp/c7/bin_before/$b hit
+14	554	orient	model	model		2026-11-01T00:00:21Z	12.8	
+14	555	orient	tool	wait: other	wait	2026-11-01T00:00:34Z	96.8	Waiting for final A/B
+14	556	orient	model	model		2026-11-01T00:02:10Z	19.8	
+14	557	orient	model	model		2026-11-01T00:02:30Z	10.4	
+14	558	orient	tool	shell	bash	2026-11-01T00:02:41Z	0.1	Check which tests read the docs I edit :: cd /Users/ladvien/bevy_carnage_loop && grep -ln "CHANGELOG\|loop-log\|CLAUDE.md\|docs/research" tests/*.rs src/*.rs 2>/dev/null; grep -n "CHANGELOG" tests/*.rs 
+14	559	orient	model	model		2026-11-01T00:02:41Z	2.9	
+14	560	orient	tool	cargo test	bash	2026-11-01T00:02:44Z	0.0	[launched bg_34] Run the full gate in the repo's order :: cd /Users/ladvien/bevy_carnage_loop && git status --short; (cargo build 2>&1 | tail -2; echo "rc_build=$?"); (cargo build --release 2>&1 | tail -2; echo "rc_rel
+14	561	orient	model	model		2026-11-01T00:02:44Z	5.1	
+14	562	orient	tool	read files	read	2026-11-01T00:02:49Z	0.0	Read CHANGELOG head for tag :: CHANGELOG.md:1-9
+14	563	orient	model	model		2026-11-01T00:02:49Z	8.1	
+14	564	orient	tool	edit files	edit	2026-11-01T00:02:57Z	0.0	CHANGELOG entry for iteration 7 :: [CHANGELOG.md#6319] PUT >7: + +### Changed + +- **A wounded scene costs the caller about two fifths less a tick, with every byte unchanged** (iteration 7, AG-14
+14	565	orient	model	model		2026-11-01T00:02:57Z	3.7	
+14	566	orient	tool	read files	read	2026-11-01T00:03:01Z	0.0	Read note tail for results edit :: docs/research/wet-tick-cost.md:117-156
+14	567	orient	model	model		2026-11-01T00:03:01Z	13.2	
+14	568	orient	tool	edit files	edit	2026-11-01T00:03:14Z	0.0	Record the validation results in the note :: [docs/research/wet-tick-cost.md#BBEF] PUT 125.=132: +## Validation targets, and what was measured + +- **Every recorder variant's digest equal to the baseline's
+14	569	orient	model	model		2026-11-01T00:03:14Z	13.5	
+14	570	orient	tool	shell	bash	2026-11-01T00:03:27Z	0.5	Check log tail and scratch size :: cd /Users/ladvien/bevy_carnage_loop && tail -5 docs/loop-log.md | cut -c1-120; du -sh /tmp/c7 2>/dev/null | tail -1; df -h . | tail -1
+14	571	orient	model	model		2026-11-01T00:03:28Z	3.7	
+14	572	orient	tool	wait: gate	wait	2026-11-01T00:03:32Z	1335.5	Waiting for the full gate
+14	573	orient	model	model		2026-11-01T00:25:47Z	6.9	
+14	574	orient	tool	edit files	edit	2026-11-01T00:25:54Z	0.0	Correct the test count in the note :: [docs/research/wet-tick-cost.md#1B90] PUT 133.=134: +- **Every golden and `tests/wetmap.rs` untouched**: the gate's `cargo test --no-fail-fast` is green (lib 35
+14	575	orient	tool	read files	read	2026-11-01T00:25:54Z	0.0	Verify the edited validation lines :: docs/research/wet-tick-cost.md:125-142
+14	576	orient	model	model		2026-11-01T00:25:54Z	2.7	
+14	577	orient	tool	edit files	edit	2026-11-01T00:25:57Z	0.0	Correct the test count in the note (retry) :: [docs/research/wet-tick-cost.md#1B90] PUT 133.=136: +- **Every golden and `tests/wetmap.rs` untouched**: the gate's `cargo test --no-fail-fast` is green (lib 35
+14	578	orient	model	model		2026-11-01T00:25:57Z	39.5	
+14	579	orient	tool	cargo test	bash	2026-11-01T00:26:36Z	0.7	Write the loop log entry and commit the docs :: cd /Users/ladvien/bevy_carnage_loop && cat >> docs/loop-log.md <<'EOF' ## Iteration 7 — 2026-10-31 — a wounded scene costs the caller about two fifths less a ti
+14	580	orient	model	model		2026-11-01T00:26:37Z	8.6	
+14	581	orient	tool	search	grep	2026-11-01T00:26:46Z	0.0	Find the bench refusal sentence :: docs/loop-log.md
+14	582	orient	model	model		2026-11-01T00:26:46Z	1.4	
+14	583	orient	tool	read files	read	2026-11-01T00:26:47Z	0.1	Read the bench sentence for the edit :: docs/loop-log.md:872-876
+14	584	orient	model	model		2026-11-01T00:26:47Z	2.3	
+14	585	orient	tool	edit files	edit	2026-11-01T00:26:49Z	0.0	Correct the bench refusal counts in the log :: [docs/loop-log.md#1EEB] PUT 874.=875: + 15.75 billion instructions before and 15.75 to 15.80 after; its timing refused ("NO STABLE PLATEAU") in 11 of 17 runs at
+14	586	orient	model	model		2026-11-01T00:26:49Z	5.8	
+14	587	orient	tool	search	grep	2026-11-01T00:26:55Z	0.0	Find the speedup claim :: docs/loop-log.md
+14	588	orient	model	model		2026-11-01T00:26:55Z	1.6	
+14	589	orient	tool	read files	read	2026-11-01T00:26:57Z	0.0	Read lines for the speedup edit :: docs/loop-log.md:821-824
+14	590	orient	model	model		2026-11-01T00:26:57Z	2.2	
+14	591	orient	tool	edit files	edit	2026-11-01T00:26:59Z	0.0	Correct the speedup claim :: [docs/loop-log.md#113A] PUT 822.=823: + that can reach them in the same order; a texel outside a satellite's disc skips its square root. About 8x faster than th
+14	592	orient	model	model		2026-11-01T00:26:59Z	6.7	
+14	593	orient	tool	push gate	bash	2026-11-01T00:27:06Z	4.2	Fetch, then push the iteration branch :: cd /Users/ladvien/bevy_carnage_loop && git add docs/loop-log.md && git commit -q -m "Loop log: iteration 7, the bench counts and the stamp speedup stated as mea
+14	594	orient	model	model		2026-11-01T00:27:10Z	3.6	
+14	595	orient	tool	git	bash	2026-11-01T00:27:14Z	0.2	See what moved on origin/main :: cd /Users/ladvien/bevy_carnage_loop && git log --stat --format='%h %an %ad %s' --date=iso e82c3f5..origin/main | head -30
+14	596	orient	model	model		2026-11-01T00:27:14Z	4.1	
+14	597	orient	tool	git	bash	2026-11-01T00:27:18Z	0.2	Read the command file change :: cd /Users/ladvien/bevy_carnage_loop && git diff e82c3f5 origin/main -- .omp/commands/build-loop.md
+14	598	orient	model	model		2026-11-01T00:27:18Z	7.8	
+14	599	orient	tool	git	bash	2026-11-01T00:27:26Z	0.4	Read the new owner rules in full :: cd /Users/ladvien/bevy_carnage_loop && git show origin/main:.omp/commands/build-loop.md | sed -n 14,32p | cut -c1-900; echo ----; git show origin/main:.omp/comm
+14	600	orient	model	model		2026-11-01T00:27:26Z	9.5	
+14	601	orient	tool	git	bash	2026-11-01T00:27:36Z	1.3	Read the last audit as the new rule asks :: cd /Users/ladvien/bevy_carnage_loop && git fetch -q origin loop-stats 2>&1 | tail -2; git show origin/loop-stats:steps/bevy_carnage_loop-audit.tsv 2>&1 | tail -
+14	602	orient	model	model		2026-11-01T00:27:37Z	1.9	
+14	603	orient	tool	git	bash	2026-11-01T00:27:39Z	0.3	List the loop-stats branch contents :: cd /Users/ladvien/bevy_carnage_loop && git ls-tree -r --name-only origin/loop-stats 2>&1 | head -20; git log --oneline origin/loop-stats -3 2>&1 | head
+14	604	orient	model	model		2026-11-01T00:27:39Z	15.5	
+14	605	orient	tool	git	bash	2026-11-01T00:27:55Z	0.0	[launched bg_35] Run cargo semver-checks against 0.8.0 :: cd /Users/ladvien/bevy_carnage_loop && git status --short && CARGO_TARGET_DIR=/tmp/c7-semver cargo semver-checks check-release --baseline-version 0.8.0 --only-e
+14	606	orient	model	model		2026-11-01T00:27:55Z	6.8	
+14	607	orient	tool	shell	bash	2026-11-01T00:28:02Z	0.1	Find release-version mentions and the readme test :: cd /Users/ladvien/bevy_carnage_loop && grep -n "0\.8\.0" README.md docs/guide/install.md docs/guide/history.md Cargo.toml | cut -c1-220; sed -n 1,30p tests/read
+14	608	orient	model	model		2026-11-01T00:28:02Z	4.8	
+14	609	orient	tool	shell	bash	2026-11-01T00:28:07Z	0.1	Read history.md head and install lines :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,14p docs/guide/history.md | cut -c1-700; grep -n 'bevy_carnage = ' README.md docs/guide/install.md | head
+14	610	orient	model	model		2026-11-01T00:28:07Z	14.6	
+14	611	orient	tool	wait: other	wait	2026-11-01T00:28:21Z	419.9	Waiting for semver-checks
+14	612	orient	model	model		2026-11-01T00:35:21Z	18.2	
+14	613	orient	tool	git	bash	2026-11-01T00:35:39Z	21.0	Merge the iteration branch into main :: cd /Users/ladvien/bevy_carnage_loop && git checkout -q main && git pull -q --ff-only && git log --oneline -2 && git merge --no-ff loop/iter-7 -m "Merge loop/ite
+14	614	orient	model	model		2026-11-01T00:36:00Z	11.5	
+14	615	orient	tool	git	bash	2026-11-01T00:36:12Z	0.5	Bump the changelog and manifest to 0.8.1 :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' import re # CHANGELOG: move Unreleased to 0.8.1 p='CHANGELOG.md' s=open(p).read() assert '## [Unrelease
+14	616	orient	model	model		2026-11-01T00:36:12Z	3.9	
+14	617	orient	tool	read files	read	2026-11-01T00:36:16Z	0.1	Read history Status lines :: docs/guide/history.md:5-10
+14	618	orient	tool	read files	read	2026-11-01T00:36:16Z	0.1	Read install line 12 :: docs/guide/install.md:10-13
+14	619	orient	model	model		2026-11-01T00:36:16Z	4.9	
+14	620	orient	tool	edit files	edit	2026-11-01T00:36:21Z	0.0	Update Status and add the 0.8.1 entry in history.md :: [docs/guide/history.md#FD5F] PUT 7.=9: +**`0.8.1` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is develop
+14	621	orient	model	model		2026-11-01T00:36:21Z	5.0	
+14	622	orient	tool	edit files	edit	2026-11-01T00:36:26Z	0.0	Update Status and add the 0.8.1 entry in history.md :: [docs/guide/history.md#FD5F] PUT 7.=9: +**`0.8.1` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is develop
+14	623	orient	tool	edit files	edit	2026-11-01T00:36:26Z	0.0	Fix the stale 0.7 line in install.md :: [docs/guide/install.md#63BF] PUT 12.=12: +`0.8` is on crates.io. The release before `0.5.19`, which is `0.5.18`, is a Bevy 0.19 crate; a Bevy 0.19 project stays
+14	624	orient	model	model		2026-11-01T00:36:26Z	4.9	
+14	625	orient	tool	edit files	edit	2026-11-01T00:36:31Z	0.0	Clean the install.md sentence :: [docs/guide/install.md#CD46] PUT 12.=12: +`0.8` is on crates.io. The last release before `0.7.0`, `0.5.18`, is a Bevy 0.19 crate; a Bevy 0.19 project stays on `
+14	626	orient	tool	cargo build	bash	2026-11-01T00:36:31Z	46.7	Stage the release prep and let cargo update the lock :: cd /Users/ladvien/bevy_carnage_loop && git add -A CHANGELOG.md Cargo.toml docs/guide/history.md docs/guide/install.md && git status --short && cargo build 2>&1 
+14	627	orient	model	model		2026-11-01T00:37:18Z	5.8	
+14	628	orient	tool	search	grep	2026-11-01T00:37:24Z	0.0	Find the release decision line :: docs/loop-log.md
+14	629	orient	model	model		2026-11-01T00:37:24Z	1.5	
+14	630	orient	tool	read files	read	2026-11-01T00:37:25Z	0.0	Read lines to replace :: docs/loop-log.md:882-886
+14	631	orient	model	model		2026-11-01T00:37:25Z	3.3	
+14	632	orient	tool	edit files	edit	2026-11-01T00:37:28Z	0.0	Replace the release decision with what was done and why :: [docs/loop-log.md#70D4] PUT 885.=885: +(3) a PATCH release, `0.8.1`, this pass: the prompt this pass started under limited releases to one in six hours (`v0.8.0
+14	633	orient	model	model		2026-11-01T00:37:28Z	4.2	
+14	634	orient	tool	shell	bash	2026-11-01T00:37:33Z	0.8	Commit the release prep and log :: cd /Users/ladvien/bevy_carnage_loop && sed -n '/^## Iteration 7/,$p' docs/loop-log.md | grep -n -i "no release\|six-hour\|six hour" | head; git add Cargo.lock d
+14	635	orient	model	model		2026-11-01T00:37:33Z	4.1	
+14	636	orient	tool	cargo test	bash	2026-11-01T00:37:37Z	0.0	[launched bg_36] Merged-tree gate after the release bump :: cd /Users/ladvien/bevy_carnage_loop && (cargo build 2>&1 | tail -1; echo "rc_build=$?"); (cargo build --release 2>&1 | tail -1; echo "rc_release=$?"); (cargo te
+14	637	orient	model	model		2026-11-01T00:37:37Z	10.2	
+14	638	orient	tool	wait: gate	wait	2026-11-01T00:37:48Z	1514.1	Waiting for the merged-tree gate
+14	639	orient	model	model		2026-11-01T01:03:02Z	4.4	
+14	640	orient	tool	push gate	bash	2026-11-01T01:03:06Z	52.8	Push main and dry-run the publish :: cd /Users/ladvien/bevy_carnage_loop && git status --short && git push origin main 2>&1 | tail -2 && cargo publish --dry-run 2>&1 | tail -6
+14	641	orient	model	model		2026-11-01T01:03:59Z	2.2	
+14	642	orient	tool	cargo publish	bash	2026-11-01T01:04:01Z	17.8	Publish 0.8.1 to crates.io :: cd /Users/ladvien/bevy_carnage_loop && cargo publish 2>&1 | tail -5; echo "rc=$?"
+14	643	orient	model	model		2026-11-01T01:04:19Z	2.5	
+14	644	orient	tool	push gate	bash	2026-11-01T01:04:22Z	4.5	Tag, push the tag and confirm on crates.io :: cd /Users/ladvien/bevy_carnage_loop && git tag -a v0.8.1 -m v0.8.1 && git push origin v0.8.1 2>&1 | tail -2 && cargo info bevy_carnage@0.8.1 2>&1 | head -8; cur
+14	645	orient	model	model		2026-11-01T01:04:26Z	6.2	
+14	646	orient	tool	shell	bash	2026-11-01T01:04:32Z	1.6	Inventory what this pass created before cleanup :: cd /Users/ladvien/bevy_carnage_loop && df -h . | tail -1; du -sh /tmp/c7 /tmp/c7-semver /Users/ladvien/target/bevy_carnage-loop/package 2>/dev/null; git worktre
+14	647	orient	model	model		2026-11-01T01:04:34Z	5.4	
+14	648	orient	tool	git	bash	2026-11-01T01:04:39Z	8.7	Remove this pass's worktree and scratch :: cd /Users/ladvien/bevy_carnage_loop && git -C ~/c7_base checkout -- src/wetmap/canvas.rs src/preset.rs && git worktree remove ~/c7_base && git worktree list && 
+14	649	orient	model	model		2026-11-01T01:04:48Z	26.8	
+14	650	orient	tool	learn	learn	2026-11-01T01:05:15Z	0.0	Capture iteration 7 lessons
+14	651	orient	model	model		2026-11-01T01:05:15Z	13.6	
+14	652	orient	tool	push gate	bash	2026-11-01T01:05:28Z	2.6	Append the release and cleanup block, commit, push :: cd /Users/ladvien/bevy_carnage_loop && cat >> docs/loop-log.md <<'EOF' **Merged tree and release.** `main` moved under the pass: `0c5109c`, the owner's change t
+14	653	orient	model	model		2026-11-01T01:05:31Z	3.3	
+14	654	orient	tool	git	bash	2026-11-01T01:05:34Z	1.8	Final repo state check :: cd /Users/ladvien/bevy_carnage_loop && git fetch -q origin && git rev-parse main origin/main && git status --short | wc -l && git branch --show-current && git t
+14	655	orient	model	model		2026-11-01T01:05:36Z	9.8	
+15	1	orient	model	model		2026-11-01T01:06:16Z	5.2	
+15	2	orient	tool	git	bash	2026-11-01T01:06:21Z	2.9	Orienting: git state, audit, parked branches :: cd /Users/ladvien/bevy_carnage_loop && git status --short | head; git branch --show-current; git log --oneline -n 12; git fetch -q origin loop-stats 2>&1 | tail
+15	3	orient	tool	github	bash	2026-11-01T01:06:21Z	2.9	Listing open issues :: cd /Users/ladvien/bevy_carnage_loop && gh issue list --repo bevy-coven/bevy_carnage --state open --limit 100 --json number,title,labels,createdAt --jq '.[] | "#
+15	4	orient	model	model		2026-11-01T01:06:24Z	5.7	
+15	5	orient	tool	github	bash	2026-11-01T01:06:30Z	1.2	Checking issues via clone remote and parked refs :: cd /Users/ladvien/bevy_carnage_loop && git remote -v | head -2; gh issue list --state open --limit 100 2>&1 | head -20; echo ---; git log --all --oneline -n 8 -
+15	6	orient	model	model		2026-11-01T01:06:31Z	3.5	
+15	7	orient	tool	github	bash	2026-11-01T01:06:34Z	1.2	Checking all issues and the parked commit :: cd /Users/ladvien/bevy_carnage_loop && gh issue list --state all --limit 20 2>&1 | head -20; git show --stat 2ed4559 | head -20; git branch --contains 2ed4559 |
+15	8	orient	tool	shell	bash	2026-11-01T01:06:34Z	1.2	Locating the newest log iteration :: cd /Users/ladvien/bevy_carnage_loop && wc -l docs/loop-log.md && grep -n '^## Iteration' docs/loop-log.md | tail -5
+15	9	orient	model	model		2026-11-01T01:06:36Z	3.1	
+15	10	orient	tool	read files	read	2026-11-01T01:06:39Z	0.1	Reading newest iteration log and backlog :: docs/loop-log.md:798-925
+15	11	orient	model	model		2026-11-01T01:06:39Z	7.6	
+15	12	orient	tool	clip record/render	bash	2026-11-01T01:06:46Z	0.3	Checking tools, disk, worktrees :: which magick convert ffmpeg ffprobe 2>&1; df -h . | tail -1; ls ~ | head -30; git worktree list; ls /tmp | head -20; uptime
+15	13	orient	model	model		2026-11-01T01:06:47Z	3.8	
+15	14	orient	tool	shell	bash	2026-11-01T01:06:50Z	16.3	Checking python imaging and the build cache :: which brew python3; python3 -c "import PIL; print(PIL.__version__)" 2>&1; python3 -c "import numpy; print(numpy.__version__)" 2>&1; ls /Users/ladvien/target/bev
+15	15	orient	model	model		2026-11-01T01:07:07Z	12.5	
+15	16	orient	tool	cargo build	bash	2026-11-01T01:07:19Z	0.0	[launched bg_1] Building release examples baseline :: cd /Users/ladvien/bevy_carnage_loop && mkdir -p /tmp/c8/before /tmp/c8/after /tmp/c8/refs && (time cargo build --release --examples 2>&1 | tail -5)
+15	17	orient	tool	read files	read	2026-11-01T01:07:19Z	0.0	Reading iteration 6 backlog :: docs/loop-log.md:769-797
+15	18	orient	model	model		2026-11-01T01:07:19Z	7.1	
+15	19	orient	tool	shell	bash	2026-11-01T01:07:26Z	13.7	Listing research notes and media; making image venv :: cd /Users/ladvien/bevy_carnage_loop && ls docs/research/ docs/media/ 2>/dev/null | head -80; wc -l docs/research/*.md | tail -20; (python3 -m venv /tmp/c8/venv 
+15	20	orient	model	model		2026-11-01T01:07:40Z	1.8	
+15	21	orient	tool	read files	read	2026-11-01T01:07:42Z	0.0	Reading the corpus reading list :: docs/research/corpus.md
+15	22	orient	tool	read files	read	2026-11-01T01:07:42Z	0.0	Reading media list :: docs/media/README.md
+15	23	orient	model	model		2026-11-01T01:07:42Z	3.0	
+15	24	orient	tool	shell	bash	2026-11-01T01:07:45Z	0.0	Listing demo gifs and DEMOS recipes :: cd /Users/ladvien/bevy_carnage_loop && ls -la docs/*.gif docs/*.png 2>/dev/null | head -50; sed -n 1,80p docs/DEMOS.md
+15	25	orient	model	model		2026-11-01T01:07:45Z	4.0	
+15	26	orient	tool	read files	read	2026-11-01T01:07:49Z	0.0	Viewing the README still of the body in its pool :: docs/media/preset.png
+15	27	orient	tool	read files	read	2026-11-01T01:07:49Z	0.0	Viewing the floor spray still :: docs/media/floor_spray.png
+15	28	orient	model	model		2026-11-01T01:07:49Z	7.0	
+15	29	orient	tool	shell	bash	2026-11-01T01:07:56Z	0.1	Listing source layout and sizes :: cd /Users/ladvien/bevy_carnage_loop && ls src src/*/ | head -80; wc -l src/flesh*.wesl src/flesh.rs src/preset.rs; cat Cargo.toml | sed -n 1,40p
+15	30	orient	model	model		2026-11-01T01:07:56Z	3.2	
+15	31	orient	tool	search	grep	2026-11-01T01:07:59Z	0.0	Locating blood contour code in the shader :: src/flesh.wesl
+15	32	orient	model	model		2026-11-01T01:07:59Z	3.8	
+15	33	orient	tool	web	web_search	2026-11-01T01:08:03Z	6.1	Searching horror blood spatter references :: Evil Dead 2013 practical blood splatter wall behind the scenes KNB
+15	34	orient	tool	web	web_search	2026-11-01T01:08:03Z	7.9	Searching Wikimedia spatter references :: blood spatter droplets round stains satellite spatter wall commons.wikimedia.org File blood spatter
+15	35	orient	model	model		2026-11-01T01:08:11Z	5.4	
+15	36	orient	tool	shell	bash	2026-11-01T01:08:17Z	0.6	Resolving Wikimedia reference image URLs :: cd /tmp/c8/refs && curl -sL "https://commons.wikimedia.org/w/api.php?action=query&titles=File:Blood_Spatter_Texture_-_FREE.jpg|File:Blood,_guts_and_gore_galore,
+15	37	orient	model	model		2026-11-01T01:08:17Z	5.0	
+15	38	orient	tool	shell	bash	2026-11-01T01:08:22Z	7.1	Searching Wikimedia Commons for references :: cd /tmp/c8/refs && for q in "blood pool floor" "blood spatter wall" "moulage wound" "special effects makeup wound" "dried blood stain" "blood drops floor" "guns
+15	39	orient	model	model		2026-11-01T01:08:29Z	6.5	
+15	40	orient	tool	shell	bash	2026-11-01T01:08:36Z	3.3	Downloading Wikimedia reference images :: cd /tmp/c8/refs && fetch(){ curl -s -G "https://commons.wikimedia.org/w/api.php" --data-urlencode "action=query" --data-urlencode "titles=$1" --data-urlencode "
+15	41	orient	model	model		2026-11-01T01:08:39Z	6.1	
+15	42	orient	tool	shell	bash	2026-11-01T01:08:45Z	0.9	Downloading reference images with a script :: cd /tmp/c8/refs && cat > /tmp/c8/fetch.py <<'EOF' import sys, json, urllib.request, urllib.parse UA={'User-Agent':'bevy_carnage-loop/1.0 (reference fetch; conta
+15	43	orient	model	model		2026-11-01T01:08:46Z	20.9	
+15	44	orient	tool	read files	read	2026-11-01T01:09:07Z	0.0	Reading the floor-spatter research note :: docs/research/floor-spatter.md
+15	45	orient	model	model		2026-11-01T01:09:07Z	9.5	
+15	46	orient	tool	shell	bash	2026-11-01T01:09:17Z	0.5	Checking wasm toolchain and browsers for the WebGL2 check :: rustup target list --installed 2>&1; which wasm-bindgen wasm-server-runner trunk 2>&1; ls /Applications | grep -i -E "chrom|firefox|brave|edge"; ls /Users/ladvi
+15	47	orient	model	model		2026-11-01T01:09:17Z	4.9	
+15	48	orient	tool	shell	bash	2026-11-01T01:09:22Z	0.1	Finding how WebGL2 was verified before :: cd /Users/ladvien/bevy_carnage_loop && grep -rn -i "webgl2\|wasm-bindgen\|swiftshader" docs/loop-log.md BACKLOG.md docs/DEMOS.md docs/preset.md 2>/dev/null | cu
+15	49	orient	model	model		2026-11-01T01:09:22Z	10.5	
+15	50	orient	tool	read files	read	2026-11-01T01:09:33Z	0.1	Reading shader constants and B-spline filter :: src/flesh.wesl:20-135
+15	51	orient	tool	read files	read	2026-11-01T01:09:33Z	0.1	Reading the wet-film fragment code :: src/flesh.wesl:248-360
+15	52	orient	model	model		2026-11-01T01:09:33Z	11.1	
+15	53	orient	tool	shell	bash	2026-11-01T01:09:44Z	1.8	Probing the published GIFs :: mkdir -p /tmp/c8/gif && cd /tmp/c8/gif && for g in skinned skinned_through skinned_break skinned_spray; do ffprobe -v error -select_streams v -count_frames -sho
+15	54	orient	model	model		2026-11-01T01:09:46Z	3.2	
+15	55	orient	tool	clip record/render	bash	2026-11-01T01:09:49Z	2.4	Extracting frames from the published GIFs :: cd /tmp/c8/gif && ffmpeg -v error -y -i /Users/ladvien/bevy_carnage_loop/docs/skinned.gif -vf "select=eq(n\,170)" -frames:v 1 skinned170.png && ffmpeg -v error 
+15	56	orient	model	model		2026-11-01T01:09:51Z	2.9	
+15	57	orient	tool	read files	read	2026-11-01T01:09:54Z	0.1	Viewing published skinned clip frame :: /tmp/c8/gif/skinned170.png
+15	58	orient	tool	read files	read	2026-11-01T01:09:54Z	0.1	Viewing published through-shot frame :: /tmp/c8/gif/through85.png
+15	59	orient	tool	read files	read	2026-11-01T01:09:54Z	0.1	Viewing published spray frame :: /tmp/c8/gif/spray90.png
+15	60	orient	model	model		2026-11-01T01:09:54Z	52.1	
+15	61	orient	tool	search	grep	2026-11-01T01:10:46Z	0.0	How the shader is loaded :: src/flesh.rs
+15	62	orient	model	model		2026-11-01T01:10:46Z	15.3	
+15	63	orient	tool	wait: build	wait	2026-11-01T01:11:02Z	783.7	Waiting for the baseline release examples build
+15	64	orient	model	model		2026-11-01T01:24:05Z	3.3	
+15	65	orient	tool	shell	bash	2026-11-01T01:24:09Z	0.0	Reading capture_skinned usage and binaries :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,80p examples/capture_skinned.rs | cut -c1-200; E=$CARGO_TARGET_DIR/release/examples; ls $E | grep -v -E '\-[0-9a
+15	66	orient	model	model		2026-11-01T01:24:09Z	6.3	
+15	67	orient	tool	shell	bash	2026-11-01T01:24:15Z	0.0	[launched bg_2] Recording baseline through-wall clip :: mkdir -p /tmp/c8/bin_before && E=$CARGO_TARGET_DIR/release/examples && cp $E/capture_skinned $E/capture_preset $E/bench_carnage /tmp/c8/bin_before/ && ls -la /t
+15	68	orient	model	model		2026-11-01T01:24:15Z	3.0	
+15	69	orient	tool	shell	bash	2026-11-01T01:24:18Z	21.2	Retrying reference image downloads :: cd /tmp/c8/refs && sleep 20; python3 /tmp/c8/fetch.py 2>&1 | tail -6; ls -la
+15	70	orient	bg	shell	bash	2026-11-01T01:24:23Z	16.3	bg_2 completed: mkdir -p /tmp/c8/bin_before && E=$CARGO_TARGET_DIR/release/examples && cp $E/capture_skinned $E/capture_preset $E/ben...
+15	71	orient	model	model		2026-11-01T01:24:39Z	3.3	
+15	72	orient	tool	read files	read	2026-11-01T01:24:43Z	0.6	Viewing the baseline wall-spray frame :: /tmp/c8/before/through/frame0359.png
+15	73	orient	tool	read files	read	2026-11-01T01:24:43Z	1.1	Viewing the spatter reference :: /tmp/c8/refs/ref1_spatter.jpg
+15	74	orient	model	model		2026-11-01T01:24:44Z	5.7	
+15	75	orient	tool	search	grep	2026-11-01T01:24:49Z	0.0	Locating the spray throw and stamp code :: src
+15	76	orient	model	model		2026-11-01T01:24:49Z	8.1	
+15	77	orient	tool	shell	bash	2026-11-01T01:24:58Z	22.4	Measuring stain size distributions: refs and baseline :: /tmp/c8/venv/bin/pip install -q scipy 2>&1 | tail -1; cat > /tmp/c8/stains.py <<'EOF' import sys, numpy as np from PIL import Image from scipy import ndimage de
+15	78	orient	model	model		2026-11-01T01:25:20Z	3.4	
+15	79	orient	tool	shell	bash	2026-11-01T01:25:23Z	0.4	Checking baseline frame size :: cd /tmp/c8 && ./venv/bin/python -c " from PIL import Image im=Image.open('before/through/frame0359.png'); print(im.size) ";
+15	80	orient	model	model		2026-11-01T01:25:24Z	5.5	
+15	81	orient	tool	shell	bash	2026-11-01T01:25:29Z	1.6	Re-measuring baseline stains at lower threshold :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' import numpy as np from stains import stains for thr in (30,40,50): r = stains('before/through/frame0359.png',(120,40,
+15	82	orient	model	model		2026-11-01T01:25:31Z	6.8	
+15	83	orient	tool	shell	bash	2026-11-01T01:25:38Z	0.5	Zooming on baseline wall stipple :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' from PIL import Image im=Image.open('before/through/frame0359.png').crop((260,50,560,230)).resize((900,540),Image.NEAR
+15	84	orient	tool	read files	read	2026-11-01T01:25:38Z	0.5	Viewing the zoomed baseline stipple :: /tmp/c8/before/through_zoom.png
+15	85	orient	model	model		2026-11-01T01:25:38Z	1.6	
+15	86	orient	tool	read files	read	2026-11-01T01:25:40Z	0.0	Viewing the zoomed baseline stipple :: /tmp/c8/before/through_zoom.png
+15	87	orient	model	model		2026-11-01T01:25:40Z	21.8	
+15	88	orient	tool	shell	bash	2026-11-01T01:26:02Z	0.0	Finding wall canvas resolution in the recorder :: cd /Users/ladvien/bevy_carnage_loop && grep -n "texels" examples/common/preset_scene.rs | head -20; grep -n "Gore::\|\.canvas(\|canvas:" examples/capture_skinne
+15	89	orient	model	model		2026-11-01T01:26:02Z	2.5	
+15	90	orient	tool	shell	bash	2026-11-01T01:26:04Z	0.0	Reading GoreDials canvas defaults and recorder surfaces :: cd /Users/ladvien/bevy_carnage_loop && sed -n 2335,2362p src/preset.rs; grep -n "Gore::wall\|Gore::floor\|Gore::skin\|Gore::cloth\|Gore::" examples/common/prese
+15	91	orient	model	model		2026-11-01T01:26:04Z	44.8	
+15	92	orient	tool	shell	bash	2026-11-01T01:26:49Z	15.0	Recording baseline floor spray at 512 texels :: cd /tmp/c8/before && /tmp/c8/bin_before/capture_skinned --eye 0.0,1.5,3.1 --at 0,0,1.3 --floor 512 --out /tmp/c8/before/floor512 2>&1 | tail -1; ls /tmp/c8/befo
+15	93	orient	model	model		2026-11-01T01:27:04Z	4.6	
+15	94	orient	tool	shell	bash	2026-11-01T01:27:09Z	0.6	Cropping floor spray frames over time :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' from PIL import Image, ImageDraw frames=[125,140,160,359] tiles=[] for f in frames: im=Image.open(f'before/floor512/fr
+15	95	orient	tool	read files	read	2026-11-01T01:27:09Z	0.6	Viewing floor spray evolution sheet :: /tmp/c8/before/floor512_sheet.png
+15	96	orient	model	model		2026-11-01T01:27:09Z	2.8	
+15	97	orient	tool	read files	read	2026-11-01T01:27:12Z	0.4	Viewing floor spray evolution sheet :: /tmp/c8/before/floor512_sheet.png
+15	98	orient	model	model		2026-11-01T01:27:12Z	3.4	
+15	99	orient	tool	read files	read	2026-11-01T01:27:16Z	0.2	Viewing floor-512 frame 359 :: /tmp/c8/before/floor512/frame0359.png
+15	100	orient	model	model		2026-11-01T01:27:16Z	5.8	
+15	101	orient	tool	shell	bash	2026-11-01T01:27:22Z	0.5	Zooming on floor drops :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' from PIL import Image im=Image.open('before/floor512/frame0359.png').crop((420,170,620,290)).resize((1000,600),Image.N
+15	102	orient	model	model		2026-11-01T01:27:22Z	1.7	
+15	103	orient	tool	read files	read	2026-11-01T01:27:24Z	0.0	Viewing zoomed floor drops :: /tmp/c8/before/floor512_zoom.png
+15	104	orient	model	model		2026-11-01T01:27:24Z	19.1	
+15	105	orient	tool	read files	read	2026-11-01T01:27:43Z	0.1	Reading paint_speck implementation :: src/wetmap/canvas.rs:500-640
+15	106	orient	model	model		2026-11-01T01:27:43Z	25.8	
+15	107	orient	tool	shell	bash	2026-11-01T01:28:09Z	25.3	Simulating speck reconstruction roundness in Python :: mkdir -p /tmp/c8/py && cat > /tmp/c8/py/speck.py <<'EOF' import numpy as np rng = np.random.default_rng(7) GROW, FLOOR = 2.0, 1.2 def paint_speck(grid, cx, cy, 
+15	108	orient	model	model		2026-11-01T01:28:34Z	76.7	
+15	109	orient	tool	shell	bash	2026-11-01T01:29:51Z	14.1	Building the mass-normalised threshold table :: cat > /tmp/c8/py/run2.py <<'EOF' import sys; sys.path.insert(0,'/tmp/c8/py') from speck import * rng = np.random.default_rng(11) n = 14 RES = 16 def window_mass
+15	110	orient	model	model		2026-11-01T01:30:05Z	12.8	
+15	111	orient	tool	shell	bash	2026-11-01T01:30:18Z	33.8	Testing the mass-normalised contour on speck data :: cat > /tmp/c8/py/run3.py <<'EOF' import sys; sys.path.insert(0,'/tmp/c8/py') from speck import * from run2 import window_mass, F_of, n, RES tab = np.load('/tmp/
+15	112	orient	model	model		2026-11-01T01:30:52Z	23.0	
+15	113	orient	tool	search	grep	2026-11-01T01:31:15Z	0.0	Finding how the canvas uploads the detail image :: src/wetmap/canvas.rs
+15	114	orient	model	model		2026-11-01T01:31:15Z	37.6	
+15	115	orient	tool	shell	bash	2026-11-01T01:31:52Z	11.4	Prototyping moment-based drop reconstruction :: cat > /tmp/c8/py/run4.py <<'EOF' import sys; sys.path.insert(0,'/tmp/c8/py') from speck import * from scipy import ndimage RES=16; n=14 def moments_window(grid,
+15	116	orient	model	model		2026-11-01T01:32:04Z	9.3	
+15	117	orient	tool	shell	bash	2026-11-01T01:32:13Z	17.6	Rendering reconstruction masks for visual comparison :: cat > /tmp/c8/py/run5.py <<'EOF' import sys; sys.path.insert(0,'/tmp/c8/py') from speck import * from run4 import draw_mask, RES, n from PIL import Image rng = 
+15	118	orient	model	model		2026-11-01T01:32:31Z	1.7	
+15	119	orient	tool	read files	read	2026-11-01T01:32:32Z	0.0	Viewing current versus moment-based drop masks :: /tmp/c8/py/masks.png
+15	120	orient	model	model		2026-11-01T01:32:32Z	88.5	
+15	121	orient	tool	read files	read	2026-11-01T01:34:01Z	1.4	Viewing the floor drip reference :: /tmp/c8/refs/ref7_moulage092.jpg
+15	122	orient	tool	todo	todo	2026-11-01T01:34:02Z	0.0	Planning iteration 8
+15	123	orient	model	model		2026-11-01T01:34:02Z	8.8	
+15	124	orient	tool	edit files	write	2026-11-01T01:34:11Z	3.8	Searching the corpus for SDF magnification technique :: xd://mcp__home_still_distill_search
+15	125	orient	tool	web	web_search	2026-11-01T01:34:15Z	9.4	Finding Valve distance field paper :: Green "Improved Alpha-Tested Magnification for Vector Textures and Special Effects" Valve SIGGRAPH 2007 distance field
+15	126	orient	model	model		2026-11-01T01:34:24Z	43.7	
+15	127	orient	tool	shell	bash	2026-11-01T01:35:08Z	2.3	Hybrid prototype on synthetic scene :: cat > /tmp/c8/py/hyb.py <<'EOF' import sys; sys.path.insert(0,'/tmp/c8/py') import numpy as np from speck import paint_speck, bspline, k_bspline from scipy impo
+15	128	orient	model	model		2026-11-01T01:35:11Z	1.8	
+15	129	orient	tool	read files	read	2026-11-01T01:35:12Z	0.5	Viewing current versus hybrid on synthetic scene :: /tmp/c8/py/scene.png
+15	130	orient	model	model		2026-11-01T01:35:13Z	12.0	
+15	131	orient	tool	shell	bash	2026-11-01T01:35:25Z	2.3	Rendering true, current and hybrid spray fan :: cat > /tmp/c8/py/run6.py <<'EOF' import sys; sys.path.insert(0,'/tmp/c8/py') from hyb import * from PIL import Image rng = np.random.default_rng(9) N=64 g = np.
+15	132	orient	model	model		2026-11-01T01:35:27Z	1.8	
+15	133	orient	tool	read files	read	2026-11-01T01:35:29Z	0.3	Viewing true vs current vs hybrid fan :: /tmp/c8/py/fan.png
+15	134	orient	model	model		2026-11-01T01:35:29Z	35.1	
+15	135	orient	tool	shell	bash	2026-11-01T01:36:04Z	0.0	Finding canvas readout API and digest enumeration :: cd /Users/ladvien/bevy_carnage_loop && grep -n "WetCanvas\|fn " examples/common/digest.rs | head -40; grep -n "pub fn coverage\|pub fn amount\|pub fn size\|pub 
+15	136	orient	model	model		2026-11-01T01:36:04Z	2.6	
+15	137	orient	tool	shell	bash	2026-11-01T01:36:07Z	0.0	Finding where capture_skinned folds canvases :: cd /Users/ladvien/bevy_carnage_loop && grep -n "WetCanvas" examples/capture_skinned.rs | head; grep -n "digest=" examples/capture_skinned.rs | head -5; sed -n 4
+15	138	orient	model	model		2026-11-01T01:36:07Z	5.0	
+15	139	orient	tool	read files	read	2026-11-01T01:36:12Z	0.0	Reading digest fold site :: examples/capture_skinned.rs:185-200
+15	140	orient	model	model		2026-11-01T01:36:12Z	3.9	
+15	141	orient	tool	edit files	edit	2026-11-01T01:36:16Z	0.0	Temporary canvas dump in capture_skinned (scratch, reverted later) :: [examples/capture_skinned.rs#34F6] PUT >191: + // SCRATCH (iteration 8): dump each canvas's amounts, reverted before any commit. + if let Ok(dir) = std::env::va
+15	142	orient	model	model		2026-11-01T01:36:16Z	5.1	
+15	143	orient	tool	read files	read	2026-11-01T01:36:21Z	0.0	Reading fragment_shader definition :: src/flesh.rs:314-330
+15	144	orient	model	model		2026-11-01T01:36:21Z	3.3	
+15	145	orient	tool	edit files	edit	2026-11-01T01:36:24Z	0.0	Temporary dev shader path override (scratch, reverted before commit) :: [src/flesh.rs#DE65] PUT 320.=320: + // SCRATCH (iteration 8): read the shader from BEVY_ASSET_ROOT while iterating; reverted before any commit. + if std::env::v
+15	146	orient	model	model		2026-11-01T01:36:25Z	4.2	
+15	147	orient	tool	cargo build	bash	2026-11-01T01:36:29Z	0.0	[launched bg_3] Building capture_skinned with scratch dump and dev shader :: cd /Users/ladvien/bevy_carnage_loop && mkdir -p /tmp/c8/assets && ln -sf /Users/ladvien/bevy_carnage_loop/src/flesh.wesl /tmp/c8/assets/flesh_dev.wesl && (time 
+15	148	orient	model	model		2026-11-01T01:36:29Z	18.7	
+15	149	orient	tool	read files	read	2026-11-01T01:36:47Z	0.0	Reading blood composite and lighting tail :: src/flesh.wesl:364-502
+15	150	orient	model	model		2026-11-01T01:36:47Z	9.8	
+15	151	orient	tool	edit files	write	2026-11-01T01:36:57Z	2.4	Searching corpus for drop-to-stain size ratio quote :: xd://mcp__home_still_distill_search
+15	152	orient	model	model		2026-11-01T01:37:00Z	5.1	
+15	153	orient	tool	wait: build	wait	2026-11-01T01:37:05Z	59.2	Waiting for the scratch capture_skinned build
+15	154	orient	model	model		2026-11-01T01:38:04Z	5.7	
+15	155	orient	tool	shell	bash	2026-11-01T01:38:10Z	52.0	Running dev-shader capture with canvas dump :: mkdir -p /tmp/c8/bin_dev /tmp/c8/dump && cp $CARGO_TARGET_DIR/release/examples/capture_skinned /tmp/c8/bin_dev/ && cd /tmp/c8 && BEVY_ASSET_ROOT=/tmp/c8/assets 
+15	156	orient	model	model		2026-11-01T01:39:02Z	5.3	
+15	157	orient	tool	shell	bash	2026-11-01T01:39:07Z	22.5	Re-running with the corrected dev asset path :: mkdir -p /tmp/c8/assets/assets && ln -sf /Users/ladvien/bevy_carnage_loop/src/flesh.wesl /tmp/c8/assets/assets/flesh_dev.wesl && cd /tmp/c8 && BEVY_ASSET_ROOT=/
+15	158	orient	model	model		2026-11-01T01:39:29Z	8.6	
+15	159	orient	tool	shell	bash	2026-11-01T01:39:38Z	1.6	Running the hybrid on real floor canvas data :: cat > /tmp/c8/py/real.py <<'EOF' import sys; sys.path.insert(0,'/tmp/c8/py') import numpy as np import hyb from hyb import hybrid, RES from PIL import Image raw
+15	160	orient	model	model		2026-11-01T01:39:40Z	5.0	
+15	161	orient	tool	shell	bash	2026-11-01T01:39:45Z	2.2	Re-running hybrid on a densest square patch :: cd /tmp/c8/py && python3 - <<'EOF' import re s = open('real.py').read() s = s.replace("sub = g[y0:y1, x0:x1]", """best=None for yy in range(y0, y1-96, 8): for x
+15	162	orient	model	model		2026-11-01T01:39:47Z	1.8	
+15	163	orient	tool	read files	read	2026-11-01T01:39:49Z	0.4	Viewing real canvas: amounts, legacy mask, hybrid mask :: /tmp/c8/py/real.png
+15	164	orient	model	model		2026-11-01T01:39:49Z	8.4	
+15	165	orient	tool	shell	bash	2026-11-01T01:39:58Z	2.7	Selecting the densest speck patch of the real canvas :: cd /tmp/c8/py && python3 - <<'EOF' s = open('real.py').read() i = s.index("best=None"); j = s.index("print('patch',best)")+len("print('patch',best)") new = """f
+15	166	orient	model	model		2026-11-01T01:40:00Z	8.8	
+15	167	orient	tool	shell	bash	2026-11-01T01:40:09Z	1.5	Rendering the real floor canvas amounts :: cd /tmp/c8/py && ../venv/bin/python - <<'EOF' import numpy as np from PIL import Image raw = open('/tmp/c8/dump/floor512/canvas5_512.bin','rb').read() n = int.f
+15	168	orient	model	model		2026-11-01T01:40:11Z	1.7	
+15	169	orient	tool	read files	read	2026-11-01T01:40:12Z	0.0	Viewing the real floor canvas amounts :: /tmp/c8/py/canvas_full.png
+15	170	orient	model	model		2026-11-01T01:40:12Z	84.1	
+15	171	orient	tool	shell	bash	2026-11-01T01:41:36Z	6.7	Testing distance-cone speck encoding through the B-spline contour :: cat > /tmp/c8/py/cone.py <<'EOF' import sys; sys.path.insert(0,'/tmp/c8/py') import numpy as np from speck import bspline, measure EDGE = 0.04 RES = 16 n = 14 d
+15	172	orient	model	model		2026-11-01T01:41:43Z	17.9	
+15	173	orient	tool	shell	bash	2026-11-01T01:42:01Z	1.4	Printing real speck texel values from the dump :: cd /tmp/c8/py && ../venv/bin/python - <<'EOF' import numpy as np from scipy import ndimage raw = open('/tmp/c8/dump/floor512/canvas5_512.bin','rb').read() n = i
+15	174	orient	model	model		2026-11-01T01:42:03Z	10.3	
+15	175	orient	tool	shell	bash	2026-11-01T01:42:13Z	0.5	Printing the initial speck footprint for comparison :: cd /tmp/c8/py && ../venv/bin/python - <<'EOF' import numpy as np from speck import paint_speck np.set_printoptions(linewidth=200) g = np.zeros((12,12)); paint_s
+15	176	orient	model	model		2026-11-01T01:42:13Z	14.3	
+15	177	orient	tool	search	grep	2026-11-01T01:42:28Z	0.0	Locating the spread pass :: src/wetmap/canvas.rs
+15	178	orient	model	model		2026-11-01T01:42:28Z	11.0	
+15	179	orient	tool	shell	bash	2026-11-01T01:42:39Z	0.0	Reading wetmap settings defaults for spread :: cd /Users/ladvien/bevy_carnage_loop && grep -n "spread_rate\|drip_rate\|dry_ticks\|absorbency" src/wetmap/settings.rs | head -30; grep -n "spread_rate" src/pres
+15	180	orient	model	model		2026-11-01T01:42:39Z	6.8	
+15	181	orient	tool	read files	read	2026-11-01T01:42:45Z	0.2	Reading the preset's wet settings :: src/preset.rs:4770-4810
+15	182	orient	model	model		2026-11-01T01:42:46Z	74.7	
+15	183	orient	tool	shell	bash	2026-11-01T01:44:00Z	0.1	Finding every use of paint_speck and its constants :: cd /Users/ladvien/bevy_carnage_loop && grep -n "paint_speck\|SPECK_" -r src tests examples docs/*.md CHANGELOG.md README.md 2>/dev/null | grep -v "^docs/researc
+15	184	orient	model	model		2026-11-01T01:44:00Z	6.2	
+15	185	orient	tool	read files	read	2026-11-01T01:44:07Z	0.0	Reading existing speck tests :: tests/wetmap.rs:440-560
+15	186	orient	model	model		2026-11-01T01:44:07Z	19.9	
+15	187	orient	tool	read files	read	2026-11-01T01:44:27Z	0.0	Reading paint_drop in the preset :: src/preset.rs:1020-1070
+15	188	orient	model	model		2026-11-01T01:44:27Z	15.7	
+15	189	orient	tool	shell	bash	2026-11-01T01:44:42Z	4.3	Calibrating cone paint radius against drawn radius :: cat > /tmp/c8/py/calib.py <<'EOF' import sys; sys.path.insert(0,'/tmp/c8/py') import numpy as np from cone import * s = 0.12 def drawn_radius(rp, trials=16): rn
+15	190	orient	model	model		2026-11-01T01:44:47Z	20.5	
+15	191	orient	tool	shell	bash	2026-11-01T01:45:07Z	4.4	Calibrating cone radius at slope 0.09 :: cd /tmp/c8/py && sed -i 's/^s = 0.12/s = float(sys.argv[1]) if len(sys.argv)>1 else 0.12/' calib.py && sed -i 's/for rt in (0.7, 0.8, 0.9, 1.0, 1.2, 1.5, 1.8, 2
+15	192	orient	model	model		2026-11-01T01:45:11Z	18.8	
+15	193	orient	tool	read files	read	2026-11-01T01:45:30Z	0.0	Reading speck constants before editing :: src/wetmap/canvas.rs:60:84
+15	194	orient	model	model		2026-11-01T01:45:30Z	2.0	
+15	195	orient	tool	read files	read	2026-11-01T01:45:32Z	0.0	Reading speck constants before editing :: src/wetmap/canvas.rs:60-84
+15	196	orient	model	model		2026-11-01T01:45:32Z	8.9	
+15	197	orient	tool	edit files	edit	2026-11-01T01:45:41Z	0.0	Adding the cone constants :: [src/wetmap/canvas.rs#7E22] PUT >83: + +/// **How steeply a cone's blood falls away from its edge**, as a share of full coverage per texel: `0.09`, 23 of 255. +
+15	198	orient	model	model		2026-11-01T01:45:41Z	2.1	
+15	199	orient	tool	read files	read	2026-11-01T01:45:43Z	0.0	Locating the end of paint_speck :: src/wetmap/canvas.rs:604-622
+15	200	orient	model	model		2026-11-01T01:45:43Z	23.6	
+15	201	orient	tool	edit files	edit	2026-11-01T01:46:07Z	0.0	Adding paint_cone after paint_speck :: [src/wetmap/canvas.rs#9F87] PUT >617: + + /// **A droplet's stain too small for a stamp, drawn at the size it is**: a *cone* of blood whose edge, where the + //
+15	202	orient	model	model		2026-11-01T01:46:07Z	6.3	
+15	203	orient	tool	edit files	edit	2026-11-01T01:46:13Z	0.1	Wiring paint_cone in the preset and exporting the constants :: [src/preset.rs#AA7F] PUT 1048.=1050: +/// whole one. [`WetCanvas::paint_cone`] draws the stain's own edge, a round line at its own size, at its own place to a +
+15	204	orient	model	model		2026-11-01T01:46:13Z	5.3	
+15	205	orient	tool	cargo build	bash	2026-11-01T01:46:19Z	60.0	[launched bg_4] Building and running the cone speck on the 512 floor :: cd /Users/ladvien/bevy_carnage_loop && cargo build --release --example capture_skinned 2>&1 | tail -15 && cp $CARGO_TARGET_DIR/release/examples/capture_skinned 
+15	206	orient	model	model		2026-11-01T01:47:19Z	2.7	
+15	207	orient	tool	todo	todo	2026-11-01T01:47:21Z	0.0	Prototype superseded by the cone encoding; marking done
+15	208	orient	tool	wait: clip	wait	2026-11-01T01:47:21Z	3.1	Waiting for cone-speck floor capture
+15	209	orient	model	model		2026-11-01T01:47:25Z	4.5	
+15	210	orient	tool	shell	bash	2026-11-01T01:47:29Z	0.5	Composing before/after zoom of floor drops :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' from PIL import Image a=Image.open('before/floor512/frame0359.png').crop((420,170,620,290)).resize((800,480),Image.NEA
+15	211	orient	tool	read files	read	2026-11-01T01:47:29Z	0.5	Viewing the cone-speck floor frame :: /tmp/c8/dev/cone512/frame0359.png
+15	212	orient	model	model		2026-11-01T01:47:30Z	5.2	
+15	213	orient	tool	read files	read	2026-11-01T01:47:35Z	0.3	Viewing before/after floor drop zoom :: /tmp/c8/dev/cone_vs_before.png
+15	214	orient	model	model		2026-11-01T01:47:35Z	39.3	
+15	215	orient	tool	cargo build	bash	2026-11-01T01:48:14Z	0.0	[launched bg_5] Raising the cone regime to eight texels and rerunning :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' import re p='src/wetmap/canvas.rs' s=open(p).read() s=s.replace("""/// **The smallest semi-axis a cone 
+15	216	orient	model	model		2026-11-01T01:48:14Z	3.9	
+15	217	orient	tool	wait: clip	wait	2026-11-01T01:48:18Z	58.0	Waiting for the eight-texel cone capture
+15	218	orient	model	model		2026-11-01T01:49:16Z	3.9	
+15	219	orient	tool	shell	bash	2026-11-01T01:49:20Z	0.4	Composing before/after zoom of floor drops :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' from PIL import Image a=Image.open('before/floor512/frame0359.png').crop((420,170,620,290)).resize((800,480),Image.NEA
+15	220	orient	tool	read files	read	2026-11-01T01:49:20Z	0.4	Viewing eight-texel cone floor frame :: /tmp/c8/dev/cone8_512/frame0359.png
+15	221	orient	model	model		2026-11-01T01:49:21Z	5.3	
+15	222	orient	tool	read files	read	2026-11-01T01:49:26Z	0.5	Viewing before/after drop zoom :: /tmp/c8/dev/cone8_vs_before.png
+15	223	orient	model	model		2026-11-01T01:49:26Z	7.8	
+15	224	orient	tool	shell	bash	2026-11-01T01:49:34Z	19.9	Running the through-wall clip with cones and comparing :: cd /tmp/c8 && ./bin_dev/capture_skinned_cone8 --through --out /tmp/c8/dev/through_cone8 2>&1 | grep -E "skinned:|ERROR|WARN|error" | head -3; ./venv/bin/python 
+15	225	orient	model	model		2026-11-01T01:49:54Z	1.9	
+15	226	orient	tool	read files	read	2026-11-01T01:49:56Z	0.4	Viewing wall spray before and after cones :: /tmp/c8/dev/through_cone8_vs_before.png
+15	227	orient	model	model		2026-11-01T01:49:56Z	19.5	
+15	228	orient	tool	shell	bash	2026-11-01T01:50:16Z	20.9	Measuring wall canvas stain sizes in the dump :: cd /tmp/c8 && CARNAGE_DUMP=/tmp/c8/dump/through_cone8 ./bin_dev/capture_skinned_cone8 --through --out /tmp/c8/dev/through_cone8b 2>&1 | grep -E "skinned:" ; ls 
+15	229	orient	model	model		2026-11-01T01:50:37Z	9.1	
+15	230	orient	tool	shell	bash	2026-11-01T01:50:46Z	1.5	Viewing wall canvas amounts and sample stains :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' import numpy as np from PIL import Image raw=open('/tmp/c8/dump/through_cone8/canvas0_512.bin','rb').read(); n=int.fro
+15	231	orient	model	model		2026-11-01T01:50:47Z	21.4	
+15	232	orient	tool	shell	bash	2026-11-01T01:51:09Z	0.0	Finding preset tests touching specks and fine drops :: cd /Users/ladvien/bevy_carnage_loop && grep -n "FINE_TEXELS\|paint_drop\|fn a_speck\|fn a_droplet\|fn a_shot_leaves_a_fan\|fn a_fine\|under four" src/preset.rs 
+15	233	orient	model	model		2026-11-01T01:51:09Z	4.4	
+15	234	orient	tool	shell	bash	2026-11-01T01:51:13Z	0.0	Finding which droplets take which paint path :: cd /Users/ladvien/bevy_carnage_loop && grep -n "paint_uv_with\|paint_uv(\|paint_world\|paint_drop(" src/preset.rs | head -30; sed -n 3070,3125p src/preset.rs
+15	235	orient	model	model		2026-11-01T01:51:13Z	8.1	
+15	236	orient	tool	read files	read	2026-11-01T01:51:21Z	0.0	Reading the wall and skin droplet stamping :: src/preset.rs:3020-3066
+15	237	orient	model	model		2026-11-01T01:51:21Z	7.4	
+15	238	orient	tool	edit files	edit	2026-11-01T01:51:29Z	0.1	Routing wall and skin droplets through paint_drop :: [src/preset.rs#B996] PUT 3058.=3058: + // A wall or a skin draws a droplet under `FINE_TEXELS` across as the cone its stain is; a cloth takes the blob it + // a
+15	239	orient	model	model		2026-11-01T01:51:29Z	4.7	
+15	240	orient	tool	cargo build	bash	2026-11-01T01:51:33Z	0.0	[launched bg_6] Building and rendering wall cones :: cd /Users/ladvien/bevy_carnage_loop && cargo build --release --example capture_skinned 2>&1 | tail -3 && cp $CARGO_TARGET_DIR/release/examples/capture_skinned /
+15	241	orient	model	model		2026-11-01T01:51:33Z	10.9	
+15	242	orient	tool	wait: build	wait	2026-11-01T01:51:44Z	73.7	Waiting for wall-cone build and capture
+15	243	orient	model	model		2026-11-01T01:52:58Z	2.6	
+15	244	orient	tool	read files	read	2026-11-01T01:53:01Z	0.5	Viewing wall before/after cones :: /tmp/c8/dev/through_wall_vs_before.png
+15	245	orient	tool	read files	read	2026-11-01T01:53:01Z	0.5	Viewing full wall-cone frame :: /tmp/c8/dev/through_wall/frame0359.png
+15	246	orient	model	model		2026-11-01T01:53:01Z	6.4	
+15	247	orient	tool	shell	bash	2026-11-01T01:53:08Z	1.5	Measuring stain size spread before and after :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' import numpy as np from stains import stains for name in ('before/through','dev/through_wall'): r = stains(f'{name}/fr
+15	248	orient	model	model		2026-11-01T01:53:09Z	12.7	
+15	249	orient	tool	cargo test	bash	2026-11-01T01:53:22Z	0.0	[launched bg_7] Running the release lib tests on the cone change :: cd /Users/ladvien/bevy_carnage_loop && (time cargo test --release --lib --no-fail-fast 2>&1 | tail -40)
+15	250	orient	model	model		2026-11-01T01:53:22Z	7.0	
+15	251	orient	tool	shell	bash	2026-11-01T01:53:29Z	60.0	[launched bg_8] Recording baseline variants for digest comparison :: cd /tmp/c8 && for v in default --break --shirt --guard --stroll --blows --quiet; do name=${v#--}; args=""; [ "$v" != "default" ] && args="$v"; echo -n "$name: "
+15	252	orient	model	model		2026-11-01T01:54:29Z	18.9	
+15	253	orient	tool	search	grep	2026-11-01T01:54:48Z	0.0	Finding test helpers in tests/wetmap.rs :: tests/wetmap.rs
+15	254	orient	model	model		2026-11-01T01:54:48Z	16.0	
+15	255	orient	tool	wait: tests	wait	2026-11-01T01:55:04Z	101.8	Waiting for tests or baseline variants
+15	256	orient	model	model		2026-11-01T01:56:46Z	53.6	
+15	257	orient	tool	edit files	write	2026-11-01T01:57:39Z	0.0	Writing the drop-edge research note :: docs/research/drop-edge.md
+15	258	orient	model	model		2026-11-01T01:57:39Z	10.5	
+15	259	orient	tool	wait: tests	wait	2026-11-01T01:57:50Z	30.2	Waiting for the lib tests
+15	260	orient	model	model		2026-11-01T01:58:20Z	5.6	
+15	261	orient	tool	read files	read	2026-11-01T01:58:26Z	0.0	Reading the failing fan-of-drops test :: src/preset.rs:6255-6335
+15	262	orient	model	model		2026-11-01T01:58:26Z	6.1	
+15	263	orient	tool	search	grep	2026-11-01T01:58:32Z	0.0	Locating the stains_on helper :: src/preset.rs
+15	264	orient	model	model		2026-11-01T01:58:32Z	92.5	
+15	265	orient	tool	read files	read	2026-11-01T02:00:04Z	0.0	Reading stains_on fully :: src/preset.rs:6196-6240
+15	266	orient	model	model		2026-11-01T02:00:04Z	11.6	
+15	267	orient	tool	shell	bash	2026-11-01T02:00:16Z	0.0	Checking time and load :: date; uptime
+15	268	orient	model	model		2026-11-01T02:00:16Z	22.2	
+15	269	orient	tool	search	grep	2026-11-01T02:00:38Z	0.0	Finding flush upload behaviour :: src/wetmap/canvas.rs
+15	270	orient	model	model		2026-11-01T02:00:38Z	57.0	
+15	271	orient	tool	shell	bash	2026-11-01T02:01:35Z	0.1	Finding floor_canvas references :: cd /Users/ladvien/bevy_carnage_loop && grep -rn "floor_canvas" src tests examples docs/*.md README.md CHANGELOG.md docs/guide 2>/dev/null | cut -c1-200 | head -
+15	272	orient	model	model		2026-11-01T02:01:35Z	21.5	
+15	273	orient	tool	shell	bash	2026-11-01T02:01:57Z	28.8	Rendering default and guard variants with cones :: cd /tmp/c8 && for v in default --guard; do name=${v#--}; args=""; [ "$v" != "default" ] && args="$v"; echo -n "$name: "; ./bin_dev/capture_skinned_wall $args --
+15	274	orient	model	model		2026-11-01T02:02:25Z	2.6	
+15	275	orient	tool	read files	read	2026-11-01T02:02:28Z	0.2	Viewing guard variant before/after :: /tmp/c8/dev/guard_cmp.png
+15	276	orient	tool	read files	read	2026-11-01T02:02:28Z	0.2	Viewing default variant before/after :: /tmp/c8/dev/default_cmp.png
+15	277	orient	model	model		2026-11-01T02:02:28Z	16.8	
+15	278	orient	tool	shell	bash	2026-11-01T02:02:45Z	0.0	Reading BloodSettings dials :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,140p src/bloodstain/settings.rs | cut -c1-190
+15	279	orient	model	model		2026-11-01T02:02:45Z	18.6	
+15	280	orient	tool	shell	bash	2026-11-01T02:03:04Z	31.5	Rendering the default 256 floor before/after :: cd /tmp/c8 && ./bin_before/capture_skinned --eye 0.0,1.5,3.1 --at 0,0,1.3 --out /tmp/c8/before/floor256 2>&1 | grep -E "^skinned:"; ./bin_dev/capture_skinned_wa
+15	281	orient	model	model		2026-11-01T02:03:35Z	2.0	
+15	282	orient	tool	read files	read	2026-11-01T02:03:37Z	0.0	Viewing floor-256 before/after :: /tmp/c8/dev/floor256_cmp.png
+15	283	orient	model	model		2026-11-01T02:03:37Z	26.0	
+15	284	orient	tool	shell	bash	2026-11-01T02:04:03Z	0.0	Reading test file header and helpers :: cd /Users/ladvien/bevy_carnage_loop && sed -n 1,60p tests/wetmap.rs
+15	285	orient	model	model		2026-11-01T02:04:03Z	2.7	
+15	286	orient	tool	shell	bash	2026-11-01T02:04:06Z	0.0	Checking the end of tests/wetmap.rs :: cd /Users/ladvien/bevy_carnage_loop && tail -5 tests/wetmap.rs && wc -l tests/wetmap.rs
+15	287	orient	model	model		2026-11-01T02:04:06Z	43.2	
+15	288	orient	tool	remote wait	bash	2026-11-01T02:04:49Z	0.0	[launched bg_9] Adding cone tests and running them :: cd /Users/ladvien/bevy_carnage_loop && cat >> tests/wetmap.rs <<'EOF' /// **What a reader draws.** The blood of a canvas as the flesh shader and the detailed im
+15	289	orient	model	model		2026-11-01T02:04:49Z	6.3	
+15	290	orient	tool	edit files	edit	2026-11-01T02:04:55Z	0.1	Count a stain where the canvas draws it :: [src/preset.rs#F609] PUT 6200.=6204: + /// **The separate stains on a canvas**: each run of 4-connected texels holding more than the canvas's draw edge, + /// `
+15	291	orient	model	model		2026-11-01T02:04:55Z	5.0	
+15	292	orient	tool	wait: tests	wait	2026-11-01T02:05:01Z	10.4	Waiting for the cone tests
+15	293	orient	model	model		2026-11-01T02:05:11Z	15.1	
+15	294	orient	tool	shell	bash	2026-11-01T02:05:26Z	1.3	Checking cone area at specific offsets in Python :: cd /tmp/c8/py && ../venv/bin/python - <<'EOF' import numpy as np import cone from cone import * cone_s = 0.09 def run(r, cx, cy): g = np.zeros((n,n)); rp = r + 
+15	295	orient	model	model		2026-11-01T02:05:27Z	19.8	
+15	296	orient	tool	read files	read	2026-11-01T02:05:47Z	0.0	Reading absorbency and the soak schedule :: src/wetmap/settings.rs:44-170
+15	297	orient	model	model		2026-11-01T02:05:47Z	50.1	
+15	298	orient	tool	cargo test	bash	2026-11-01T02:06:37Z	0.0	[launched bg_10] Revising cone tests and re-running :: cd /Users/ladvien/bevy_carnage_loop && python3 - <<'EOF' p='tests/wetmap.rs' s=open(p).read() # test 1: tolerances by radius old=s[s.index("/// **A cone is draw
+15	299	orient	model	model		2026-11-01T02:06:37Z	5.6	
+15	300	orient	tool	wait: tests	wait	2026-11-01T02:06:43Z	17.1	Waiting for cone tests
+15	301	orient	model	model		2026-11-01T02:07:00Z	11.2	
+15	302	orient	tool	cargo test	bash	2026-11-01T02:07:11Z	0.0	[launched bg_11] Reverting scratch edits and building the lib test binary :: cd /Users/ladvien/bevy_carnage_loop && git checkout src/flesh.rs examples/capture_skinned.rs && git status --short && (cargo test --release --lib --no-run 2>&1 
+15	303	orient	model	model		2026-11-01T02:07:11Z	7.9	
+15	304	orient	tool	shell	bash	2026-11-01T02:07:19Z	0.0	Finding README and docs mentions of drops :: cd /Users/ladvien/bevy_carnage_loop && grep -n -i "drops\|spatter\|speck\|floor_spray\|floor_mist" README.md docs/guide/*.md docs/gallery.md docs/DEMOS.md docs/
+15	305	orient	model	model		2026-11-01T02:07:19Z	9.9	
+15	306	orient	tool	wait: tests	wait	2026-11-01T02:07:29Z	64.3	Waiting for lib test binary build
+15	307	orient	model	model		2026-11-01T02:08:33Z	6.4	
+15	308	orient	tool	cargo test	bash	2026-11-01T02:08:40Z	0.0	[launched bg_12] Building the baseline lib tests in a detached worktree :: mkdir -p /tmp/c8/bin_after && cp /Users/ladvien/target/bevy_carnage-loop/release/deps/bevy_carnage-108424431010ac76 /tmp/c8/bin_after/libtests && cd /Users/ladv
+15	309	orient	model	model		2026-11-01T02:08:40Z	7.3	
+15	310	orient	tool	shell	bash	2026-11-01T02:08:47Z	0.1	Listing speck mentions in the preset :: cd /Users/ladvien/bevy_carnage_loop && grep -n "speck\|Speck" src/preset.rs | cut -c1-200
+15	311	orient	model	model		2026-11-01T02:08:47Z	3.1	
+15	312	orient	tool	read files	read	2026-11-01T02:08:50Z	0.0	Reading paint_drop docs to rewrite :: src/preset.rs:1033-1068
+15	313	orient	tool	read files	read	2026-11-01T02:08:50Z	0.0	Reading floor mist doc to fix :: src/preset.rs:2322-2336
+15	314	orient	model	model		2026-11-01T02:08:50Z	10.5	
+15	315	orient	tool	edit files	edit	2026-11-01T02:09:01Z	0.1	Rewriting paint_drop and floor-mist docs for cones :: [src/preset.rs#DBC3] PUT 1035.=1036: +/// **How many texels across a droplet's stain must be before the canvas draws it as a stamp**: `8`. Under it the stain +/
+15	316	orient	model	model		2026-11-01T02:09:01Z	5.5	
+15	317	orient	tool	edit files	edit	2026-11-01T02:09:06Z	0.1	Correcting the mist doc claim about walls and skins :: [src/preset.rs#86ED] PUT 2332.=2333: +/// blocks, one `crate::wetmap::WetCanvas::paint_cone` apiece. **A wall, a skin and a cloth take no mist**, so the droplet
+15	318	orient	model	model		2026-11-01T02:09:06Z	2.9	
+15	319	orient	tool	shell	bash	2026-11-01T02:09:09Z	0.0	Locating the creep paragraph in paint_cone docs :: cd /Users/ladvien/bevy_carnage_loop && grep -n "Blood does not creep on it" src/wetmap/canvas.rs && sed -n 637,652p src/wetmap/canvas.rs
+15	320	orient	model	model		2026-11-01T02:09:09Z	9.0	
+15	321	orient	tool	edit files	edit	2026-11-01T02:09:18Z	0.0	Correcting accuracy and creep claims in paint_cone docs :: [src/wetmap/canvas.rs#1E05] PUT 641.=649: + /// of height `DETAIL_EDGE` over the stain's edge, `CONE_SLOPE` a texel above it, and nothing a third of a texel out
+15	322	orient	model	model		2026-11-01T02:09:18Z	1.9	
+15	323	orient	tool	read files	read	2026-11-01T02:09:20Z	0.0	Refreshing the canvas.rs tag before editing :: src/wetmap/canvas.rs:636-652
+15	324	orient	model	model		2026-11-01T02:09:20Z	6.2	
+15	325	orient	tool	edit files	edit	2026-11-01T02:09:26Z	0.0	Correcting accuracy and creep claims in paint_cone docs :: [src/wetmap/canvas.rs#AD30] PUT 641.=649: + /// linear field is reproduced exactly by the cubic B-spline, so where the shader and the detailed images threshold 
+15	326	orient	model	model		2026-11-01T02:09:27Z	4.8	
+15	327	orient	tool	shell	bash	2026-11-01T02:09:31Z	0.1	Locating paint_speck doc end :: cd /Users/ladvien/bevy_carnage_loop && grep -n "A speck is placed\|Refused, writing nothing" src/wetmap/canvas.rs | head; sed -n 548,558p src/wetmap/canvas.rs
+15	328	orient	model	model		2026-11-01T02:09:31Z	4.4	
+15	329	orient	tool	edit files	edit	2026-11-01T02:09:36Z	0.0	Noting in paint_speck docs that the preset uses paint_cone :: [src/wetmap/canvas.rs#9AC8] PUT >557: + /// + /// **The preset no longer calls it** (`paint_drop` draws a drop with [`paint_cone`](Self::paint_cone) since 0.9.0
+15	330	orient	model	model		2026-11-01T02:09:36Z	5.1	
+15	331	orient	tool	edit files	edit	2026-11-01T02:09:41Z	0.0	Noting in paint_speck docs that the preset uses paint_cone :: [src/wetmap/canvas.rs#9AC8] PUT >558: + /// + /// **The preset no longer calls it** (`paint_drop` draws a drop with [`paint_cone`](Self::paint_cone) since 0.9.0
+15	332	orient	model	model		2026-11-01T02:09:41Z	4.1	
+15	333	orient	tool	edit files	edit	2026-11-01T02:09:45Z	0.1	Retrying the paint_speck doc note :: [src/wetmap/canvas.rs#9AC8] PUT >558: + /// + /// **The preset no longer calls it** (`paint_drop` draws a drop with [`paint_cone`](Self::paint_cone) since 0.9.0
+15	334	orient	model	model		2026-11-01T02:09:45Z	5.8	
+15	335	orient	tool	edit files	edit	2026-11-01T02:09:51Z	0.1	Version reference 0.9.0 to 0.8.2 in paint_speck docs :: [src/wetmap/canvas.rs#3F10] PUT 560.=560: + /// **The preset no longer calls it** (`paint_drop` draws a drop with [`paint_cone`](Self::paint_cone) since 0.8.2):
+15	336	orient	model	model		2026-11-01T02:09:51Z	4.8	
+15	337	orient	tool	wait: tests	wait	2026-11-01T02:09:56Z	88.7	Waiting for the baseline lib test build
+15	338	orient	model	model		2026-11-01T02:11:25Z	5.0	
+15	339	orient	tool	shell	bash	2026-11-01T02:11:30Z	5.7	Running hit_tick_cost once on the cone build :: cd /tmp/c8 && /usr/bin/time -l ./bin_after/libtests hit_tick_cost --ignored --nocapture 2>&1 | grep -E "hit_tick|wet_tick|instructions retired|real|MEDIAN|ms" |
+15	340	orient	model	model		2026-11-01T02:11:35Z	8.1	
+15	341	orient	tool	shell	bash	2026-11-01T02:11:43Z	60.0	[launched bg_13] Alternating hit_tick_cost runs before and after :: cd /tmp/c8 && cat > costrun.py <<'EOF' import subprocess, re, statistics, sys runs = {'before': [], 'after': []} ins = {'before': [], 'after': []} for i in rang
+15	342	orient	model	model		2026-11-01T02:12:43Z	8.2	
+15	343	orient	tool	wait: other	wait	2026-11-01T02:12:52Z	13.6	Waiting for the cost comparison
+15	344	orient	model	model		2026-11-01T02:13:05Z	8.8	
+15	345	orient	tool	shell	bash	2026-11-01T02:13:14Z	0.6	Zooming on wall drops after the change :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' from PIL import Image b=Image.open('dev/through_wall/frame0359.png').crop((280,50,540,200)).resize((1040,600),Image.LA
+15	346	orient	tool	read files	read	2026-11-01T02:13:14Z	0.6	Viewing zoomed wall drops :: /tmp/c8/dev/through_wall_zoom4.png
+15	347	orient	model	model		2026-11-01T02:13:15Z	2.1	
+15	348	orient	tool	read files	read	2026-11-01T02:13:17Z	0.4	Viewing zoomed wall drops :: /tmp/c8/dev/through_wall_zoom4.png
+15	349	orient	model	model		2026-11-01T02:13:17Z	12.8	
+15	350	orient	tool	shell	bash	2026-11-01T02:13:30Z	1.5	Sampling pixel colours across a single wall drop :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' import numpy as np from PIL import Image from scipy import ndimage im=np.asarray(Image.open('dev/through_wall/frame035
+15	351	orient	model	model		2026-11-01T02:13:31Z	19.4	
+15	352	orient	tool	read files	read	2026-11-01T02:13:51Z	0.0	Re-reading the research note head for corrections :: docs/research/drop-edge.md:1-60
+15	353	orient	model	model		2026-11-01T02:13:51Z	20.5	
+15	354	orient	tool	edit files	edit	2026-11-01T02:14:11Z	0.0	Correcting the diagnosis section with the exact measured data :: [docs/research/drop-edge.md#9163] PUT 16.=39: +1. **The floor's drops are diamonds with a plateau.** 56 connected components of blood on the floor, 39 of them b
+15	355	orient	model	model		2026-11-01T02:14:11Z	6.8	
+15	356	orient	tool	read files	read	2026-11-01T02:14:18Z	0.0	Re-reading model, parameters and validation :: docs/research/drop-edge.md:84-160
+15	357	orient	model	model		2026-11-01T02:14:18Z	9.8	
+15	358	orient	tool	edit files	edit	2026-11-01T02:14:28Z	0.0	Aligning the research note with what was measured :: [docs/research/drop-edge.md#AF4A] PUT 94.=97: +at `DETAIL_EDGE` draws it: a linear field is reproduced by the cubic B-spline, so the contour sits on the ellipse
+15	359	orient	model	model		2026-11-01T02:14:28Z	7.5	
+15	360	orient	tool	edit files	write	2026-11-01T02:14:35Z	7.9	Re-scanning the corpus for new sources :: xd://mcp__home_still_catalog_recent
+15	361	orient	model	model		2026-11-01T02:14:43Z	5.2	
+15	362	orient	tool	git	bash	2026-11-01T02:14:49Z	0.9	Branching and committing the research note alone :: cd /Users/ladvien/bevy_carnage_loop && git checkout -b loop/iter-8 2>&1 | tail -1 && git add docs/research/drop-edge.md && git commit -q -m "Research: drop-edge
+15	363	orient	model	model		2026-11-01T02:14:49Z	9.2	
+15	364	orient	tool	cargo build	bash	2026-11-01T02:14:59Z	0.3	Starting gate builds: declared features, release, release examples :: cd /Users/ladvien/bevy_carnage_loop && grep -rn "include_str\|include_bytes\|doc = include" src/lib.rs src/*.rs tests/*.rs 2>/dev/null | head; (time (cargo buil
+15	365	orient	model	model		2026-11-01T02:14:59Z	5.8	
+15	366	orient	tool	remote wait	bash	2026-11-01T02:15:05Z	5.1	Checking the gate build is alive :: sleep 5; ps aux | grep -E "cargo|rustc" | grep -v grep | head -3; cat /tmp/c8/gate1.log
+15	367	orient	model	model		2026-11-01T02:15:10Z	6.2	
+15	368	orient	tool	read files	read	2026-11-01T02:15:16Z	0.0	Reading the changelog head :: CHANGELOG.md:1-80
+15	369	orient	model	model		2026-11-01T02:15:16Z	15.4	
+15	370	orient	tool	read files	read	2026-11-01T02:15:31Z	0.1	Reading history.md head :: docs/guide/history.md:1-30
+15	371	orient	tool	read files	read	2026-11-01T02:15:31Z	0.1	Reading gallery floor spray entries :: docs/gallery.md:20-34
+15	372	orient	model	model		2026-11-01T02:15:31Z	6.1	
+15	373	orient	tool	read files	read	2026-11-01T02:15:38Z	0.0	Reading gallery line 30 whole :: docs/gallery.md:30:raw
+15	374	orient	model	model		2026-11-01T02:15:38Z	5.9	
+15	375	orient	tool	wait: gate	wait	2026-11-01T02:15:44Z	0.0	Waiting for gate builds to finish
+15	376	orient	model	model		2026-11-01T02:15:44Z	2.7	
+15	377	orient	tool	cargo build	bash	2026-11-01T02:15:46Z	0.1	Checking the gate build log :: cat /tmp/c8/gate1.log; ps aux | grep -E "cargo build" | grep -v grep | wc -l
+15	378	orient	model	model		2026-11-01T02:15:46Z	12.1	
+15	379	orient	tool	shell	bash	2026-11-01T02:15:59Z	0.0	Preparing the variant verification script :: cat > /tmp/c8/variants.sh <<'EOF' #!/bin/bash # usage: variants.sh BIN_DIR OUT_DIR (runs each capture_skinned variant twice; prints digests and frame equality) 
+15	380	orient	model	model		2026-11-01T02:15:59Z	17.9	
+15	381	orient	tool	edit files	edit	2026-11-01T02:16:16Z	0.1	Writing the changelog entry for the cone :: [CHANGELOG.md#8510] PUT 7.=8: +## [Unreleased] + +### Changed + +- **A drop is drawn at the size it is: round, crisp, and not diffused into a diamond** (iterati
+15	382	orient	model	model		2026-11-01T02:16:17Z	4.3	
+15	383	orient	tool	edit files	edit	2026-11-01T02:16:21Z	0.1	Restoring the blank line before 0.8.1 :: [CHANGELOG.md#698C] PUT >49: +
+15	384	orient	model	model		2026-11-01T02:16:21Z	11.0	
+15	385	orient	tool	read files	read	2026-11-01T02:16:32Z	0.1	Reading DEMOS floor-spray paragraph :: docs/DEMOS.md:560-590
+15	386	orient	model	model		2026-11-01T02:16:32Z	8.1	
+15	387	orient	tool	remote wait	bash	2026-11-01T02:16:40Z	60.0	[launched bg_14] Checking gate build progress :: sleep 120; cat /tmp/c8/gate1.log; ps aux | grep -E "rustc|cargo" | grep -v grep | awk '{print $11,$12,$13,$14}' | head -4
+15	388	orient	model	model		2026-11-01T02:17:40Z	10.1	
+15	389	orient	tool	edit files	edit	2026-11-01T02:17:50Z	0.1	Correcting the gallery floor-spray claim and adding the drops still :: [docs/gallery.md#B5B3] PUT 30.=30: +That is `capture_skinned --eye 0.0,1.5,3.1 --at 0,0,1.3` (frame 359, labelled, the right panel with `--floor 512`): **a floo
+15	390	orient	model	model		2026-11-01T02:17:50Z	9.4	
+15	391	orient	tool	edit files	edit	2026-11-01T02:18:00Z	0.1	Listing the new still in docs/media/README.md :: [docs/media/README.md#2BAA] PUT >8: +| `docs/media/drops.png` | four crops of frame 359, two rows by two: the floor at the shipped 256 texels (top) and the wall
+15	392	orient	tool	edit files	edit	2026-11-01T02:18:00Z	0.2	Adding the DEMOS paragraph about the drop still and the clips not re-cut :: [docs/DEMOS.md#00F7] PUT >580: + +**Drops (the release after 0.8.1).** A droplet's stain under eight texels across, on a floor, a wall or a skin, is a `WetCanva
+15	393	orient	model	model		2026-11-01T02:18:00Z	5.4	
+15	394	orient	tool	read files	read	2026-11-01T02:18:05Z	0.4	Reading preset.md spatter passage :: docs/preset.md:118-140
+15	395	orient	model	model		2026-11-01T02:18:06Z	5.0	
+15	396	orient	tool	edit files	edit	2026-11-01T02:18:11Z	0.2	Documenting the cone drop in preset.md Walls section :: [docs/preset.md#2013] PUT 131.=132: +its spines point the way it was going, through the triangle's UVs. A body part takes each droplet the +same way since 0.5.6
+15	397	orient	model	model		2026-11-01T02:18:11Z	4.2	
+15	398	orient	tool	wait: other	wait	2026-11-01T02:18:15Z	25.5	Waiting for the sleep job
+15	399	orient	model	model		2026-11-01T02:18:41Z	5.5	
+15	400	orient	tool	read files	read	2026-11-01T02:18:46Z	2.5	Viewing reference 8 to describe it honestly :: /tmp/c8/refs/ref8_moulage057.jpg
+15	401	orient	model	model		2026-11-01T02:18:49Z	6.2	
+15	402	orient	tool	read files	read	2026-11-01T02:18:55Z	0.0	Reading the note's reference set :: docs/research/drop-edge.md:160-190
+15	403	orient	model	model		2026-11-01T02:18:55Z	8.7	
+15	404	orient	tool	edit files	edit	2026-11-01T02:19:04Z	0.0	Describing references 8, Evil Dead and Terrifier honestly :: [docs/research/drop-edge.md#3202] PUT 178.=182: +3. **Ref 8**: the same photograph series, `...140723-A-IX584-057.jpg`, public domain: moulage gel appliances la
+15	405	orient	model	model		2026-11-01T02:19:04Z	11.5	
+15	406	orient	tool	remote wait	bash	2026-11-01T02:19:15Z	60.0	[launched bg_15] Waiting for the examples build to finish :: sleep 240; cat /tmp/c8/gate1.log | tail -3; ps aux | grep -E "cargo build" | grep -v grep | wc -l
+15	407	orient	model	model		2026-11-01T02:20:15Z	2.5	
+15	408	orient	tool	wait: build	wait	2026-11-01T02:20:18Z	178.5	Waiting for the examples build check
+15	409	orient	model	model		2026-11-01T02:23:16Z	8.3	
+15	410	orient	tool	shell	bash	2026-11-01T02:23:25Z	0.1	Checking guide docs listing the canvas API :: cd /Users/ladvien/bevy_carnage_loop && grep -n "paint_uv\|paint_world\|WetCanvas" docs/guide/api.md docs/guide/features.md README.md | cut -c1-200 | head
+15	411	orient	model	model		2026-11-01T02:23:25Z	5.8	
+15	412	orient	tool	remote wait	bash	2026-11-01T02:23:31Z	60.0	[launched bg_16] Waiting more for the examples build :: sleep 280; tail -3 /tmp/c8/gate1.log
+15	413	orient	model	model		2026-11-01T02:24:31Z	2.7	
+15	414	orient	tool	wait: other	wait	2026-11-01T02:24:33Z	217.3	Waiting for the sleep job
+15	415	orient	model	model		2026-11-01T02:28:11Z	6.1	
+15	416	orient	tool	shell	bash	2026-11-01T02:28:17Z	0.0	[launched bg_17] Running the bench three times before and after :: mkdir -p /tmp/c8/bin_final && E=$CARGO_TARGET_DIR/release/examples && cp $E/capture_skinned $E/capture_preset $E/bench_carnage $E/canvas_digest $E/dry_timeline 
+15	417	orient	model	model		2026-11-01T02:28:17Z	4.5	
+15	418	orient	tool	wait: other	wait	2026-11-01T02:28:21Z	40.3	Waiting for the bench runs
+15	419	orient	model	model		2026-11-01T02:29:01Z	8.2	
+15	420	orient	tool	shell	bash	2026-11-01T02:29:10Z	29.5	Measuring bench instructions retired before and after :: cd /tmp/c8 && for w in before final before final; do /usr/bin/time -l ./bin_$w/bench_carnage 2>&1 | grep -E "instructions retired" | sed "s/^/$w: /"; done
+15	421	orient	model	model		2026-11-01T02:29:39Z	4.1	
+15	422	orient	tool	shell	bash	2026-11-01T02:29:43Z	0.0	[launched bg_18] Running every recorder variant twice on the final build :: cd /tmp/c8 && ./variants.sh /tmp/c8/bin_final /tmp/c8/after 2>&1 | tee /tmp/c8/after_variants.txt
+15	423	orient	model	model		2026-11-01T02:29:43Z	1.8	
+15	424	orient	tool	wait: other	wait	2026-11-01T02:29:45Z	291.1	Waiting for the variant runs
+15	425	orient	model	model		2026-11-01T02:34:36Z	8.6	
+15	426	orient	tool	shell	bash	2026-11-01T02:34:45Z	0.0	[launched bg_19] Comparing stroll/quiet frames and running the preset recorder twice :: cd /tmp/c8 && for v in stroll quiet; do n=0; for f in before/$v/frame*.png; do cmp -s $f after/$v/$(basename $f) || n=$((n+1)); done; echo "$v: frames differing
+15	427	orient	model	model		2026-11-01T02:34:45Z	9.7	
+15	428	orient	tool	wait: clip	wait	2026-11-01T02:34:54Z	54.2	Waiting for frame comparison and preset recorder
+15	429	orient	model	model		2026-11-01T02:35:49Z	8.7	
+15	430	orient	tool	shell	bash	2026-11-01T02:35:57Z	29.5	Capturing final floors and composing the drops still :: cd /tmp/c8 && ./bin_final/capture_skinned --eye 0.0,1.5,3.1 --at 0,0,1.3 --out /tmp/c8/after/floor256 2>&1 | grep -E "^skinned:"; ./bin_final/capture_skinned --
+15	431	orient	model	model		2026-11-01T02:36:27Z	3.9	
+15	432	orient	tool	read files	read	2026-11-01T02:36:31Z	0.6	Viewing the before/after drops composite :: /tmp/c8/drops.png
+15	433	orient	model	model		2026-11-01T02:36:31Z	22.6	
+15	434	orient	tool	git	bash	2026-11-01T02:36:54Z	0.7	Committing the implementation :: cd /Users/ladvien/bevy_carnage_loop && git status --short && git add src/preset.rs src/wetmap/canvas.rs src/wetmap/mod.rs tests/wetmap.rs && git commit -q -F - 
+15	435	orient	model	model		2026-11-01T02:36:55Z	3.3	
+15	436	orient	tool	cargo test	bash	2026-11-01T02:36:58Z	0.0	[launched bg_20] Running the full test gate :: cd /Users/ladvien/bevy_carnage_loop && (time cargo test --no-fail-fast 2>&1 | grep -E "^test result|FAILED|failed|panicked|error|Running|Doc-tests" | head -80)
+15	437	orient	model	model		2026-11-01T02:36:58Z	11.5	
+15	438	orient	tool	shell	bash	2026-11-01T02:37:10Z	2.6	Measuring stain counts and size spreads against the references :: cp /tmp/c8/drops.png /Users/ladvien/bevy_carnage_loop/docs/media/drops.png && cd /tmp/c8 && ./venv/bin/python - <<'EOF' import numpy as np from stains import st
+15	439	orient	model	model		2026-11-01T02:37:12Z	19.5	
+15	440	orient	tool	shell	bash	2026-11-01T02:37:32Z	2.6	Measuring stain roundness by bounding-box fill ratio :: cd /tmp/c8 && ./venv/bin/python - <<'EOF' import numpy as np from PIL import Image from scipy import ndimage def fill(path, box, thr=40, minarea=12): im = np.as
+15	441	orient	model	model		2026-11-01T02:37:34Z	17.1	
+15	442	orient	tool	shell	bash	2026-11-01T02:37:52Z	0.1	Finding version strings the release must move :: cd /Users/ladvien/bevy_carnage_loop && grep -n "0\.8\.1" README.md docs/guide/*.md Cargo.toml tests/readme.rs | cut -c1-220
+15	443	orient	model	model		2026-11-01T02:37:52Z	5.0	
+15	444	orient	tool	shell	bash	2026-11-01T02:37:57Z	0.1	Reading what tests/readme.rs pins :: cd /Users/ladvien/bevy_carnage_loop && grep -n "fn \|0\.8\|version" tests/readme.rs | head -30
+15	445	orient	model	model		2026-11-01T02:37:57Z	15.5	
+15	446	orient	tool	edit files	write	2026-11-01T02:38:12Z	0.0	Writing the gore checklist findings :: /tmp/c8/findings.md
+15	447	orient	model	model		2026-11-01T02:38:12Z	16.3	
+15	448	orient	tool	edit files	write	2026-11-01T02:38:29Z	0.0	Writing the critique before the verdict :: /tmp/c8/critique.md
+15	449	orient	model	model		2026-11-01T02:38:29Z	12.1	
+15	450	orient	tool	shell	bash	2026-11-01T02:38:41Z	1.6	Running the wetmap terminal digest examples :: cd /tmp/c8 && for e in canvas_digest dry_timeline stain_sweep; do echo "== $e"; timeout 120 ./bin_final/$e 2>&1 | tail -4; done
+15	451	orient	model	model		2026-11-01T02:38:42Z	5.7	
+15	452	orient	tool	wait: gate	wait	2026-11-01T02:38:48Z	1179.3	Waiting for the full test gate
+15	453	orient	model	model		2026-11-01T02:58:27Z	8.0	
+15	454	orient	tool	shell	bash	2026-11-01T02:58:35Z	0.0	Locating the validation-targets sentence :: cd /Users/ladvien/bevy_carnage_loop && grep -n "Set before the code" docs/research/drop-edge.md
+15	455	orient	model	model		2026-11-01T02:58:35Z	3.2	
+15	456	orient	tool	edit files	edit	2026-11-01T02:58:39Z	0.0	Stating honestly when the targets were set :: [docs/research/drop-edge.md#33BF] PUT 122.=122: +The size and round targets were set from the Python model before the Rust was written and their tolerances wide
+15	457	orient	model	model		2026-11-01T02:58:39Z	4.8	
+15	458	orient	tool	read files	read	2026-11-01T02:58:43Z	0.0	Reading the deviations section end :: docs/research/drop-edge.md:134-158
+15	459	orient	model	model		2026-11-01T02:58:43Z	6.9	
+15	460	orient	tool	edit files	edit	2026-11-01T02:58:50Z	0.0	Adding deviations: no shader change and the test helper :: [docs/research/drop-edge.md#70B9] PUT >150: +- **No shader change, so no WebGL2 re-check.** `flesh.wesl` and `flesh_prepass.wesl` are byte for byte as they were
+15	461	orient	model	model		2026-11-01T02:58:50Z	5.5	
+15	462	orient	tool	read files	read	2026-11-01T02:58:56Z	0.0	Re-reading edited deviations for the correction :: docs/research/drop-edge.md:151-162
+15	463	orient	model	model		2026-11-01T02:58:56Z	4.7	
+15	464	orient	tool	edit files	edit	2026-11-01T02:59:01Z	0.0	Tightening the helper deviation to what was measured :: [docs/research/drop-edge.md#8BAB] PUT 153.=156: +- **A test helper's measure changed, its assertions did not.** `preset::tests::stains_on` counted a stain at 32
+15	465	orient	model	model		2026-11-01T02:59:01Z	6.5	
+15	466	orient	tool	shell	bash	2026-11-01T02:59:07Z	0.0	Finding the 'three times its own area' claims :: cd /Users/ladvien/bevy_carnage_loop && grep -n "three times its own\|three$" CHANGELOG.md src/preset.rs | head; sed -n 44,47p CHANGELOG.md; sed -n 6200,6205p sr
+15	467	orient	model	model		2026-11-01T02:59:07Z	12.4	
+15	468	orient	tool	edit files	edit	2026-11-01T02:59:19Z	0.0	Replacing the unmeasured 'three times' with 'several times' :: [CHANGELOG.md#6C65] PUT 45.=46: +- The test helper `preset::tests::stains_on` counted a stain at 32 of 255, a level only a drop's blood *diffused over a plateau
+15	469	orient	model	model		2026-11-01T02:59:19Z	3.7	
+15	470	orient	tool	edit files	edit	2026-11-01T02:59:23Z	0.0	Retrying the replacement of the unmeasured claim :: [CHANGELOG.md#6C65] PUT 45.=46: +- The test helper `preset::tests::stains_on` counted a stain at 32 of 255, a level only a drop's blood *diffused over a plateau
+15	471	orient	tool	read files	read	2026-11-01T02:59:23Z	0.0	Re-reading the stains_on doc lines :: src/preset.rs:6204-6210
+15	472	orient	model	model		2026-11-01T02:59:23Z	2.5	
+15	473	orient	tool	edit files	edit	2026-11-01T02:59:26Z	0.0	Fixing the doc claim in the test helper :: [src/preset.rs#455C] PUT 6206.=6206: + /// was counted at 32 of 255, a level only a drop's blood *diffused over a plateau several times its own area* reached: a
+15	474	orient	model	model		2026-11-01T02:59:26Z	4.5	
+15	475	orient	tool	git	bash	2026-11-01T02:59:30Z	0.8	Committing the docs, still and corrected note :: cd /Users/ladvien/bevy_carnage_loop && git add CHANGELOG.md docs/DEMOS.md docs/gallery.md docs/media/README.md docs/media/drops.png docs/preset.md docs/research
+15	476	orient	model	model		2026-11-01T02:59:31Z	14.1	
+15	477	orient	tool	shell	bash	2026-11-01T02:59:45Z	0.0	Checking the log tail and the time :: cd /Users/ladvien/bevy_carnage_loop && tail -5 docs/loop-log.md | cut -c1-120 && date
+15	478	orient	model	model		2026-11-01T02:59:45Z	47.8	
+15	479	orient	tool	cargo test	bash	2026-11-01T03:00:33Z	0.6	Appending and committing the iteration 8 log entry :: cd /Users/ladvien/bevy_carnage_loop && cat >> docs/loop-log.md <<'EOF' ## Iteration 8 — 2026-10-31 — a drop is drawn at the size it is: round, crisp, and not di
+15	480	orient	model	model		2026-11-01T03:00:34Z	13.4	
+15	481	orient	tool	cargo test	bash	2026-11-01T03:00:47Z	0.0	[launched bg_21] Measuring cone and stamp cost with a throwaway test :: cd /Users/ladvien/bevy_carnage_loop && cp tests/wetmap.rs /tmp/c8/wetmap.rs.bak && cat >> tests/wetmap.rs <<'EOF' #[test] #[ignore] fn zz_cone_cost() { use std:
+15	482	orient	model	model		2026-11-01T03:00:47Z	2.0	
+15	483	orient	tool	wait: other	wait	2026-11-01T03:00:49Z	25.5	Waiting for the cost microbenchmark
+15	484	orient	model	model		2026-11-01T03:01:14Z	5.5	
+15	485	orient	tool	git	bash	2026-11-01T03:01:20Z	0.2	Confirming the test file was restored and finding the claim :: cd /Users/ladvien/bevy_carnage_loop && git status --short; grep -n "five to ten times cheaper" docs/loop-log.md
+15	486	orient	model	model		2026-11-01T03:01:20Z	2.1	
+15	487	orient	tool	read files	read	2026-11-01T03:01:22Z	0.1	Reading the claim lines to correct :: docs/loop-log.md:933-937
+15	488	orient	model	model		2026-11-01T03:01:22Z	3.5	
+15	489	orient	tool	edit files	edit	2026-11-01T03:01:26Z	0.2	Replacing the estimate with the measured cost :: [docs/loop-log.md#F38E] PUT 935.=935: +and the fix is a CPU primitive that is also far cheaper than the stamp it replaces for a small drop (a throwaway test, 20
+15	490	orient	model	model		2026-11-01T03:01:26Z	4.4	
+15	491	orient	tool	shell	bash	2026-11-01T03:01:30Z	0.0	Finding the third-of-a-millisecond claim :: cd /Users/ladvien/bevy_carnage_loop && grep -n "third of$\|a third of" docs/loop-log.md | tail -3
+15	492	orient	model	model		2026-11-01T03:01:30Z	2.1	
+15	493	orient	tool	read files	read	2026-11-01T03:01:33Z	0.0	Reading the backlog claim lines :: docs/loop-log.md:1022-1023
+15	494	orient	model	model		2026-11-01T03:01:33Z	3.3	
+15	495	orient	tool	edit files	edit	2026-11-01T03:01:36Z	0.0	Correcting the mist cost estimate to the measured figure :: [docs/loop-log.md#3917] PUT 1022.=1023: +1. **The spray as a whole** (the NOT YET above): a mist for walls and skins (a cone is 0.6 to 2.5 µs, so 90 drops a wou
+15	496	orient	model	model		2026-11-01T03:01:36Z	4.2	
+15	497	orient	tool	push gate	bash	2026-11-01T03:01:40Z	3.7	Fetching origin and pushing the branch :: cd /Users/ladvien/bevy_carnage_loop && git add docs/loop-log.md && git commit -q -m "Loop log: iteration 8, the cost of a cone stated as measured" && git fetch 
+15	498	orient	model	model		2026-11-01T03:01:44Z	9.5	
+15	499	orient	tool	git	bash	2026-11-01T03:01:53Z	2.4	Merging the branch into main :: cd /Users/ladvien/bevy_carnage_loop && git checkout -q main && git pull -q --ff-only && git merge --no-ff loop/iter-8 -m "Merge loop/iter-8: a drop is drawn at 
+15	500	orient	model	model		2026-11-01T03:01:56Z	3.4	
+15	501	orient	tool	shell	bash	2026-11-01T03:01:59Z	0.0	[launched bg_22] Deciding the version with cargo semver-checks :: cd /Users/ladvien/bevy_carnage_loop && which cargo-semver-checks && (time CARGO_TARGET_DIR=/tmp/c8-semver cargo semver-checks check-release --baseline-version 0
+15	502	orient	model	model		2026-11-01T03:01:59Z	6.3	
+15	503	orient	tool	wait: other	wait	2026-11-01T03:02:05Z	368.8	Waiting for semver-checks
+15	504	orient	model	model		2026-11-01T03:08:14Z	10.9	
+15	505	orient	tool	edit files	edit	2026-11-01T03:08:25Z	0.0	Cutting the 0.8.2 section in the changelog :: [CHANGELOG.md#44AF] PUT 7.=7: +## [Unreleased] + +## [0.8.2] - 2026-10-31
+15	506	orient	tool	edit files	edit	2026-11-01T03:08:25Z	0.0	Status and the 0.8.2 history section :: [docs/guide/history.md#D8EA] PUT 7.=9: +**`0.8.2` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is develop
+15	507	orient	model	model		2026-11-01T03:08:25Z	9.6	
+15	508	orient	tool	edit files	edit	2026-11-01T03:08:35Z	0.1	Status and the 0.8.2 history section :: [docs/guide/history.md#D8EA] PUT 7.=9: +**`0.8.2` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is develop
+15	509	orient	model	model		2026-11-01T03:08:35Z	5.2	
+15	510	orient	tool	read files	read	2026-11-01T03:08:40Z	0.0	Reading the manifest version line :: Cargo.toml:390-396
+15	511	orient	model	model		2026-11-01T03:08:40Z	2.2	
+15	512	orient	tool	edit files	edit	2026-11-01T03:08:42Z	0.0	Bumping the crate to 0.8.2 :: [Cargo.toml#09DF] PUT 393.=393: +version = "0.8.2"
+15	513	orient	model	model		2026-11-01T03:08:42Z	6.3	
+15	514	orient	tool	cargo test	bash	2026-11-01T03:08:49Z	0.0	[launched bg_23] Running the gate on the merged, version-bumped tree :: cd /Users/ladvien/bevy_carnage_loop && (time (cargo build 2>&1 | tail -2; echo "--- release"; cargo build --release 2>&1 | tail -2; echo "--- examples"; cargo b
+15	515	orient	model	model		2026-11-01T03:08:49Z	10.0	
+15	516	orient	tool	shell	bash	2026-11-01T03:08:59Z	0.0	Checking README bullets about blood :: cd /Users/ladvien/bevy_carnage_loop && grep -n -i "blood\|stain\|wet" README.md | cut -c1-220 | head
+15	517	orient	model	model		2026-11-01T03:08:59Z	2.1	
+15	518	orient	tool	read files	read	2026-11-01T03:09:01Z	0.0	Reading the README what-you-can-do list :: README.md:58-70
+15	519	orient	model	model		2026-11-01T03:09:01Z	7.1	
