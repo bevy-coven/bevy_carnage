@@ -8,6 +8,7 @@ mod settings;
 mod solver;
 mod spill;
 mod strand;
+mod thread;
 mod tube;
 
 pub use plugin::{VisceraPlugin, VisceraSystems};
@@ -22,4 +23,5 @@ pub use strand::{
     Mesentery, Strand, DEFAULT_TEAR_STRAIN, MAX_NODES, MAX_SEGMENTS, MIN_REST_LEN,
     STRAND_TEAR_STRAIN,
 };
+pub use thread::{spill_threads, Thread, ThreadSite, BEAD, BEAD_REACH, BREAK_STRETCH, BREAK_TICKS, NECK_MIN, RECOIL_TICKS, REST_RANGE_M, SITE_SPREAD_M};
 pub use tube::{soaked_tube, tube_mesh, LUMP_MAJOR, LUMP_MAJOR_NODES, LUMP_MINOR, LUMP_MINOR_NODES, MAX_SIDES, MIN_SIDES, SLUMP_FADE, SLUMP_SQUASH};

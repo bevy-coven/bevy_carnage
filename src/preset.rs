@@ -58,7 +58,7 @@ use bevy::transform::helper::TransformHelper;
 use crate::cross_section::{CrossSectionPlugin, CrossSectionSettings, Layers, Region};
 use crate::flaymap::{BoneExposed, FlayCanvas, FlaySettings, FlaymapPlugin, Layer};
 use crate::laceration::{Gape, Laceration, LacerationBed, LacerationClock, LacerationPlugin, Tension};
-use crate::viscera::{GUT_ROUGHNESS, Mesentery, Strand, ViscSettings, VisceraPlugin, VisceraSystems, gut_image, soaked_tube, spill};
+use crate::viscera::{GUT_ROUGHNESS, Mesentery, Strand, Thread, ViscSettings, VisceraPlugin, VisceraSystems, gut_image, soaked_tube, spill, spill_threads};
 use crate::wetmap::{Print, StainShape, WetCanvas, WetSettings, WetmapPlugin};
 use crate::bloodstain::{BloodSettings, Wound as BloodWound, WoundKind, wound_seed};
 
@@ -2345,6 +2345,35 @@ pub const GORE_FLOOR_MIST: f32 = 9.0;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct Gut;
 
+/// **A thread of slime between a wound and a gut** (`docs/research/slime-strings.md`): [`Thread`](crate::viscera::Thread) is its state, this is where its two ends are. One end is the
+/// wound (`anchor`, world space, where the strand spilled from); the other is node `node` of `gut`'s [`Strand`], read every tick. When the gut is despawned, its threads are, the
+/// next tick. Cosmetic: no digest reads it.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct GutThread {
+    /// The gut ([`Gut`]) the thread is joined to.
+    pub gut: Entity,
+    /// The node of its [`Strand`] the thread is joined to.
+    pub node: u32,
+    /// Where the thread is joined to the wound, world space.
+    pub anchor: Vec3,
+}
+
+/// **How many threads join each spilled strand to its wound**: 4. A web, not a veil: thirty threads read as hair (`docs/research/slime-strings.md`, `## What great looks like`). **Tuned by eye.**
+pub const THREADS_PER_STRAND: u32 = 4;
+/// **The radius of a spilled thread before it thins**, metres: 5 mm. A thread out of a real wound is 1 to 1.5 mm in radius (Ref T3), but at the preset's camera a pixel is
+/// about 7 mm and a thinner thread is under a pixel and shimmers; a game with a closer camera wants less. **Tuned by eye.**
+pub const THREAD_RADIUS_M: f32 = 0.005;
+/// The sides of a thread's tube.
+const THREAD_SIDES: u32 = 6;
+/// **The thickness of the blood in a thread's colour**, mm: 0.06, a slick thread of blood as in Ref D1 (the clear threads of Ref T3 are a film under 0.01 over a pale substrate, and vanish against a beige skin). **Tuned by eye.**
+const THREAD_FILM_MM: f32 = 0.06;
+/// The grey the film lies over. **Tuned by eye.**
+const THREAD_SUBSTRATE: f32 = 0.5;
+/// How opaque a thread is: 0.9. **Tuned by eye.**
+const THREAD_ALPHA: f32 = 0.9;
+/// A thread's roughness: 0.05, a wet gel. **Tuned by eye.**
+const THREAD_ROUGHNESS: f32 = 0.05;
+
 /// **The preset's dials.** Not `deny_unknown_fields` and not serialised: a game that authors these
 /// from data does it through its own settings type.
 #[derive(Resource, Clone, Debug)]
@@ -2673,7 +2702,7 @@ impl Plugin for GorePlugin {
                     .chain()
                     .in_set(GoreSystems),
             )
-            .add_systems(FixedUpdate, retube.after(VisceraSystems));
+            .add_systems(FixedUpdate, (retube, thread_guts).after(VisceraSystems));
     }
 }
 
@@ -2922,6 +2951,8 @@ struct HitContext<'w, 's> {
     policy: Option<Res<'w, GorePolicy>>,
     /// The material every spill's strands share, and the `mm_per_unit` bits it was made under.
     gut_look: Local<'s, Option<(u32, Handle<FleshMaterial>)>>,
+    /// The material every thread shares: made on the first spill.
+    thread_look: Local<'s, Option<Handle<StandardMaterial>>>,
     /// The rigid meshes hits are cast at, indexed across ticks, and what Bevy reports changing them.
     index: Local<'s, MeshIndex>,
     mesh_events: MessageReader<'w, 's, AssetEvent<Mesh>>,
@@ -3252,6 +3283,7 @@ fn take_hits(
         fractured,
         policy,
         gut_look,
+        thread_look,
         index,
         mesh_events,
     } = &mut cx;
@@ -3796,17 +3828,54 @@ fn take_hits(
                     material
                 }
             };
+            // One material for every thread: the colour of a thin film of venous blood over a pale substrate (`bloodstain::spectral`, so no colour is authored here), a little
+            // see-through, and glossy. Slime is clear; a thread out of a wound is slime tinted by it.
+            let thread_material = thread_look
+                .get_or_insert_with(|| {
+                    let film = crate::bloodstain::spectral::linear_srgb(&crate::bloodstain::spectral::Film {
+                        thickness_mm: THREAD_FILM_MM,
+                        so2: crate::bloodstain::spectral::SO2_VENOUS,
+                        substrate: THREAD_SUBSTRATE,
+                    });
+                    standard.add(StandardMaterial {
+                        base_color: Color::linear_rgba(film[0], film[1], film[2], THREAD_ALPHA),
+                        perceptual_roughness: THREAD_ROUGHNESS,
+                        alpha_mode: AlphaMode::Blend,
+                        ..default()
+                    })
+                })
+                .clone();
             for strand in strands {
                 let anchors = (0..strand.nodes().len() as u32).step_by(4).map(|i| (i, at_world)).collect();
                 let tube = meshes.add(soaked_tube(&strand, 8, visc.floor_y));
-                commands.spawn((
-                    Mesh3d(tube),
-                    MeshMaterial3d(gut_material.clone()),
-                    Transform::IDENTITY,
-                    strand,
-                    Mesentery { anchors, ..Default::default() },
-                    Gut,
-                ));
+                // The threads from the wound to the first nodes of this strand, drawn as the strand is laid: the strand is the thing that pulls them taut when it falls.
+                let threads: Vec<_> = spill_threads(at_world, strand.seed(), strand.nodes().len(), THREADS_PER_STRAND, THREAD_RADIUS_M)
+                    .into_iter()
+                    .filter_map(|site| {
+                        let end = strand.nodes().get(site.node as usize).copied()?;
+                        let mesh = site.thread.mesh(site.anchor, end, THREAD_SIDES)?;
+                        Some((meshes.add(mesh), site))
+                    })
+                    .collect();
+                let gut = commands
+                    .spawn((
+                        Mesh3d(tube),
+                        MeshMaterial3d(gut_material.clone()),
+                        Transform::IDENTITY,
+                        strand,
+                        Mesentery { anchors, ..Default::default() },
+                        Gut,
+                    ))
+                    .id();
+                for (mesh, site) in threads {
+                    commands.spawn((
+                        Mesh3d(mesh),
+                        MeshMaterial3d(thread_material.clone()),
+                        Transform::IDENTITY,
+                        site.thread,
+                        GutThread { gut, node: site.node, anchor: site.anchor },
+                    ));
+                }
             }
         }
 
@@ -4862,6 +4931,32 @@ fn retube(mut meshes: ResMut<Assets<Mesh>>, visc: Option<Res<ViscSettings>>, gut
             if let Some(VertexAttributeValues::Float32x4(c)) = fresh.attribute(Mesh::ATTRIBUTE_COLOR) {
                 m.insert_attribute(Mesh::ATTRIBUTE_COLOR, c.clone());
             }
+        }
+    }
+}
+
+/// **Advance every thread one tick and redraw it**: the wound end is where it was fixed, the other is the strand's node. A thread whose gut or node has gone, or which has finished recoiling, is despawned.
+fn thread_guts(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    guts: Query<&Strand, With<Gut>>,
+    mut threads: Query<(Entity, &mut Thread, &GutThread, &Mesh3d)>,
+) {
+    for (entity, mut thread, link, mesh) in &mut threads {
+        let end = guts.get(link.gut).ok().and_then(|strand| strand.nodes().get(link.node as usize).copied());
+        let Some(end) = end else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        thread.tick(link.anchor, end);
+        if thread.gone() {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        if let Some(fresh) = thread.mesh(link.anchor, end, THREAD_SIDES)
+            && let Some(mut drawn) = meshes.get_mut(&mesh.0)
+        {
+            *drawn = fresh;
         }
     }
 }
