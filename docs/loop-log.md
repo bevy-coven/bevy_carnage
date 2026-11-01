@@ -1030,3 +1030,19 @@ a 3 m wall; the resolution is the caller's. (5) `paint_speck` is public and unus
 4. **`digest=` itself for a body that breaks** (iteration 5's item 1, still open): a per-frame wet trace beside `flay=` and `dermis=`.
 5. **The horror-film items** (pooling and the drying ring, wound sheen, fracture debris), `#[non_exhaustive]` on `SkeletalRefusal` and the other public error
    enums, and the Bevy 0.19 citation sweep; `vfx` on Bevy 0.20 still waits on `bevy_hanabi`.
+
+**Merged tree and release.** Merged `loop/iter-8` into `main` (`5361e25`, `--no-ff`; `origin/main` had not moved), then re-ran the gate on the merged tree at the
+bumped version: `cargo build` rc 0 45 s; `cargo build --release` rc 0 2 m 2 s; `cargo build --examples` rc 0 15 m 30 s; `cargo test --no-fail-fast` rc 0 (lib 359 and three
+ignored, `wetmap` 23, `readme` 4, `leaf` 3, every other binary and the doctests), 24 m 27 s for the whole gate. `cargo semver-checks check-release --baseline-version 0.8.1
+--only-explicit-features --features serde,flesh` (6 m 15 s): 202 checks pass, "no semver update required", so a PATCH, `0.8.2`. The release commit (`126949a`,
+`release: v0.8.2`) moved the changelog, `Cargo.toml`, `Cargo.lock`, the Status and a `0.8.2` section in `docs/guide/history.md`, and added one README bullet ("Throw a spray that reads as
+drops"); `tests/readme.rs` and the doctests re-ran green on it. The first push of `main` was refused (`8e49063` had landed: the loop command's phase markers, one file); merged it
+(`4da2e45`, a plain merge, no force) and pushed. `cargo publish --dry-run` packaged 200 files, 4.8 MiB (1.9 MiB compressed), with the same yanked `clipboard-win` warning as 0.8.1.
+**Released `0.8.2`** (https://crates.io/crates/bevy_carnage/0.8.2, tag `v0.8.2` at `126949a`; the crates.io API answers `0.8.2`, not yanked).
+
+**Cleanup.** Removed, all mine: the worktree `~/c8_base` (a plain `git worktree remove`; it was clean and built into the shared cache, so there is no `*-target`), `/tmp/c8`
+(4.2 GB: every recorder variant's 360 frames before and after, the binaries and lib-test binaries copied out of the cache, the references, a Pillow/SciPy venv, the Python models),
+`/tmp/c8-semver` (465 MB) and `target/package` (7.3 MB) in the clone's cache; `df`: 95 G free before, 99 G after. The scratch edits (the canvas dump in `capture_skinned`, the
+dev-shader path in `flesh.rs`) were reverted before the first commit and never committed. Left, not mine and not deleted: the branches `loop/iter-1`, `loop/iter-1b`, `loop/iter-2`,
+`loop/iter-3`, `loop/iter-4` (merged), `loop/iter-4-floor-stains`, `loop/iter-5`, `loop/iter-6` and `loop/iter-7` (merged), and five other loops' `/tmp/c*` directories. Mine and kept:
+`loop/iter-8` (merged, pushed).
