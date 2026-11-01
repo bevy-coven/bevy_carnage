@@ -6,6 +6,25 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+### Added
+
+- **`viscera::soaked_tube(strand, sides, floor_y)`, `soak`, `soak_tint`, `Strand::with_seed` and `seed`**, and their constants (`LUMP_MAJOR`, `LUMP_MAJOR_NODES`,
+  `LUMP_MINOR`, `LUMP_MINOR_NODES`, `SLUMP_FADE`, `SLUMP_SQUASH`, `SOAK_BASE`, `SOAK_PATCH`, `SOAK_PATCH_M`, `WOUND_REACH_M`, `SOAK_FILM_MM`, `SOAK_STEPS`). `soaked_tube` is
+  `tube_mesh` slumped where the strand lies on the floor and carrying `ATTRIBUTE_COLOR`: the tint of a venous blood film over the pale wall at each node's `soak`
+  (`bloodstain::spectral`'s Kubelka–Munk, so no blood colour is authored). Cosmetic: the strand's nodes, `Strand::digest`, every canvas and every recorder's digest are untouched.
+
+### Changed
+
+- **Spilled guts are bloodied, lumpy, slumped on the floor and glossy** (iteration 12, AG-151, `docs/research/guts.md`). The preset's guts were clean salmon-pink tubes of one radius,
+  paler than the pool they fell in: `capture_preset` frame 130, the reddish pixels of the hanging strands, mean sRGB `(126, 68, 66)`, red minus green 58; the *Day of the Dead* gut pull
+  (Savini used real intestines in slaughterhouse blood) is `(138, 36, 31)`, red minus green 102. A strand is now drawn by `soaked_tube`: the coat the wound left (`exp(-arc / 0.30 m)`,
+  restarting at a tear), contact with the floor and a patchy base give each node a soak, the tint is the venous film of `0.35 mm * soak^3`, and the material multiplies it into `gut_image`;
+  `tube_mesh` (and so `soaked_tube`) draws each ring at the strand's radius times two sines along its length, their phases the strand's own seed, which `spill` sets per strand; a ring that lies on
+  the floor is squashed to 0.72 of its height and widened to keep its area; `GUT_ROUGHNESS` is 0.15, from 0.3. Now: `(118, 37, 34)`, red minus green 81, hue 1.8 degrees (the reference's 2.9),
+  and a strand in the pool is darker than the pool. **No digest moves**: `capture_preset`, `capture_entrails` and all eight `capture_skinned` variants print what they printed in 0.8.5, twice each;
+  `bench_carnage`'s digest and timing are 0.8.5's (the retube of five strands is 14.2 us with lumps and 16.8 us soaked, `cargo test --release`, a throwaway). `tube_mesh` keeps its signature and now lumps its radius.
+  **What it does not do, named**: the heap of a pile is three or four strands, there are no organ blobs, and a strand's blood does not dry (a strand has no canvas and the viscera module no clock).
+
 ## [0.8.5] - 2026-11-01
 
 ### Changed

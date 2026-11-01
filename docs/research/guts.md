@@ -10,13 +10,16 @@ Runner-ups, kept for the log: slime strings (a *Thing* and *Hellraiser* look, ne
 
 `capture_preset`, frame 130 (guts hanging from the torso) and 200 (lying in the pool), on 0.8.5, `/tmp/c12/before/preset/`:
 
-- The strands are **clean salmon-pink tubes**: sRGB mean `(132, 82, 77)` at frame 130 and `(144, 97, 92)` lying in the pool at 200. Red minus green is 50 and 47.
-  The pool they lie in is `(115, 40, 45)`: the guts are paler than the blood they lie on, which a real spill never is.
+- The strands are **clean salmon-pink tubes**. Reddish pixels of the hanging strands at frame 130 (box `320,232,110,95`, the pool excluded, a mask of
+  `R > 1.35 G and R > 1.35 B`): mean sRGB `(126, 68, 66)`, red minus green 58, saturation 0.48, luminance 80.5. A strand pixel in the pile at frame 200 is
+  `(171, 102, 99)`, luminance 115; the pool they lie in (box `240,312,50,18`) is `(123, 51, 56)`, luminance 67: the guts are paler than the blood they lie on,
+  which a real spill never is.
 - Every strand has **one radius**, `SPILL_RADIUS` 20 mm, so each is a smooth pole, and where it lies on the floor it is a round tube
   resting on a line. Real bowel is lumpy and slumps flat under its own weight.
 - The texture (`look::gut_image`) carries blood on the wound end and in patches, but the material multiplies nothing by how much blood the strand
   is actually in: a strand lying in the middle of the pool is as clean as one hanging in the air.
-- The wall is `GUT_ROUGHNESS` 0.3 and has no coat: the highlight is one soft streak, where the *Thing* stills have sharp white glints.
+- The wall is `GUT_ROUGHNESS` 0.3 and has no coat (the flesh shader draws a clear coat only from a wet canvas, which a strand does not have, and overwrites
+  `StandardMaterial::clearcoat` every fragment): the highlight is one soft streak, where the *Thing* stills have sharp white glints.
 
 ## Sources
 
@@ -41,52 +44,58 @@ Runner-ups, kept for the log: slime strings (a *Thing* and *Hellraiser* look, ne
   - Wet surfaces: Lagarde, *Water drop 3b, physically based wet surfaces* (2013), quoted in iteration 11: "Simply interpolating between dry and wet BRDF
     parameters without changing the lighting model do the effect". And `10.1007_s00371-020-01963-w` (Visual Computer 37, 2021): "the presence of liquid
     on the surface alters significantly their BRDF, which in turn results in considerable changes in their visual appearance".
-  - Glossy coat: glTF `KHR_materials_clearcoat`, which `StandardMaterial::clearcoat` implements; a bound slot every `FleshMaterial` already carries, so it costs no
-    texture (the sixteen-texture budget is `CLAUDE.md`'s).
+  - Glossy coat, **not used**: glTF `KHR_materials_clearcoat` is what `StandardMaterial::clearcoat` implements, but `flesh.wesl` overwrites `clearcoat` every fragment from its
+    own wet canvas, so the first plan (a coat on the gut material) could not work without a shader change; see `## Model adopted`.
 
 ## Craft principle
 
 A practical-effects artist makes guts read as guts by three things the stills below show, and a modeller's clean pipe has none of them:
 
-1. **They are soaked.** Savini's were real intestines wetted with blood: "Pig's blood and guts were obtained from a local slaughterhouse for use in the scene"
-   (Screen Rant, *Day of the Dead* behind-the-scenes facts). The bowel is the colour of the blood it came out in, darkest where it came out and where it lies.
-   Bottin's kennel mass was "mayonnaise, melted bubble gum and plenty of K-Y Jelly" (Dead Northern, *The Thing* retrospective): the **slime** is what makes it shine.
-2. **They are not a constant radius.** Intestine bulges between peristaltic constrictions; a loop that lies on the floor spreads.
+1. **They are soaked.** Savini's were real animal guts and a slaughterhouse's blood: "Pig's blood and guts were obtained from a local slaughterhouse for use in the scene"
+   (Screen Rant, *Day of the Dead* behind-the-scenes facts). The stills show the bowel red, darkest where it came out and where it lies; the pale serosa shows only
+   where the blood is thin. Bottin's kennel mass was "mayonnaise, melted bubble gum and plenty of K-Y Jelly" (Dead Northern, *The Thing* retrospective): the **slime** is
+   what makes it shine.
+2. **They are not a constant radius.** Real intestine is lumpy, and a loop lying on the floor spreads (general anatomy, not measured here; R1 and R2 show it).
 3. **They shine in points, not in a smear.** The *Thing* stills (split-face, Palmer) have a clear wet coat over a darker body: sharp white glints.
 
 ## How shipping games do it
 
-*Dead Island 2* (Dambuster) fills a hole with real viscera meshes that share the body's wet material and are soaked in the same blood palette, after
-looking at *Day of the Dead* (the Kotaku quote above). This crate's guts are tubes swept on the CPU, so the model is: **the tube is the same mesh it was, with
-a per-vertex tint and a per-ring radius**, and the material gets a clear coat. Nothing here is a texture, a new binding, or a shader branch.
+*Dead Island 2* (Dambuster) builds a zombie "out of a surface mesh and a set of 'viscera' meshes", "individual pieces that can be destroyed, or broken", and fills "the resulting
+hole with destructible guts" (Kotaku, quoted above), after looking at *Day of the Dead*. This crate's guts are tubes swept on the CPU, so the model is: **the tube is the same
+mesh it was, with a per-vertex tint and a per-ring radius**, and a lower roughness. Nothing here is a texture, a new binding, or a shader branch.
 
 ## Model adopted
 
 All of it cosmetic, outside every digest; a pure function of the strand's own nodes, its seed, and the floor height.
 
-1. **A radius profile.** `r_i = r * (1 + 0.14 sin(2 pi (i / 5.5 + a)) + 0.06 sin(2 pi (i / 2.3 + b)))`, `a` and `b` from a seed that `spill` stores on the
+1. **A radius profile.** `r_i = r * (1 + 0.22 sin(2 pi (i / 5.5 + a)) + 0.09 sin(2 pi (i / 2.3 + b)))`, `a` and `b` from a seed that `spill` stores on the
    strand (`Strand::with_seed`), so no two strands lump alike and the same spill lumps the same way on every run. A strand built by hand has seed `0`.
-2. **A slump.** A ring within `SLUMP_REACH` radii of the floor is squashed to `SLUMP_SQUASH` of its height and widened by the inverse square root, so the
-   area is kept; the normals are those of the ellipse.
-3. **A soak per node**, in `[0, 1]`: `max(SOAK_BASE, exp(-arc / WOUND_REACH_M), contact)`, `arc` the length from the wound end (node 0), `contact` a
-   smooth step on the node's height above the floor (1 on it, 0 above `SLUMP_REACH` radii). A node in the air, far from the wound, is `SOAK_BASE`: every spilled
-   strand is slick.
-4. **The tint** is the venous film of `soak * SOAK_FILM_MM` over a `0.5` grey substrate, `spectral::linear_srgb`, divided by the substrate alone, per channel, from a
-   table of `SOAK_STEPS` entries built once. It is written as `Mesh::ATTRIBUTE_COLOR` and the material multiplies it into `gut_image`.
-5. **A clear coat** on the gut material: `clearcoat 1.0`, `clearcoat_perceptual_roughness 0.08`.
+2. **A slump.** A ring whose centre is within `SLUMP_FADE` (1.4) radii of resting on the floor is squashed to `SLUMP_SQUASH` (0.72) of its height and widened by
+   the inverse square root, so the area is kept; the normals are those of the ellipse, leaned back by the radius's slope.
+3. **A soak per node**, in `[0, 1]`: `max(base, exp(-arc / WOUND_REACH_M), contact * (0.8 + 0.2 n))`, `arc` the length from the wound end (node 0 and the node
+   after any tear), `contact` a smooth step on the node's height above the floor (1 resting on it, 0 a radius and 1.4 above), `n` a smooth noise of the length
+   along the bowel on a 12 cm wavelength, and `base = SOAK_BASE * (1 + SOAK_PATCH * (2n - 1))`: a spilled strand is slick everywhere and patchy.
+4. **The tint** is the venous film of `SOAK_FILM_MM * soak^3` over a `0.5` grey substrate, `spectral::linear_srgb`, divided by the substrate alone, per channel, from a
+   table of `SOAK_STEPS` entries built once. The cube is a measured fix: on a linear scale the first round (`soak * 0.35 mm`) put 90 percent of the range at one
+   dark red, because venous blood is opaque in green by 0.04 mm (the table's green is 0.131 at 0.035 mm and 0.031 at 0.07 mm). It is written as
+   `Mesh::ATTRIBUTE_COLOR` and the material multiplies it into `gut_image`.
+5. **A lower roughness**, `GUT_ROUGHNESS` 0.3 to 0.15. (The first plan was a clear coat on the material; the flesh shader overwrites `clearcoat` from its own wet
+   canvas every fragment, so it cannot be set from a `StandardMaterial`, and a shader change is a 79-minute WebGL2 re-check. Roughness 0.10 measured the same
+   highlight as 0.15 at the preset's camera, so 0.15 stays.)
 
-The public additions are `Strand::with_seed`/`seed`, `viscera::soak`, `viscera::soaked_tube`; `tube_mesh` keeps its signature and gets lumps (not the slump
-or the tint, which need the floor).
+The public additions are `Strand::with_seed`/`seed`, `viscera::soak`, `soak_tint`, `soaked_tube` and their constants; `tube_mesh` keeps its signature and gets
+lumps (not the slump or the tint, which need the floor).
 
 ## Parameters
 
-All **tuned by eye against the reference set** (this note), none measured: `SOAK_BASE` 0.35, `WOUND_REACH_M` 0.30, `SOAK_FILM_MM` 0.35, `SLUMP_REACH` 1.4,
-`SLUMP_SQUASH` 0.72, the lump amplitudes 0.14 and 0.06 and periods 5.5 and 2.3 nodes, the coat 1.0 and 0.08. Each says so in its doc comment.
+All **tuned by eye against the reference set** (this note), none measured: `SOAK_BASE` 0.45, `SOAK_PATCH` 0.5, `SOAK_PATCH_M` 0.12, `WOUND_REACH_M` 0.30,
+`SOAK_FILM_MM` 0.35, `SLUMP_FADE` 1.4, `SLUMP_SQUASH` 0.72, the lump amplitudes 0.22 and 0.09 (0.14 and 0.06 in the first rounds) and periods 5.5 and 2.3 nodes, `GUT_ROUGHNESS` 0.15. Each says so in its
+doc comment.
 
 ## Validation targets
 
-- Red minus green of a strand's mean sRGB, frame 130 and 200: from 50 and 47 to **at least 80** (Ref D1's mid-tone is 94).
-- The strand beside the pool is **not paler than the pool**: mean luminance of a strand lying in it is no more than the pool's plus 25 (it is 63 above now).
+- Red minus green of the hanging strands' reddish pixels at frame 130 (box `320,232,110,95`): from 58 to **at least 80** (Ref D1's mid-tone is 102 by the same mask).
+- The strand in the pool is **not paler than the pool**: a strand pixel's luminance is no more than the pool's plus 25 (it is 48 above now: 115 against 67).
 - The silhouette of a strand has **two scales of lump** in its radius: a tube's radius varies by at least 12 percent along its length (`tests/viscera.rs`).
 - A strand on the floor is wider than it is tall by at least 1.2 (a test).
 - `Strand::digest`, `entrails=`, `digest=` of every recorder, `the_flesh_tables_are_frozen` and every other lock are unchanged.
@@ -105,7 +114,7 @@ Stills are copyrighted film frames, kept under `/tmp/c12/refs/` for judging and 
 
 | Ref | Film / source | Page | What it shows that the crate must reproduce |
 |---|---|---|---|
-| D1 | *Day of the Dead* (1985), Savini | `https://www.truemythmedia.com/true-myth-media/reviews/dayofthedead` | guts hauled from an abdomen: saturated red, mid-tone sRGB `(140, 46, 40)` (R minus G 94), dark pockets `(56, 10, 9)`, strands stretched taut and slick, hard glints |
+| D1 | *Day of the Dead* (1985), Savini | `https://www.truemythmedia.com/true-myth-media/reviews/dayofthedead` | guts hauled from an abdomen: saturated red; reddish pixels of the gut region (mask `R > 1.5 G and R > 1.5 B and R > 60`, 37 925 pixels) mean sRGB `(138, 36, 31)`, red minus green 102, hue 2.9 degrees, saturation 0.77, luminance 57.6, 5th percentile 16.5, 98th percentile 136.8; strands stretched taut and slick, hard glints |
 | D2 | *Day of the Dead* (1985) | `https://www.imdb.com/title/tt0088993/mediaviewer/rm947079168` | the opened torso: bright wet red meat over pale ribs, blood pooled on the table |
 | D3 | *Day of the Dead* (1985) | `https://happyotter666.blogspot.com/2014/05/day-of-dead-1985.html` | the same subject at a distance: a **heap**, coils overlapping, one saturation |
 | T1 | *The Thing* (1982), kennel | `https://en.wikipedia.org/wiki/File:TheThing(1982)-KennelSFX.jpg` (fair use) | red wet strands piled on straw: dark body, bright specular, thick |

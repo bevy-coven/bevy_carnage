@@ -65,15 +65,15 @@ pub fn soaked_tube(strand: &Strand, sides: u32, floor_y: f32) -> Mesh {
     sweep(strand, sides, Some(floor_y))
 }
 
-/// **How strongly the two sines that lump a strand's radius swing it**, as a fraction of the radius: 14 % on a period of
-/// [`LUMP_MAJOR_NODES`] nodes (about 19 cm of a spilled strand, a loop's bulge between two constrictions) and [`LUMP_MINOR`], 6 % on
-/// [`LUMP_MINOR_NODES`] (8 cm, the haustra). **Tuned by eye** against the reference set in `docs/research/guts.md` (R1, D3), not measured: chosen so that
-/// a strand's silhouette shows two scales of bulge from the camera of the preset's clips.
-pub const LUMP_MAJOR: f32 = 0.14;
+/// **How strongly the two sines that lump a strand's radius swing it**, as a fraction of the radius: 22 % on a period of
+/// [`LUMP_MAJOR_NODES`] nodes (about 19 cm of a spilled strand, a loop's bulge between two constrictions) and [`LUMP_MINOR`], 9 % on
+/// [`LUMP_MINOR_NODES`] (8 cm, the haustra). **Tuned by eye** against the reference set in `docs/research/guts.md` (R1, D3), not measured: 14 % and 6 % (the first
+/// round) read as a smooth pipe from the preset's camera; at these the silhouette shows two scales of bulge without reading as a string of sausages.
+pub const LUMP_MAJOR: f32 = 0.22;
 /// The period of [`LUMP_MAJOR`], in nodes.
 pub const LUMP_MAJOR_NODES: f32 = 5.5;
 /// See [`LUMP_MAJOR`].
-pub const LUMP_MINOR: f32 = 0.06;
+pub const LUMP_MINOR: f32 = 0.09;
 /// The period of [`LUMP_MINOR`], in nodes.
 pub const LUMP_MINOR_NODES: f32 = 2.3;
 /// **How far above resting on the floor a ring is still slumped**, in radii: contact is `1` for a centre at `floor_y + radius` and falls

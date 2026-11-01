@@ -135,6 +135,8 @@ percolation exponent (Fisher's, 2.186 in three dimensions; Stauffer, *Scaling th
 | Bettner & Terrano, *1500 Archers on a 28.8: Network Programming in Age of Empires and Beyond*, GDC 2001 (no DOI; a web page, not in the corpus) | A shipping game's lessons on keeping a simulation checkable: "As much as we check-summed the world ... it seemed that there was always one more thing that slipped just under the radar" | `docs/research/digest-fold.md` |
 | Geffroy, *Rendering of Doom Eternal*, SIGGRAPH 2020 *Advances in Real-Time Rendering* (no DOI; `advances.realtimerendering.com/s2020/RenderingDoomEternal.pdf`) and Coenen, *DOOM Eternal - Graphics Study* (`simoncoenen.com/blog/programming/graphics/DoomEternalStudy`; web pages, not in the corpus) | Mesh decals: "extremely fast and allows artists to go crazy with massive amounts of decals", but "the maximum amount of decals per mesh would theoretically be 255" | `docs/research/floor-spatter.md` |
 | Fiedler, *Deterministic Lockstep*, Gaffer On Games (no DOI; a web page, not in the corpus) | The standard a deterministic simulation is held to: "you could take a checksum of your entire physics state at the end of each frame and it would be identical" | `docs/research/digest-fold.md` |
+| Evans-Lawes and Ridge on *Dead Island 2*'s FLESH system, Reddit AMA as reported by Kotaku, 2023-05-08 (no DOI; `kotaku.com/ama-reddit-dead-island-2-weapons-flesh-system-ps5-xbox-1850415887`, a web page, not in the corpus) | A shipping game's gore pipeline: "I mainly looked at practical effects in movies such as *RoboCop*, *Starship Troopers*, *Day of The Dead*"; "filling the resulting hole with destructible guts" | `docs/research/guts.md` |
+| *Physically inspired technique for modeling wet absorbent materials*, The Visual Computer 37 (2021) (`10.1007/s00371-020-01963-w`; the corpus holds only the paywall page, so the authors are unread and the abstract is all there is) | "the presence of liquid on the surface alters significantly their BRDF, which in turn results in considerable changes in their visual appearance" | `docs/research/guts.md` |
 
 ## Game testing and visual QA
 
@@ -151,3 +153,7 @@ research note under `## Reference set`. The craft sources the notes quote, all w
 Damien Leone on *Terrifier 2*'s opaque and "chunky" blood (SlashFilm,
 `slashfilm.com/1440753/terrifier-2-grisly-death-scenes-involved-some-unlikely-gross-ingredients/`), cited in
 `docs/research/floor-spatter.md`.
+
+Added by iteration 12 (`docs/research/guts.md`): Screen Rant on *Day of the Dead* (`screenrant.com/george-a-romero-day-of-the-dead-trivia-facts/`): "Pig's blood and guts were obtained from a local
+slaughterhouse for use in the scene"; Dead Northern on *The Thing* (`deadnorthern.co.uk/blog/retrospectives/retrospective-the-thing-1982`): the kennel's mass pile "was given its texture from mayonnaise,
+melted bubble gum and plenty of K-Y Jelly"; the Stan Winston School on the dog-thing; and the stills in that note's `## Reference set`, from the film pages and from Wikimedia Commons (pig small intestines, CC0).
