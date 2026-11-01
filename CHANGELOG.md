@@ -6,6 +6,8 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-11-01
+
 ### Changed
 
 - **Blood dries dark and stays where it dried** (iteration 9, AG-148, `docs/research/dry-blood.md`). No recorder had ever looked at blood

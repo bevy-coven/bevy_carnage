@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.8.2` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.8.3` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.8.3` changed: blood dries dark and stays where it dried
+
+- **Dried spatter is no longer erased, and dried blood is no longer fresh-red.** No recorder had looked at blood once it had dried (they end seconds after the last shot and a stain takes 30 s), and looked at, it was wrong twice. The substrate's soak took up to 38 bytes from every texel, which is a spatter drop's whole film, so a wall's spray was half its area a drying later and the drops of a 512-texel wall were pinheads or gone; a drying drop is pinned to the surface and loses height, not area (Smith, Nicloux & Brutin 2020), so the soak now takes a film down to `wetmap::STAIN_FLOOR` (33 of 255) and no lower. And the flesh material drew a film's colour from its thickness alone, so a pool or a wound drawn with it never turned brown: its shader now interpolates the CPU's own colour walk (`bloodstain::dry::appearance_with_fresh`, baked at its two stops into `flesh::aged_blood_lut`) by the wetness byte, so dried blood is dark brown and matte and a fresh drop beside an old one is plainly younger. Every recorder digest where blood soaks moves (`--quiet` and `bench_carnage` do not); no API is removed. `capture_skinned --dry N` shows the dried state in a clip, and `tools/webgl2/check.sh` is the WebGL2 check for a change to `flesh.wesl`. `docs/research/dry-blood.md` has the measurements, the references and what is left (the dried colour's hue and its drying rim).
 
 ### What `0.8.2` changed: a drop is drawn at the size it is
 
