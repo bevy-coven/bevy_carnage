@@ -46,7 +46,7 @@ pub struct WetSettings {
     /// Clamped into `1..=65535` internally, because a texel's age is a `u16`. 65 535 ticks is 18
     /// minutes at 60 Hz, past any drying anyone would author.
     pub dry_ticks: u32,
-    /// Fraction of full coverage the substrate keeps **over the whole wet lifetime**. `0.15`.
+    /// Fraction of full coverage the substrate takes from a wet film **over the whole wet lifetime**. `0.15`.
     ///
     /// **Not per tick, and the arithmetic is the reason.** Read per tick, `0.15` leaves
     /// `0.85³⁰ ≈ 0.008` of the blood after half a second — every stain would vanish long before
@@ -57,7 +57,9 @@ pub struct WetSettings {
     /// Applied as an integer schedule rather than an accumulator: at age `a` the cumulative loss is
     /// `a · round(255 · absorbency) / dry_ticks`, floored, and one tick applies the difference between
     /// two consecutive values. So the deltas sum to the cumulative exactly and there is no float
-    /// residue to drift. Faint spatter soaks away to nothing; a pool loses 15 % and stays.
+    /// residue to drift. **The substrate takes the film and leaves the stain**: no texel is soaked under
+    /// [`STAIN_FLOOR`](crate::wetmap::STAIN_FLOOR) (33 of 255), so a drop keeps the footprint it landed with
+    /// (a drying drop loses height, not area) and a pool loses 15 % and stays.
     pub absorbency: f32,
     /// Canvases the plugin may upload in one frame. `4`.
     ///
