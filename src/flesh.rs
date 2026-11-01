@@ -317,6 +317,10 @@ impl FleshExtension {
 
 impl MaterialExtension for FleshExtension {
     fn fragment_shader() -> ShaderRef {
+        // SCRATCH (iteration 8): read the shader from BEVY_ASSET_ROOT while iterating; reverted before any commit.
+        if std::env::var("FLESH_DEV_SHADER").is_ok() {
+            return ShaderRef::Path(AssetPath::parse("flesh_dev.wesl"));
+        }
         ShaderRef::Path(AssetPath::parse("embedded://bevy_carnage/flesh.wesl"))
     }
 
