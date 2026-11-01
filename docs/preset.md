@@ -116,7 +116,14 @@ every way out: a forearm held across the chest is gone into and out of, and then
 the shot in and out of each mesh by the winding of the triangles it crosses, so where an arm's mesh
 overlaps the torso's at the shoulder the shot is inside the body all through the overlap and opens
 nothing there. An exit is `EXIT_SCALE` (1.6) times the entry's radius, cut from outside along the way
-the shot left, and so is a way back in after the first, the projectile being the one that came out.
+the shot left, and so is a way back in after the first, the projectile being the one that came out. **An
+exit's margin is torn** (0.8.4, `EXIT_TEAR`): where the projectile leaves, the skin is burst outward and
+not cut, and a forensic exit is irregular and often stellate, a small hub with radiating splits (Medscape,
+*Forensic Pathology of Firearm Wounds*), against the entrance's small round hole with its collar. The
+crater of an exit is laid with five to seven thin splits of different lengths, bent and rippled, each at
+half the crater's depth, and a rim out of round (`FlayCanvas::paint_world_torn`), every number a hash of
+the place, so the same shot tears the same way on every run and no two exits are one star. Until 0.8.4
+an exit was the entrance's round crater, 1.6 times wider, though its own doc said "more ragged".
 Every wound bleeds and is announced as a `Wounded` of its own, in order along the shot, and each exit
 throws the **forward spatter**: a cone along the shot, `FORWARD_MIST` (4) times the blood its area
 alone would throw, onto whatever is behind — the chest behind the forearm, the wall behind the chest.
