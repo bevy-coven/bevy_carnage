@@ -61,6 +61,7 @@ The left GIF above, with keys to aim it yourself; `T` cycles the violence settin
 
 - **Hurt a character with one message**: `GoreHit::impact`, `blunt`, `burn` and `slash` peel skin, fat and muscle to bone, bruise and burn under the skin, and cut wounds that gape: [quick start](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/quick-start.md).
 - **Make wounds bleed where they are**: a pulsing bleed runs downhill on the pose on screen, pools on the floor and dries, on skinned, animated bodies too: [`docs/preset.md`](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/preset.md).
+- **Throw a spray that reads as drops**: each droplet a wound throws lands as its own round stain at the size it is, on a floor, a wall or a skin, and holds still while it is wet: [the gallery](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/gallery.md).
 - **Break a body into its own pieces**: bake once, then shoot a shoulder and the arm comes off, with watertight cut faces and convex colliders: [the API](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/api.md).
 - **Bore bullet channels that come out the far side**: the hole and the gore it throws are the same subtraction: [features](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/guide/features.md).
 - **Honour the player's violence setting**: `GorePolicy` swaps blood for sparks, or keeps blood and refuses the breaking, by substitution and never deletion: [`docs/preset.md`](https://github.com/bevy-coven/bevy_carnage/blob/main/docs/preset.md#the-players-settings).
