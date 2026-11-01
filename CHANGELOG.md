@@ -6,6 +6,8 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-11-01
+
 ### Added
 
 - **`FlayCanvas::paint_uv_torn` and `paint_world_torn`** (iteration 10, AG-149, `docs/research/torn-exits.md`): the crater of `paint_uv` and
