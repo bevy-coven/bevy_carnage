@@ -11,7 +11,7 @@ use bevy::mesh::Mesh;
 use bevy::prelude::Component;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::transform::components::GlobalTransform;
-use crate::cross_section::{Layer, Layers, Region, texel_at, texel_mean, value_noise};
+use crate::cross_section::{Layer, Layers, Region, texel_at, texel_mean, value_noise, worley};
 
 use crate::flaymap::digest::Fnv1a;
 use crate::flaymap::settings::FlaySettings;
@@ -78,6 +78,57 @@ pub const TEAR_SPLIT_WIDTH: f32 = 2.0;
 /// The coarse octave's cell, millimetres — a few texels on a 128 canvas, so the tears are shapes
 /// rather than speckle.
 const RAGGED_CELL_MM: f32 = 24.0;
+
+/// **How much of a crater's radius its wall takes**: `0.45`. The crater's depth rises from nothing at the rim to its floor over the outer 45 % of the radius, not over all of it (`1.0` is the
+/// bowl of 0.8.7, whose rim had zero slope and so spent a third of the radius on skin and fat). A wound has an edge: "Entry wounds are typically smaller, with well-defined margins" (PMC12791185,
+/// `docs/research/wound-margin.md`). **Tuned** by eye and by the ring's share of the radius.
+const WALL: f32 = 0.45;
+
+/// **How much of a crater's depth keeps deepening to its centre** instead of ending in the floor the wall made: `0.30`, so the floor is a pit and not a plateau (a plateau stacks, hit on hit, into a
+/// bore). `1.0` is the bowl. **Tuned.**
+const PIT: f32 = 0.30;
+
+/// **How out of round a crater's rim may be**, as a share of its radius, per harmonic: `0.035` for each of three harmonics (3rd, 5th and 8th of the angle), at full effect from `RIM_FULL_TEXELS` of
+/// radius. A big wound is ragged; a bullet's is round (`docs/research/torn-exits.md`), so it fades in from `RIM_FROM_TEXELS`. **Tuned.**
+const RIM_RAG: f32 = 0.035;
+/// Radius, in texels, under which a crater's rim is round: `8`.
+const RIM_FROM_TEXELS: f32 = 8.0;
+/// Radius, in texels, from which a crater's rim is as ragged as it gets: `32`.
+const RIM_FULL_TEXELS: f32 = 32.0;
+
+/// **The size of a patch of pale nodules**, millimetres: `40`, a slow value noise that scales how many nodules in a place stand up and how pale they are. **Tuned.**
+const LUMP_PATCH_MM: f32 = 40.0;
+/// **The floor's lump cell**, millimetres: `16`, a nodule of fat or torn fascia the size of a grape (the references' nodules are 4 to 16 mm, 5 to 8 % of the wound's width: W2, W4), four texels on the
+/// 256 canvas. A second lattice 2.3 times coarser stands up as the big nodules among the small, a slow swell (55 mm) lies under both, and the lattice is warped by a slow noise so the cells are
+/// not a grid (a diagonal weave appeared at 12 mm cells with a second octave at half the cell; one octave at 16 mm removed it). Lumps are at full strength while a texel is under half a cell and gone from
+/// 0.85 of one (8 mm and 13.6 mm: the 256 canvas is 3.9 mm a texel, a 128 one 7.8). **Tuned** against the reference set.
+const LUMP_CELL_MM: f32 = 16.0;
+/// **How deep a texel must be peeled before it is lumpy**, millimetres: `4`. The skin's lip stays smooth. Lumps stop again where the cortex starts (bone is smooth). **Tuned.**
+const LUMP_FADE_MM: f32 = 4.0;
+/// **How far a lump moves the depth the tissue is looked up at**, millimetres: `3.5`. A nodule is shallower, a crevice deeper, so fat and muscle show in patches. **Tuned.**
+const LUMP_LOOK_MM: f32 = 3.5;
+/// **How high a lump stands in the normal image**, millimetres: `5.0`: the lump's own height, added to the depth's slope, so the shader lights it. **Tuned**: under the blood film that covers a fresh
+/// wound the albedo of a nodule barely shows, and the lighting of its relief is what the eye reads.
+const LUMP_RELIEF_MM: f32 = 5.0;
+/// **How much darker a crevice is**: `0.6` of the colour at the seam of a cell. **Tuned.**
+const LUMP_DARK: f32 = 0.6;
+/// **How much brighter the top of a nodule is**: `1.1` at the cell's centre. **Tuned** (the references' 95th percentile of luminance is 134 to 165 where a smooth crater's is 110).
+const LUMP_LIGHT: f32 = 1.1;
+/// **How much paler a nodule is**, toward `LUMP_NODULE`: `0.3` at the cell's centre. **Tuned**: more of it greyed the wound's red (the references' red minus green is 86 to 109).
+const LUMP_PALE: f32 = 0.3;
+/// **How deep the skin's lip reaches**, millimetres: `3`. A peeled texel shallower than this is the cut edge of the skin, pale and raised, fading to the wound's wall by this depth. The 0.8.7 wall
+/// spent a third of the radius on it; with [`WALL`] it is a ring a texel or two wide. **Tuned.**
+const LIP_MM: f32 = 3.0;
+/// **How much of the way to [`LIP_COLOUR`] the rim texel goes**: `0.75`. **Tuned** against W1, W2, W3, W5, whose lip is paler than the skin round it.
+const LIP_PALE: f32 = 0.75;
+/// The cut edge of the skin, paler and pinker than the skin round it (encoded sRGB `(0.93, 0.80, 0.72)`; the intact skin of the recorders is about `(0.78, 0.66, 0.60)`). **Tuned.**
+const LIP_COLOUR: [f32; 3] = [0.93, 0.80, 0.72];
+/// **How high the lip stands**, millimetres: `1.8`, in the normal image: a rolled edge, not a cliff. **Tuned.**
+const LIP_RELIEF_MM: f32 = 1.8;
+/// The torn fascia and fat a nodule shows, encoded sRGB: `(0.80, 0.52, 0.44)`. **Tuned** against W2 and W4.
+const LUMP_NODULE: [f32; 3] = [0.80, 0.52, 0.44];
+/// **How much wetter a nodule is** (roughness times `1 - 0.6 k`) and how much rougher a crevice (`+ 0.25`). **Tuned.**
+const LUMP_WET: f32 = 0.6;
 
 /// **What a paint call found, and the one-shot handoff to whatever owns the skeleton.**
 ///
@@ -171,6 +222,9 @@ pub struct FlayCanvas {
     /// `(tile_mm bits, seed)` it was filled for. See [`shade`](Self::shade).
     tissue: Vec<Option<([u8; 3], u8)>>,
     tissue_key: (u32, u32),
+    /// The height each texel's lump stands at, twentieths of a millimetre, signed: what [`shade`](Self::shade) added to the depth's slope there, kept because the normal of a texel on the edge of a
+    /// redrawn rectangle reads its neighbours' lumps from an earlier shade. Zero where nothing is peeled. **Not in the digest**: a pure function of the depth buffer and the settings.
+    lump: Vec<i8>,
     /// The intact surface, as bytes, so a texel at depth 0 does not re-encode it per shade.
     base_rgba: [u8; 4],
     /// The intact surface's roughness byte.
@@ -290,6 +344,7 @@ impl FlayCanvas {
             normal_px: flat_normal.iter().copied().cycle().take(texels * 4).collect(),
             tissue: Vec::new(),
             tissue_key: (0, 0),
+            lump: vec![0; texels],
             base_rgba,
             base_rough,
             dirty_since: None,
@@ -426,6 +481,7 @@ impl FlayCanvas {
         self.albedo_px.as_chunks_mut::<4>().0.fill(base);
         self.rough_px.as_chunks_mut::<4>().0.fill(rough);
         self.normal_px.as_chunks_mut::<4>().0.fill([128, 128, 255, 255]);
+        self.lump.fill(0);
         // Every pixel is what a shade of an all-zero depth draws, so nothing is stale.
         self.stale = None;
         self.bone_texels = 0;
@@ -520,12 +576,15 @@ impl FlayCanvas {
         let r_tex = radius_uv * self.size as f32;
         let cx = ((uv.x * self.size as f32) as i64).clamp(0, n - 1);
         let cy = ((uv.y * self.size as f32) as i64).clamp(0, n - 1);
-        let half = if tear > 0.0 { ((r_tex * (1.15 + TEAR_REACH * tear)).ceil() as i64).clamp(0, n) } else { (r_tex.round() as i64).clamp(0, n) };
+        // A big crater's rim is out of round, and the stamp must reach as far as the rim does.
+        let rim = if tear > 0.0 { 0.0 } else { rim_amplitude(r_tex) };
+        let half = if tear > 0.0 { ((r_tex * (1.15 + TEAR_REACH * tear)).ceil() as i64).clamp(0, n) } else { ((r_tex * (1.0 + 3.0 * rim)).ceil() as i64).clamp(0, n) };
         let px = 2 * half + 1;
+        let place = (cx as u32).wrapping_mul(0x9E37_79B1) ^ (cy as u32).wrapping_mul(0x85EB_CA6B);
         if tear > 0.0 {
-            self.build_torn_mask(px, half, r_tex, tear, (cx as u32).wrapping_mul(0x9E37_79B1) ^ (cy as u32).wrapping_mul(0x85EB_CA6B));
+            self.build_torn_mask(px, half, r_tex, tear, place);
         } else {
-            self.build_mask(px, half, r_tex);
+            self.build_mask(px, half, r_tex, rim, place);
         }
 
         let hmm = (depth_mm * HMM_PER_MM).round().clamp(0.0, u16::MAX as f32) as u32;
@@ -751,9 +810,17 @@ impl FlayCanvas {
         // The depth fraction's denominator: the whole span the layer table describes, which is also
         // what the buffer saturates at. `max` so a degenerate table cannot divide by zero.
         let span = self.layers.span_mm().max(1.0e-3);
-        let (layers, depth, tissue) = (&self.layers, &self.depth, &mut self.tissue);
+        let (layers, depth, tissue, lump) = (&self.layers, &self.depth, &mut self.tissue, &mut self.lump);
         let (base_rgba, base_rough) = (self.base_rgba, self.base_rough);
         let tile = (size as f32 * mm / RAGGED_CELL_MM).max(1.0);
+        // **The floor's lumps need texels smaller than they are**: full strength under half a cell, none from 0.85 of a cell, smooth between (a 256 canvas is 3.9 mm a texel, a 128 one 7.8).
+        let lump_scale = {
+            let t = ((0.85 * LUMP_CELL_MM - mm) / (0.35 * LUMP_CELL_MM)).clamp(0.0, 1.0);
+            t * t * (3.0 - 2.0 * t)
+        };
+        let lump_tile = (size as f32 * mm / LUMP_CELL_MM).max(1.0);
+        // Bone is smooth ivory and a pit of marrow is smooth blood: the lumps stop where the cortex starts.
+        let bone_from = layers.starts_mm().get(3).copied().unwrap_or(f32::INFINITY);
         let mut changed = false;
         for (y, x) in (y0..=y1).flat_map(|y| (x0..=x1).map(move |x| (y, x))) {
             let i = (y * n + x) as usize;
@@ -761,6 +828,9 @@ impl FlayCanvas {
                 continue;
             };
             let (want_a, want_r) = if d == 0 {
+                if let Some(l) = lump.get_mut(i) {
+                    *l = 0;
+                }
                 (base_rgba, [0, base_rough, 0, 0])
             } else {
                 let depth_mm = d as f32 / HMM_PER_MM;
@@ -768,8 +838,30 @@ impl FlayCanvas {
                 let coarse = value_noise(xm / RAGGED_CELL_MM, ym / RAGGED_CELL_MM, tile, s.seed ^ 0x7A6E);
                 let fine = value_noise(xm / (RAGGED_CELL_MM * 0.4), ym / (RAGGED_CELL_MM * 0.4), tile * 2.5, s.seed ^ 0x3E11);
                 let ragged = ((coarse - 0.5) * 1.4 + (fine - 0.5) * 0.6) * RAGGED_MM;
+                // **The skin's lip**: the rim of the wound, where the depth has not yet reached `LIP_MM`, `1` at the edge and `0` by `LIP_MM`.
+                let lip = {
+                    // Thicker in one place and a thread in the next: the same slow noise that tears the bands.
+                    let q = (1.0 - depth_mm / (LIP_MM * (0.55 + 0.9 * coarse))).clamp(0.0, 1.0);
+                    q * q * (3.0 - 2.0 * q)
+                };
+                // **The floor's lumps**: a nodule stands up (shallower, paler, wetter), a crevice sinks (deeper, darker, rougher), and the
+                // skin's lip, which is not yet `LUMP_FADE_MM` deep, stays smooth. `lumpy` is the height, in units of the lump, `0` where there are none.
+                let k = lump_scale
+                    * {
+                        let q = (depth_mm / LUMP_FADE_MM).clamp(0.0, 1.0);
+                        q * q * (3.0 - 2.0 * q)
+                    }
+                    * {
+                        let q = ((depth_mm - (bone_from - 1.0)) / 4.0).clamp(0.0, 1.0);
+                        1.0 - q * q * (3.0 - 2.0 * q)
+                    };
+                let (nod, seam) = if k > 0.0 { lumps(xm, ym, lump_tile, s.seed) } else { (0.0, 0.0) };
+                let lumpy = if k > 0.0 { k * (nod - 0.8 * seam - 0.35) } else { 0.0 };
+                if let Some(l) = lump.get_mut(i) {
+                    *l = ((LUMP_RELIEF_MM * lumpy + LIP_RELIEF_MM * lip) * 20.0).round().clamp(-127.0, 127.0) as i8;
+                }
                 // Kept above zero so a peeled texel never shades as unpeeled skin.
-                let look_mm = (depth_mm + ragged).max(0.01);
+                let look_mm = (depth_mm + ragged - LUMP_LOOK_MM * lumpy).max(0.01);
                 let look = (look_mm * HMM_PER_MM).round().clamp(1.0, u16::MAX as f32) as u16;
                 let bin = (look / TISSUE_BIN_HMM) as usize;
                 if tissue.len() <= bin {
@@ -793,6 +885,26 @@ impl FlayCanvas {
                     ([mix(mean.0[0], c[0]), mix(mean.0[1], c[1]), mix(mean.0[2], c[2])], mix(mean.1, rough))
                 } else {
                     mean
+                };
+                let (c, rough) = if k > 0.0 {
+                    let dark = (1.0 - LUMP_DARK * k * seam) * (1.0 + LUMP_LIGHT * k * nod * nod);
+                    let pale = LUMP_PALE * k * nod;
+                    let tint = |ch: u8, n: f32| {
+                        let v = (ch as f32 / 255.0 * dark).min(1.0);
+                        enc(v + (n - v) * pale)
+                    };
+                    let wet = rough as f32 / 255.0 * (1.0 - LUMP_WET * k * nod) + 0.25 * k * seam;
+                    ([tint(c[0], LUMP_NODULE[0]), tint(c[1], LUMP_NODULE[1]), tint(c[2], LUMP_NODULE[2])], enc(wet))
+                } else {
+                    (c, rough)
+                };
+                // The lip over whatever the rim texel was: the skin's cut edge, paler than the skin round it.
+                let c = if lip > 0.0 {
+                    let t = LIP_PALE * lip;
+                    let mix = |m: u8, p: f32| enc(m as f32 / 255.0 + (p - m as f32 / 255.0) * t);
+                    [mix(c[0], LIP_COLOUR[0]), mix(c[1], LIP_COLOUR[1]), mix(c[2], LIP_COLOUR[2])]
+                } else {
+                    c
                 };
                 // R and A are the depth buffer written where a shader can read it, per
                 // [`roughness`](Self::roughness): the true depth as a fraction of the table's span,
@@ -818,9 +930,12 @@ impl FlayCanvas {
         // row 0) the normal is `(-dh/du, dh/dv, 1)` over twice a texel's millimetres. One texel wider
         // than the colours, since a normal reads the depth either side of it.
         let two_mm = (2.0 * mm).max(1.0e-3);
+        let lump = &*lump;
+        // The height the normal sees: the depth less the lump's own height (a raised lump is a shallower texel).
         let at = |x: i64, y: i64| -> f32 {
             let (x, y) = (x.clamp(0, n - 1), y.clamp(0, n - 1));
-            depth.get((y * n + x) as usize).map_or(0.0, |&d| d as f32 / HMM_PER_MM)
+            let j = (y * n + x) as usize;
+            depth.get(j).map_or(0.0, |&d| d as f32 / HMM_PER_MM) - lump.get(j).map_or(0.0, |&l| l as f32 / 20.0)
         };
         let (nx0, ny0, nx1, ny1) = ((x0 - 1).max(0), (y0 - 1).max(0), (x1 + 1).min(n - 1), (y1 + 1).min(n - 1));
         for (y, x) in (ny0..=ny1).flat_map(|y| (nx0..=nx1).map(move |x| (y, x))) {
@@ -965,7 +1080,7 @@ impl FlayCanvas {
                 let rim = r * (1.0 + a2 * libm::cosf(2.0 * th + p2) + a3 * libm::cosf(3.0 * th + p3));
                 let t = (1.0 - d / rim.max(1.0e-6)).clamp(0.0, 1.0);
                 if let Some(slot) = self.mask.get_mut((my * px + mx) as usize) {
-                    *slot = byte(t * t * (3.0 - 2.0 * t));
+                    *slot = byte(profile(t));
                 }
             }
         }
@@ -1001,29 +1116,79 @@ impl FlayCanvas {
         }
     }
 
-    /// Fill [`mask`](Self::mask) with a `px × px` radial falloff: 255 at the centre texel, 0 at
-    /// `r_tex` and beyond.
+    /// Fill [`mask`](Self::mask) with a `px × px` radial falloff: 255 at the centre texel, 0 at the rim.
     ///
-    /// `smoothstep` rather than a linear ramp so the crater's rim has no visible cone edge, and
-    /// quantised to a byte so the depth a texel receives is an integer multiplication rather than a
-    /// float accumulation — the property that lets the buffer be hashed at all.
-    fn build_mask(&mut self, px: i64, half: i64, r_tex: f32) {
+    /// **The profile is [`profile`]**: a wall over the outer [`WALL`] of the radius and a pit that keeps
+    /// deepening to the centre ([`PIT`]), where 0.8.7's was a smoothstep over the whole radius. The rim is the
+    /// radius times `1 + rim · (cos(3θ + p3) + cos(5θ + p5) + cos(8θ + p8))`, every phase and weight a hash of
+    /// `seed` (a place), so a big crater's margin is out of round and the same hit in the same place tears the
+    /// same on every machine; `rim` is [`rim_amplitude`], zero for a small crater, which is round to the byte.
+    ///
+    /// Quantised to a byte so the depth a texel receives is an integer multiplication rather than a float
+    /// accumulation — the property that lets the buffer be hashed at all.
+    fn build_mask(&mut self, px: i64, half: i64, r_tex: f32, rim: f32, seed: u32) {
         let need = (px * px).max(0) as usize;
         if self.mask.len() != need {
             self.mask.resize(need, 0);
         }
         let r = r_tex.max(1.0e-6);
+        let h = |salt: u32| crate::bloodstain::hash_f32(seed ^ salt.wrapping_mul(0x27D4_EB2F));
+        let tau = core::f32::consts::TAU;
+        let (p3, p5, p8) = (h(0x31) * tau, h(0x32) * tau, h(0x33) * tau);
+        let (w3, w5, w8) = (0.5 + 0.5 * h(0x34), 0.5 + 0.5 * h(0x35), 0.5 + 0.5 * h(0x36));
         for my in 0..px {
             for mx in 0..px {
                 let (dx, dy) = ((mx - half) as f32, (my - half) as f32);
-                let t = (1.0 - (dx * dx + dy * dy).sqrt() / r).clamp(0.0, 1.0);
-                let w = t * t * (3.0 - 2.0 * t);
+                let d = (dx * dx + dy * dy).sqrt();
+                let edge = if rim > 0.0 {
+                    let th = libm::atan2f(dy, dx);
+                    r * (1.0 + rim * (w3 * libm::cosf(3.0 * th + p3) + w5 * libm::cosf(5.0 * th + p5) + w8 * libm::cosf(8.0 * th + p8)))
+                } else {
+                    r
+                };
+                let t = (1.0 - d / edge.max(1.0e-6)).clamp(0.0, 1.0);
                 if let Some(slot) = self.mask.get_mut((my * px + mx) as usize) {
-                    *slot = (w * 255.0).round().clamp(0.0, 255.0) as u8;
+                    *slot = (profile(t) * 255.0).round().clamp(0.0, 255.0) as u8;
                 }
             }
         }
     }
+}
+
+/// **The crater's falloff**, `t = 1 - d / rim` in `[0, 1]` to a weight in `[0, 1]`: `(1 - PIT) S(min(t / WALL, 1)) + PIT S(t)` with `S` the smoothstep. See [`WALL`] and [`PIT`].
+fn profile(t: f32) -> f32 {
+    let s = |x: f32| x * x * (3.0 - 2.0 * x);
+    (1.0 - PIT) * s((t / WALL).clamp(0.0, 1.0)) + PIT * s(t.clamp(0.0, 1.0))
+}
+
+/// **How out of round a plain crater's rim is**, as a share of its radius per harmonic: zero under [`RIM_FROM_TEXELS`] of radius, [`RIM_RAG`] from [`RIM_FULL_TEXELS`], smooth between.
+fn rim_amplitude(r_tex: f32) -> f32 {
+    let t = ((r_tex - RIM_FROM_TEXELS) / (RIM_FULL_TEXELS - RIM_FROM_TEXELS)).clamp(0.0, 1.0);
+    RIM_RAG * t * t * (3.0 - 2.0 * t)
+}
+
+/// **The floor's lumps at one place**: `(nodule, seam)`, each in `[0, 1]`. A Worley field at [`LUMP_CELL_MM`] and a second octave at half that, `7 : 3`. The nodule is a dome that is `1` at a cell's feature
+/// point and `0` from `0.8` of a cell away; the seam is `1` where the nearest and second-nearest points are equally far and `0` once they differ by a quarter of a cell. A pure function of the
+/// position in millimetres and the seed, periodic along `y` with `tile` cells (the canvas's own span, which has no seam: UV 0 and 1 are different places).
+fn lumps(xm: f32, ym: f32, tile: f32, seed: u32) -> (f32, f32) {
+    let dome = |f: f32| {
+        let q = (1.0 - f / 0.8).clamp(0.0, 1.0);
+        q * q * (3.0 - 2.0 * q)
+    };
+    let seam = |f1: f32, f2: f32| {
+        let q = ((0.25 - (f2 - f1)) / 0.25).clamp(0.0, 1.0);
+        q * q * (3.0 - 2.0 * q)
+    };
+    // The lattice is warped by a slow noise so the cells are not a grid, and a second, coarser one stands up as the big nodules of fat among the small.
+    let warp = |a: f32, b: f32, salt: u32| (value_noise(a / 30.0, b / 30.0, (tile * LUMP_CELL_MM / 30.0).max(1.0), seed ^ salt) - 0.5) * 12.0;
+    let (wx, wy) = (xm + warp(xm, ym, 0xA1), ym + warp(xm + 91.0, ym + 53.0, 0xB2));
+    let (f1, f2) = worley(wx / LUMP_CELL_MM, wy / LUMP_CELL_MM, tile, seed ^ 0x1B3D);
+    let (g1, g2) = worley(wx / (2.3 * LUMP_CELL_MM), wy / (2.3 * LUMP_CELL_MM), (tile / 2.3).max(1.0), seed ^ 0x2C4E);
+    // Nodules come in patches: a slow field (`LUMP_PATCH_MM`) scales how many of them are pale, so a wound has a cream cluster here and a dark pit there, and not one even pebbling.
+    let patch = 0.35 + 1.3 * value_noise(xm / LUMP_PATCH_MM, ym / LUMP_PATCH_MM, (tile * LUMP_CELL_MM / LUMP_PATCH_MM).max(1.0), seed ^ 0x77A1);
+    // And a broad swell under all of it (`55 mm`), so the floor is a torn mass with folds and not an even pebbling.
+    let swell = value_noise(xm / 55.0, ym / 55.0, (tile * LUMP_CELL_MM / 55.0).max(1.0), seed ^ 0x5E11) - 0.5;
+    ((((0.65 * dome(f1) + 0.45 * dome(g1)) * patch) + 0.7 * swell).clamp(0.0, 1.0), (0.65 * seam(f1, f2) + 0.35 * seam(g1, g2)).clamp(0.0, 1.0))
 }
 
 /// A `[0, 1]` channel as a byte.
@@ -1366,6 +1531,11 @@ mod tests {
     /// Pinned rather than merely compared to itself: a refactor that changed the falloff, the integer
     /// rounding or the saturation would still pass a self-consistency test and would silently move
     /// every consumer's golden. Moving this number is a deliberate act.
+    ///
+    /// **Re-blessed once, in 0.8.8 (AG-153), `0x46cc_108d_9766_f0be` to `0xecf0_7283_e699_8576`, on purpose**:
+    /// the crater's falloff is no longer a smoothstep over the whole radius (`profile`: a wall over the outer
+    /// `WALL` of it and a pit, `PIT`) and a crater of eight texels' radius or more has a rim out of round
+    /// (`rim_amplitude`). That is the model change `docs/research/wound-margin.md` is about: a wound has an edge.
     #[test]
     fn the_scripted_wound_is_frozen() {
         let (_images, mut canvas) = scratch(64);
@@ -1380,7 +1550,112 @@ mod tests {
         for (i, &(u, v, r, d)) in script.iter().enumerate() {
             canvas.paint_uv(Vec2::new(u, v), r, d, i as u32);
         }
-        assert_eq!(canvas.digest(), 0x46cc_108d_9766_f0be);
+        assert_eq!(canvas.digest(), 0xecf0_7283_e699_8576);
+    }
+
+    /// **A crater has a wall and a pit** (`profile`): nothing at the rim, all of it at the centre, monotone between, and by half the radius
+    /// most of the way down. The bowl of 0.8.7 was half of it there, which is what spent a third of the radius on skin and fat.
+    #[test]
+    fn a_crater_has_a_wall_and_a_pit() {
+        assert_eq!(profile(0.0), 0.0);
+        assert!((profile(1.0) - 1.0).abs() < 1.0e-6);
+        let mut last = 0.0;
+        for i in 0..=100 {
+            let w = profile(i as f32 / 100.0);
+            assert!(w >= last - 1.0e-6, "the profile fell at {i} per cent");
+            last = w;
+        }
+        assert!(profile(0.5) > 0.8, "half way in the crater is {} of its depth: a bowl, not a wall", profile(0.5));
+        // The pit: the floor keeps deepening to the centre, so a stack of hits is not a bore.
+        assert!(profile(1.0) - profile(0.6) > 0.05, "the floor is a plateau: {} to {}", profile(0.6), profile(1.0));
+    }
+
+    /// **A big crater's rim is out of round, a small one is round to the texel** (`rim_amplitude`), and the same hit in the same place tears the same.
+    #[test]
+    fn a_big_crater_is_out_of_round_and_a_small_one_is_not() {
+        let spread = |r_tex: f32| {
+            let (_i, mut canvas) = scratch(256);
+            canvas.paint_uv(Vec2::new(0.5, 0.5), r_tex / 256.0, 20.0, 0);
+            let far = reach(&canvas, r_tex, 24);
+            far.iter().cloned().fold(0.0f32, f32::max) - far.iter().cloned().fold(f32::MAX, f32::min)
+        };
+        let (big, small) = (spread(48.0), spread(10.0));
+        assert!(big > 0.06, "a crater of 48 texels' radius is round to {big} of its radius");
+        assert!(small < 0.2, "a crater of 10 texels' radius is out of round by {small} of its radius: a texel is a tenth of it");
+        let again = {
+            let (_i, mut canvas) = scratch(256);
+            canvas.paint_uv(Vec2::new(0.5, 0.5), 48.0 / 256.0, 20.0, 0);
+            let far = reach(&canvas, 48.0, 24);
+            far.iter().cloned().fold(0.0f32, f32::max) - far.iter().cloned().fold(f32::MAX, f32::min)
+        };
+        assert_eq!(big, again, "the same hit in the same place tore differently");
+    }
+
+    /// How much a canvas's normals vary over the texels peeled to between `lo` and `hi` millimetres: the standard deviation of the
+    /// `x` and `y` bytes, together.
+    fn normal_spread(canvas: &FlayCanvas, lo: f32, hi: f32) -> f32 {
+        let (mut n, mut sum, mut sum2) = (0.0f32, 0.0f32, 0.0f32);
+        for i in 0..canvas.depth.len() {
+            let d = canvas.depth[i] as f32 / HMM_PER_MM;
+            if d < lo || d > hi {
+                continue;
+            }
+            for c in 0..2 {
+                let v = canvas.normal_px[i * 4 + c] as f32;
+                sum += v;
+                sum2 += v * v;
+                n += 1.0;
+            }
+        }
+        if n == 0.0 { 0.0 } else { (sum2 / n - (sum / n) * (sum / n)).max(0.0).sqrt() }
+    }
+
+    /// **A wound's floor is lumpy, its lip is pale, and what is not a wound is untouched.** On the 256 canvas (3.9 mm a texel) a crater to the
+    /// muscle has a floor whose normals vary (lumps: nodules and crevices), and the same crater on a 64 canvas (15.6 mm a texel, a lump is
+    /// under a texel) has none; bone, where the depth saturates, is smooth; the first millimetre is a lip paler than the skin round it; and a
+    /// texel at depth zero is exactly the intact surface.
+    #[test]
+    fn a_wound_has_a_lumpy_floor_a_pale_lip_and_leaves_the_skin_alone() {
+        let s = FlaySettings::default();
+        let lumpy = |size: u32| {
+            let (_i, mut canvas) = scratch(size);
+            canvas.paint_uv(Vec2::new(0.5, 0.5), 0.2, 16.0, 0);
+            canvas.shade(&s);
+            canvas
+        };
+        let (fine, coarse) = (lumpy(256), lumpy(64));
+        // The floor only: past the wall, where the depth is within a tenth of the crater's 16 mm.
+        let (a, b) = (normal_spread(&fine, 14.5, 40.0), normal_spread(&coarse, 14.5, 40.0));
+        assert!(a > 4.0, "the floor of a crater on a 256 canvas has normals that vary by {a} bytes: it is smooth");
+        assert!(b < 0.25 * a, "a 15.6 mm texel cannot hold a 16 mm lump, and the floor varies by {b} against {a}");
+        // The skin round it, and the lump store, are untouched where nothing is peeled.
+        let flat = [128, 128, 255, 255];
+        for (i, &d) in fine.depth.iter().enumerate() {
+            if d == 0 {
+                assert_eq!(&fine.albedo_px[i * 4..i * 4 + 4], &fine.base_rgba, "an intact texel was recoloured");
+                assert_eq!(fine.lump[i], 0, "an intact texel is lumpy");
+            }
+        }
+        assert!(fine.normal_px.chunks(4).any(|n| n == flat));
+        // Bone is smooth: a stack of hits that saturates the depth is a plateau, and a plateau has no lumps to light.
+        let (_i, mut deep) = scratch(256);
+        for t in 0..4 {
+            deep.paint_uv(Vec2::new(0.5, 0.5), 0.2, 60.0, t);
+        }
+        deep.shade(&s);
+        let centre = ((128 * 256 + 128) * 4) as usize;
+        assert_eq!(&deep.normal_px[centre..centre + 4], &flat, "the bone at the bottom of the crater is lumpy");
+        // The lip: the outermost peeled texels, on the whole, are paler than the intact skin. The mean and not the brightest, because the
+        // torn lookup can put a texel of cream fat at the rim whatever the lip does.
+        let luma = |p: &[u8]| 0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32;
+        let base = luma(&fine.base_rgba);
+        let rim: Vec<f32> = (0..fine.depth.len())
+            .filter(|&i| fine.depth[i] > 0 && (fine.depth[i] as f32 / HMM_PER_MM) < 0.8)
+            .map(|i| luma(&fine.albedo_px[i * 4..i * 4 + 4]))
+            .collect();
+        assert!(!rim.is_empty(), "no texel of the rim is under 0.8 mm deep");
+        let pale = rim.iter().sum::<f32>() / rim.len() as f32;
+        assert!(pale > base + 6.0, "the lip's mean is {pale} against the skin's {base}: it is not paler");
     }
 
     /// How far from the middle of a `size` canvas each of `sectors` directions is peeled at all, in crater radii.

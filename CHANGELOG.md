@@ -6,6 +6,22 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+### Changed
+
+- **A wound has a margin and a floor** (iteration 14, AG-153, `docs/research/wound-margin.md`). The crater was a smooth bowl: a falloff over the whole radius whose rim had no slope, so a 30 mm torso crater was
+  57 % of its radius of pale, orange skin and fat round a red floor with no features (`capture_gore` frame 260, reddish pixels `(134, 48, 47)`; **texture contrast `hp3` 0.057, where six wound-makeup
+  photographs measure 0.29 to 0.37**). Now: **the profile has a wall and a pit** (`FlayCanvas::paint_uv` and `paint_uv_torn`: the depth rises over the outer 45 % of the radius and a third of it keeps deepening
+  to the centre; the pale ring is 31 % of the radius, 46 % narrower, and the pit keeps a stack of hits a crater); **a crater of eight texels' radius or more has its rim out of round** (three harmonics, from a hash of
+  the place; a bullet's hole stays round); and `shade` draws **the floor's lumps** (nodules and crevices at 16 mm over a 256 canvas, standing up in the normal image, paler and brighter and wetter on the
+  nodule, darker and rougher in the crevice, fading out where the cortex starts and where a texel is bigger than half a lump) and **the skin's lip** (the first 3 mm of depth, paler than the skin round it and raised).
+  Measured: the crater's `hp3` 0.057 to 0.236 and `hp6` 0.081 to 0.266; the preset's own close-ups (`capture_skinned --through`) entry 0.082 to 0.157 and exit 0.155 to 0.205, with the wound floor glinting where it
+  had one soft highlight. **A deliberate model change**: `the_scripted_wound_is_frozen` is re-blessed (`0x46cc_108d_9766_f0be` to `0xecf0_7283_e699_8576`) and every recorder's `flay=` moves (`capture_preset`,
+  `capture_skinned` default, `--blows`, `--break`, `--shirt`, `--through`, `--guard`; not `--stroll` or `--quiet`, which peel nothing), and `capture_flesh`'s digest with it (`d3150b10f27bcdd5` to
+  `a869a0d72d0862e4`); every recorder's `digest=`, `capture_entrails` and `bench_carnage` print what they printed in 0.8.7, twice each. `shade` costs 19 to 29 % more (a big hit's 2.9 ms is 3.5 ms; a bullet's
+  0.10 ms is 0.13 ms); no API changes; `the_strips_are_frozen` and `texel_at` are untouched. **What it does not do, named**: the nodules are red (under the blood film their cream tint hardly shows: the crater's
+  red minus green is 80 where the references' is 86 to 109), there is no big dark pit, no thick rolled lip and no highlights beyond what the light gives (the 95th percentile of luminance is 105 against 134 to 165),
+  no ribs and no flaps; a wound under a few texels across has few lumps; the finer-than-a-texel floor is `flesh.wesl`'s, which needs a WebGL2 re-check this pass's disk could not hold.
+
 ## [0.8.7] - 2026-11-01
 
 ### Added

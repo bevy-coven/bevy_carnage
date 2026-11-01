@@ -7,7 +7,7 @@ mod strip;
 pub use depth::{Scale, SkinPlane, annotate_cap, depth_below_skin, uv1_at, uv1_at_core};
 pub use layers::{Layer, Layers, Region};
 pub use strip::{Band, Strip, strip, texel_at, texel_mean};
-pub(crate) use strip::value_noise;
+pub(crate) use strip::{value_noise, worley};
 use strip::{linear_to_srgb, srgb_to_linear};
 
 
