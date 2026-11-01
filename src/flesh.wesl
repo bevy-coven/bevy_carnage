@@ -277,10 +277,13 @@ const FRONT_EPS: f32 = 0.05;
 // that they read from a metre or two), 0.35 mm wide or a pixel, in a film whose drawn age is past `CRAQUELURE_ONSET` (`bloodstain::dry`'s own 0.72)
 // and which is deeper than a fifth of the canvas's, in patches. Plates under `CRACK_MIN_PX` pixels across are not drawn and plates under six
 // times that are faded. This crate's own numbers.
-const CRACK_SPACING_MM: f32 = 12.0;
-const CRACK_WIDTH_MM: f32 = 0.35;
+const CRACK_SPACING_MM: f32 = 16.0;
+const CRACK_WIDTH_MM: f32 = 0.5;
 const CRACK_ONSET: f32 = 0.72;
 const CRACK_MIN_PX: f32 = 2.0;
+// How much lighter and darker than the film one plate of a cracked film is, at most (its linear light). This crate's own numbers.
+const PLATE_DARK: f32 = 0.8;
+const PLATE_LIGHT: f32 = 1.1;
 
 // How far a film runs from `uv` along `dir`, `x`, as a share of `FRONT_REACH_MM`: `0` at once at its edge, `1` when it runs on past the
 // reach; and `y`, the deepest the film is on the way. Seven samples of the wet map at steps that are close together near `uv` and far
@@ -345,8 +348,8 @@ fn hash22(p: vec2<i32>) -> vec2<f32> {
 }
 
 // `x`: how far `q` is from the nearest border between two cells of a jittered lattice, in cells; `y`: a number in `[0, 1]` that belongs to
-// that border and not to `q`, the same on both sides of it.
-fn crack_cells(q: vec2<f32>) -> vec2<f32> {
+// that border and not to `q`, the same on both sides of it; `z`: one that belongs to the cell `q` is in.
+fn crack_cells(q: vec2<f32>) -> vec3<f32> {
     let n = vec2<i32>(floor(q));
     let f = q - floor(q);
     var near_d = 8.0;
@@ -381,7 +384,7 @@ fn crack_cells(q: vec2<f32>) -> vec2<f32> {
             }
         }
     }
-    return vec2<f32>(edge, own);
+    return vec3<f32>(edge, own, hash22(near_id).y);
 }
 
 // A smooth value noise in `[0, 1]` over the lattice's points: which patches of a film have cracked.
@@ -400,13 +403,13 @@ fn patch_noise(p: vec2<f32>) -> f32 {
 // film of a pool's depth crazes into plates (the cracks "follow the drying front", and "the separation between them depends on the
 // thickness of the sample": Smith et al. 2020), so the cracks are the borders of a jittered lattice whose cell is `CRACK_SPACING_MM` wide in a
 // film of a pool's depth and wider in a deeper one, in patches, in mm on the surface so that the size does not depend on the canvas.
-fn dried_crack(uv: vec2<f32>, front: vec2<f32>, age: f32, mm_per_uv: f32, mm_per_px: f32) -> f32 {
+fn dried_crack(uv: vec2<f32>, front: vec2<f32>, age: f32, mm_per_uv: f32, mm_per_px: f32) -> vec2<f32> {
     let cell = CRACK_SPACING_MM;
     let gate = smoothstep(CRACK_ONSET, CRACK_ONSET + 0.12, age)
         * smoothstep(0.2, 0.4, front.y)
         * smoothstep(CRACK_MIN_PX, 6.0 * CRACK_MIN_PX, cell / max(mm_per_px, 1.0e-6));
     if gate <= 0.0 {
-        return 0.0;
+        return vec2<f32>(0.0, 1.0);
     }
     let here = uv * mm_per_uv;
     let v = crack_cells(here / cell);
@@ -417,7 +420,9 @@ fn dried_crack(uv: vec2<f32>, front: vec2<f32>, age: f32, mm_per_uv: f32, mm_per
     let p = here / (cell * 9.0);
     let cracked = smoothstep(0.45, 0.65, 0.65 * patch_noise(p) + 0.35 * patch_noise(p * 2.7 + vec2<f32>(17.0, 5.0)));
     let present = smoothstep(0.15, 0.3, v.y);
-    return line * cracked * present * gate;
+    // Each plate is a little lighter or darker than its neighbours: it has dried at its own thickness.
+    let plate = mix(1.0, mix(PLATE_DARK, PLATE_LIGHT, v.z), cracked * gate);
+    return vec2<f32>(line * cracked * present * gate, plate);
 }
 
 // **The normal of a surface lifted above the one at `N`**, given how fast the lift changes across the
@@ -667,7 +672,7 @@ fn fragment(
         // **The age the film is drawn at is its own, not its stamp's** (`film_front`): the rim is ahead of the middle, and where it is
         // ahead it is matte. Under `FRONT_MIN_AGE`, in the prepass and on cloth it is the canvas's age, as it was.
         var age = dried;
-        var crack = 0.0;
+        var crack = vec2<f32>(0.0, 1.0);
         var crust = 0.0;
         var colour_mm = depth_mm;
         if front.y > 0.0 {
@@ -681,7 +686,7 @@ fn fragment(
             colour_mm = mix(depth_mm, max(depth_mm, front.y * flesh.wet.z), smoothstep(0.3, 0.8, age) * smoothstep(0.1, 0.3, front.y));
         }
         // A crack shows what the blood lies on.
-        let blood = mix(blood_over(base, colour_mm, age), base * 0.6, 0.4 * crack) * (1.0 - CRUST_DARK * crust);
+        let blood = mix(blood_over(base, colour_mm, age) * crack.y, base * 0.6, 0.4 * crack.x) * (1.0 - CRUST_DARK * crust);
         pbr_input.material.base_color = vec4<f32>(blood, pbr_input.material.base_color.a);
         // A wet film smooths whatever it lies on; a dried one is matte again.
         pbr_input.material.perceptual_roughness = mix(pbr_input.material.perceptual_roughness, wet_rough, wetness * pool);
