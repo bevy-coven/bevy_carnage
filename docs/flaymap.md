@@ -152,9 +152,12 @@ fn on_hit(
 | Message | `BoneExposed` | `{ entity, uv, at, normal }` — the one-shot handoff, addressed. Written by **you**, from a `Handoff`. |
 | Value | `Handoff` | `{ deepest_layer, bone_reached, first_bone_uv, at, normal }` — what a paint call found. |
 | Constant | `UV_SPAN_M` | How much world one UV unit is taken to be — one metre. |
+| Constants | `TEAR_REACH`, `TEAR_SPLIT_DEPTH`, `TEAR_SPLIT_WIDTH` | How far a torn crater's splits run (1.3 radii past the rim at most), how deep they are (0.5 of the crater's) and how wide at the root (1.6 texels). |
 | Re-export | `Layer`, `Layers`, `Region`, `Scale` | The tissue model, the blood model under it, and the four names in this crate's signatures. |
 
-`FlayCanvas`: `new`, `albedo`, `roughness`, `paint_uv`, `paint_world`, `shade`, `flush`, `clear`, `digest`, `exposed_area`, plus the read-only `size`, `region`, `layers`, `depth_at`, `bone_texels`, `is_dirty`, `dirty_since`. `clear` (0.5.48) heals every wound in place: the digest is a fresh canvas's again and the bone handoff is armed again, so the next wound to reach the cortex sends `BoneExposed` once more.
+`FlayCanvas`: `new`, `albedo`, `roughness`, `paint_uv`, `paint_uv_torn`, `paint_world`, `paint_world_torn`, `shade`, `flush`, `clear`, `digest`, `exposed_area`, plus the read-only `size`, `region`, `layers`, `depth_at`, `bone_texels`, `is_dirty`, `dirty_since`. `clear` (0.5.48) heals every wound in place: the digest is a fresh canvas's again and the bone handoff is armed again, so the next wound to reach the cortex sends `BoneExposed` once more.
+
+**A torn crater** (0.8.4). `paint_uv_torn(uv, radius_uv, depth_mm, tear, tick)` and `paint_world_torn(.., tear, tick)` are the crater of `paint_uv` and `paint_world` with a margin torn the way an exit wound is: for a `tear` in `[0, 1]` over zero, a rim moved out of round by two low harmonics of the angle and five to seven thin splits laid over the crater, each at its own angle and length (a few short, most long), tapering to a point, bent and rippled, at `TEAR_SPLIT_DEPTH` of the crater's depth, so a split opens the skin and does not bore into the muscle. **`tear` of zero (or NaN) is `paint_uv` byte for byte**, which is how `paint_uv` is written, so an entrance and every caller that never tears are what they were. Every number is `bloodstain::hash_f32` of the centre texel and the angles go through `libm`: the same hit in the same place tears the same way on every run, and a hit a texel over tears differently. The preset tears an exit with `preset::EXIT_TEAR` (1.0) and leaves an entrance round.
 
 ## Three things the caller owns
 

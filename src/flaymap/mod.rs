@@ -5,7 +5,7 @@ mod digest;
 mod settings;
 mod uv;
 
-pub use canvas::{FlayCanvas, Handoff, UV_SPAN_M};
+pub use canvas::{FlayCanvas, Handoff, TEAR_REACH, TEAR_SPLIT_DEPTH, TEAR_SPLIT_WIDTH, UV_SPAN_M};
 pub use settings::FlaySettings;
 
 /// The types that appear in this crate's public signatures. Re-exported because a caller should not
