@@ -32,12 +32,17 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
   the erasure back. **Every recorder digest where blood soaks moves, on purpose**; `bench_carnage`'s does not (it never calls a
   canvas). **Cost**: `hit_tick_cost` retires 13.66 billion instructions before and 13.81 after (+1.1 %, the persistent blood
   keeps a few more texels in each tick); the shader reads the wet map 16 more times for a pixel with blood in it and 8 more
-  table rows, and adds no texture, sampler or uniform. `flesh.wesl` is re-checked for WebGL2 (below).
+  table rows, and adds no texture, sampler or uniform. `flesh.wesl` is re-checked on WebGL2 (headless Chrome 143 over SwiftShader,
+  `tools/webgl2/check.sh`): the flesh pipeline builds and draws blood with no error, and the same check fails on a shader with one
+  type error added.
 
 ### Added
 
 - `wetmap::STAIN_FLOOR`, `flesh::{AGED_ROWS, AGE_KNOT, aged_blood_lut, aged_lut_digest}`, and `capture_skinned --dry N` (blood
   dries in `N` ticks instead of 1 800, so a 360-frame clip shows the dried state: `--through --floor 512 --dry 120`).
+- `tools/webgl2/`: the WebGL2 check `CLAUDE.md` asks for after a change to `flesh.wesl`, as a script (`check.sh <source-tree>`; a cold
+  wasm build of Bevy takes about 38 minutes, an incremental one 30 s to a few minutes). `Cargo.toml` now also excludes
+  `docs/media/*.gif` from the package, as `docs/*.gif` already were.
 
 ## [0.8.2] - 2026-10-31
 
