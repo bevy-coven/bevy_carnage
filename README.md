@@ -70,7 +70,7 @@ The left GIF above, with keys to aim it yourself; `T` cycles the violence settin
 
 ## Part of the Coven
 
-`bevy_carnage` is one of the [Bevy Coven](https://github.com/bevy-coven) crates. Grimoire, the Coven's editor, uses it for destructible props and its damage dials: [use it in Grimoire](https://bevy-coven.github.io/crates/bevy_carnage.html#use-it-in-grimoire).
+`bevy_carnage` is one of the [Bevy Coven](https://github.com/bevy-coven) crates. The Cauldron, the Coven's editor, uses it for destructible props and its damage dials: [use it in the Cauldron](https://bevy-coven.github.io/crates/bevy_carnage.html#use-it-in-the-cauldron).
 
 ## Bevy compatibility
 
