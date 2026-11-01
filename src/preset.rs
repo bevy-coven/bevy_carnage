@@ -24,7 +24,8 @@
 //! 4. **A slash gapes** — [`GoreHit::slash`] lays a `laceration` along the cut instead of a
 //!    crater, and its bed is banded by `cross_section`.
 //! 5. **Guts spill** — a torso hit that reached muscle spawns `viscera` strands tethered to the
-//!    wound, when [`GoreDials::strands`] is nonzero.
+//!    wound, when [`GoreDials::strands`] is nonzero, and throws [`ORGANS_PER_SPILL`] [`Organ`]s
+//!    (lumps of liver-sized meat from `viscera::organ_mesh`) that fall to the floor and lie there.
 //! 6. **Bone hands off** — the first hit to show cortex forwards `BoneExposed`, and if the body is a
 //!    baked [`crate::FractureSubject`] the preset breaks it: the bake's leaves are thrown from the
 //!    hit with skin on the outside and a [`crate::flesh::FleshMaterial`] cap in [`FleshMode::Cap`],
@@ -58,9 +59,9 @@ use bevy::transform::helper::TransformHelper;
 use crate::cross_section::{CrossSectionPlugin, CrossSectionSettings, Layers, Region};
 use crate::flaymap::{BoneExposed, FlayCanvas, FlaySettings, FlaymapPlugin, Layer};
 use crate::laceration::{Gape, Laceration, LacerationBed, LacerationClock, LacerationPlugin, Tension};
-use crate::viscera::{GUT_ROUGHNESS, Mesentery, Strand, ViscSettings, VisceraPlugin, VisceraSystems, gut_image, soaked_tube, spill};
+use crate::viscera::{GUT_ROUGHNESS, Mesentery, Strand, ViscSettings, VisceraPlugin, VisceraSystems, gut_image, organ_image, organ_mesh, soaked_tube, spill};
 use crate::wetmap::{Print, StainShape, WetCanvas, WetSettings, WetmapPlugin};
-use crate::bloodstain::{BloodSettings, Wound as BloodWound, WoundKind, wound_seed};
+use crate::bloodstain::{BloodSettings, Wound as BloodWound, WoundKind, hash_f32, wound_seed};
 
 use crate::flesh::{FleshMaterial, FleshMode, FleshParams, FleshPlugin, FleshTables};
 use crate::skin::{self, Pose, Rig};
@@ -2345,6 +2346,16 @@ pub const GORE_FLOOR_MIST: f32 = 9.0;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct Gut;
 
+/// **A lump of organ a spill threw**: the mesh [`crate::viscera::organ_mesh`] built, a [`Flying`] that falls to [`GoreDials::floor_y`] and stays where it lands. Marked so a caller resetting a
+/// scene can find it, as it finds the [`Gut`]s: send each surface its [`GoreReset`] and despawn the organs and the guts yourself.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct Organ;
+
+/// **How many organs a spill throws with its strands**: 2 (`docs/research/organs.md`). They are thrown by the viscera policy's gate with the guts, and `GoreDials::strands` at 0 stops both. **Tuned by eye.**
+pub const ORGANS_PER_SPILL: u32 = 2;
+/// **How rough an organ's wall is**: 0.35, a wet capsule, a broad highlight where the guts have a streak. **Tuned by eye.**
+pub const ORGAN_ROUGHNESS: f32 = 0.35;
+
 /// **The preset's dials.** Not `deny_unknown_fields` and not serialised: a game that authors these
 /// from data does it through its own settings type.
 #[derive(Resource, Clone, Debug)]
@@ -2922,6 +2933,8 @@ struct HitContext<'w, 's> {
     policy: Option<Res<'w, GorePolicy>>,
     /// The material every spill's strands share, and the `mm_per_unit` bits it was made under.
     gut_look: Local<'s, Option<(u32, Handle<FleshMaterial>)>>,
+    /// The material every spilled organ shares, and the `mm_per_unit` bits it was made under.
+    organ_look: Local<'s, Option<(u32, Handle<FleshMaterial>)>>,
     /// The rigid meshes hits are cast at, indexed across ticks, and what Bevy reports changing them.
     index: Local<'s, MeshIndex>,
     mesh_events: MessageReader<'w, 's, AssetEvent<Mesh>>,
@@ -3252,6 +3265,7 @@ fn take_hits(
         fractured,
         policy,
         gut_look,
+        organ_look,
         index,
         mesh_events,
     } = &mut cx;
@@ -3774,15 +3788,15 @@ fn take_hits(
             // subsurface profile. Until 0.5.41 each spill made a new one, the red of the blood it fell
             // in.
             let key = dials.mm_per_unit.to_bits();
+            let mut muscle_params = FleshParams::for_layers(&Layers::for_region(region), FleshMode::Cap, dials.mm_per_unit);
+            // Every texel is muscle: the strands and the organs carry no `UV_1`, so the shader's depth is `0`, and
+            // `layer_of` walks past every band start it is not below. Muscle is index 2, so fat and
+            // muscle start at `0` and cortex and marrow start past any depth. (`Vec4::ZERO` selected
+            // marrow, whose profile is fat's — caught in review.)
+            muscle_params.bands = Vec4::new(0.0, 0.0, 2.0, 2.0);
             let gut_material = match gut_look.as_ref() {
                 Some((k, material)) if *k == key => material.clone(),
                 _ => {
-                    let mut muscle_params = FleshParams::for_layers(&Layers::for_region(region), FleshMode::Cap, dials.mm_per_unit);
-                    // Every texel is muscle: the strands carry no `UV_1`, so the shader's depth is `0`, and
-                    // `layer_of` walks past every band start it is not below. Muscle is index 2, so fat and
-                    // muscle start at `0` and cortex and marrow start past any depth. (`Vec4::ZERO` selected
-                    // marrow, whose profile is fat's — caught in review.)
-                    muscle_params.bands = Vec4::new(0.0, 0.0, 2.0, 2.0);
                     // The texture goes where every image goes; with no `Assets<Image>` there is no
                     // renderer to draw the strands either.
                     let texture = images.as_deref_mut().map(|images| images.add(gut_image()));
@@ -3796,6 +3810,21 @@ fn take_hits(
                     material
                 }
             };
+            // The organs' own: the same profile under the liver's texture.
+            let organ_material = match organ_look.as_ref() {
+                Some((k, material)) if *k == key => material.clone(),
+                _ => {
+                    let texture = images.as_deref_mut().map(|images| images.add(organ_image()));
+                    let material = flesh.add(tables.material(
+                        StandardMaterial { base_color: Color::WHITE, base_color_texture: texture, perceptual_roughness: ORGAN_ROUGHNESS, ..default() },
+                        muscle_params,
+                        None,
+                        None,
+                    ));
+                    **organ_look = Some((key, material.clone()));
+                    material
+                }
+            };
             for strand in strands {
                 let anchors = (0..strand.nodes().len() as u32).step_by(4).map(|i| (i, at_world)).collect();
                 let tube = meshes.add(soaked_tube(&strand, 8, visc.floor_y));
@@ -3806,6 +3835,27 @@ fn take_hits(
                     strand,
                     Mesentery { anchors, ..Default::default() },
                     Gut,
+                ));
+            }
+            // **The organs**, thrown from the wound with the strands: out along the wound's normal and a little up, at a speed and a size from the spill's own seed, each its own shape. A
+            // `Flying` falls to the floor and stays, as a piece of a broken body does; the organ's lowest point is its origin, so it lies on the floor and not in it.
+            for k in 0..ORGANS_PER_SPILL {
+                let h = |salt: u32| hash_f32(seed.wrapping_add(0x0A60_0000).wrapping_add(k * 16 + salt));
+                // Tuned by eye: 0.9 to 1.3 times Gray's liver (a distended stomach is larger than a liver); 0.75 to 1.15 was 20 px across at the preset's camera and lost among the loops.
+                let size = 0.9 + 0.4 * h(0);
+                // Tuned by eye: at 0.8 to 1.6 m/s they landed a metre out on the bare floor, clear of the pool they came from; 0.25 to 0.65 put them on the pool's front edge.
+                let speed = 0.12 + 0.3 * h(1);
+                // Sideways by their number, so that two do not land on one spot (they did, first try: 2000 px of organ in flight, 790 at rest). Tuned by eye.
+                let side = normal_world.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
+                let spread = k as f32 - 0.5 * (ORGANS_PER_SPILL - 1) as f32;
+                let dir = (normal_world + side * spread * 0.9 + Vec3::new(h(2) - 0.5, 0.25 + 0.3 * h(3), h(4) - 0.5)).normalize_or_zero();
+                let mesh = meshes.add(organ_mesh(seed.wrapping_add(k.wrapping_mul(0x9E37_79B9)), size));
+                commands.spawn((
+                    Mesh3d(mesh),
+                    MeshMaterial3d(organ_material.clone()),
+                    Transform::from_translation(at_world + dir * 0.05).with_rotation(Quat::from_rotation_y(core::f32::consts::TAU * h(5))),
+                    Flying(dir * speed),
+                    Organ,
                 ));
             }
         }
@@ -6880,6 +6930,48 @@ mod tests {
         assert!(bones > 0, "the bone was not forwarded at a tier that refuses only the breaking");
         let (standing, thrown, _, _, _) = run(None);
         assert!(!standing && thrown > 0, "the control did not break: standing {standing}, {thrown} pieces");
+    }
+
+    /// **A torso opened to the muscle spills organs with its guts, they fall to the floor and stay, and a tier that refuses viscera spills neither.** The control is the default tier: its hit
+    /// throws `ORGANS_PER_SPILL` organs, each of its own shape, and after two seconds every one lies on `GoreDials::floor_y` and does not move again.
+    #[test]
+    fn a_torso_opened_to_the_muscle_spills_organs_that_come_to_rest_on_the_floor() {
+        let run = |tier: Option<crate::GoreTier>| {
+            let mut app = headless();
+            app.insert_resource(ViscSettings::default());
+            if let Some(tier) = tier {
+                app.insert_resource(GorePolicy::for_tier(tier));
+            }
+            let sphere = app.world_mut().resource_mut::<Assets<Mesh>>().add(Sphere::new(0.3).mesh().uv(24, 12));
+            let body = app.world_mut().spawn((Mesh3d(sphere), Transform::from_xyz(0.0, 1.0, 0.0), GlobalTransform::from_xyz(0.0, 1.0, 0.0), Gore::skin(Region::Torso))).id();
+            app.world_mut().run_schedule(FixedUpdate);
+            app.world_mut().write_message(GoreHit::impact(body, Vec3::new(0.0, 1.1, 2.0), Vec3::NEG_Z, 0.03, 60.0));
+            app.world_mut().run_schedule(FixedUpdate);
+            let guts = app.world_mut().query_filtered::<(), With<Gut>>().iter(app.world()).count();
+            let organs = app.world_mut().query_filtered::<(), With<Organ>>().iter(app.world()).count();
+            // `MinimalPlugins` never advances `Time<Fixed>`, so its delta is zero and nothing falls until the test steps it: one 60 Hz tick per run.
+            for _ in 0..120 {
+                app.world_mut().resource_mut::<Time<Fixed>>().advance_by(core::time::Duration::from_secs_f64(1.0 / 60.0));
+                app.world_mut().run_schedule(FixedUpdate);
+            }
+            let floor = app.world().resource::<GoreDials>().floor_y;
+            let at_rest: Vec<(Vec3, Vec3)> = app
+                .world_mut()
+                .query_filtered::<(&Transform, &Flying), With<Organ>>()
+                .iter(app.world())
+                .map(|(t, f)| (t.translation, f.0))
+                .collect();
+            let shapes: Vec<Handle<Mesh>> = app.world_mut().query_filtered::<&Mesh3d, With<Organ>>().iter(app.world()).map(|m| m.0.clone()).collect();
+            (guts, organs, floor, at_rest, shapes)
+        };
+        let (guts, organs, floor, at_rest, shapes) = run(None);
+        assert!(guts > 0, "the control spilled no guts, so the test proves nothing");
+        assert_eq!(organs as u32, ORGANS_PER_SPILL, "a spill threw {organs} organs");
+        assert_eq!(at_rest.len(), organs, "{} of {organs} organs can fall: the rest are not `Flying`", at_rest.len());
+        assert!(at_rest.iter().all(|(p, v)| (p.y - floor).abs() < 1.0e-6 && *v == Vec3::ZERO), "an organ is still in the air or under the floor after two seconds: {at_rest:?}");
+        assert_eq!(shapes.iter().collect::<std::collections::HashSet<_>>().len(), organs, "two organs share one mesh");
+        let (guts, organs, ..) = run(Some(crate::GoreTier::Blood));
+        assert_eq!((guts, organs), (0, 0), "Blood spilled {guts} guts and {organs} organs");
     }
 
     /// **The world's share of the blood is its own switch.** With `blood_decals` off the body still

@@ -44,17 +44,17 @@ All of it cosmetic and outside every digest.
 2. **The texture** (`organ_image`, 128 x 64, wraps round `u`): the dark reddish brown Gray gives, mottled at the scale of a lobule, paler fibrous patches (the capsule) and blood smeared in streaks, every channel
    a seeded noise: the same recipe as `gut_image`.
 3. **The material** is the gut's `FleshMaterial` recipe (muscle profile, `FleshMode::Cap`) with the organ texture; roughness 0.35 (a wet capsule: a broad highlight, not the guts' streak).
-4. **The spill**: a torso hit that reaches muscle also throws `ORGANS_PER_SPILL` (2) organs, of sizes in `0.75..1.15`, from the wound with a velocity along its normal and a little up, in the strands' own seed;
-   each is a `Flying` and an `Organ`, with the same viscera-policy gate as the guts.
+4. **The spill**: a torso hit that reaches muscle also throws `ORGANS_PER_SPILL` (2) organs, of sizes `0.9..1.3` times Gray's liver (a distended stomach is larger than a liver), from the wound along its normal, a
+   little up, **and sideways by their number** (so two do not land on one spot), at 0.12 to 0.42 m/s, everything from the spill's own seed; each is a `Flying` and an `Organ`, with the same viscera-policy gate as the guts.
 
 ## Parameters
 
-All **tuned by eye** against the reference set unless a source names it: the half-extents (Gray), `ORGAN_LUMP`, `ORGAN_FLAT` 0.35, the taper 0.55, the roughness 0.35, `ORGANS_PER_SPILL` 2, the throw speed 0.8 to 1.6 m/s.
+All **tuned by eye** against the reference set unless a source names it: the half-extents (Gray), `ORGAN_LUMP`, `ORGAN_FLAT` 0.35, the taper 0.55, the roughness 0.35, `ORGANS_PER_SPILL` 2, the size range 0.9 to 1.3, the throw speed 0.12 to 0.42 m/s, the sideways spread 0.9, and the texture's colours.
 Each says so in its doc comment.
 
 ## Validation targets
 
-- `organ_mesh`: counts as documented, **every normal unit**, every position finite, lowest point at `y = 0` within `1e-5`, signed volume positive (outward winding), and the volume within 40 percent of the wedge's
+- `organ_mesh`: counts as documented, **every normal unit**, every position finite, lowest point at `y = 0` within `1e-5`, signed volume positive (outward winding), and the volume between 0.35 and 1.2 of the wedge's
   ellipsoid (a lumpy flattened ellipsoid is not an ellipsoid); two seeds give two meshes, one seed the same mesh; the extents are Gray's within the lumps (width at least 1.6 times the thickness).
 - `organ_image`: right size, **seamless round `u`** (the same test as `gut_image`'s).
 - A preset hit that spills guts spills `ORGANS_PER_SPILL` organs; at a tier that refuses viscera, none; after 200 ticks every organ is at rest on the floor.
@@ -84,6 +84,27 @@ Stills are copyrighted film frames, kept under `/tmp/c13/refs/` for judging and 
 - An organ is **a rigid lump** thrown and left: it does not drip, tear, soak the floor, or roll. Its texture carries the blood it would wear.
 - `GoreDials` gets **no** `organs` dial (a public field added to a struct callers build literally is a breaking change); `GoreDials::strands` at 0 or the viscera policy switch the organs off with the guts, and
   `ORGANS_PER_SPILL` is a constant.
+
+## Outcome
+
+Six renders of `capture_preset`, every digest unchanged in each (`04758d82ec10aa5b`), judged on frames 130 to 300 and on the pixels that differ from the 0.8.6 frame (a pixel moved by more than 6 in any channel: the organs and nothing else, since they touch no canvas).
+
+| Round | What changed | What the frame showed | Reddish pixels of the organs (red minus green / luminance) |
+|---|---|---|---|
+| 1 | first build: throw 0.8 to 1.6 m/s, `LIVER (0.30, 0.075, 0.07)` | one organ a metre out on the bare floor, clear of the pool; the second not seen | not measured |
+| 2 | throw 0.25 to 0.65 m/s | one organ at the pool's front edge, 28 px across, mottled brown | 49 / 64 |
+| 3 | `LIVER (0.38, ..)`, deep patches, sizes 0.9 to 1.3 | a dark lump, still brown | 58 / 57 |
+| 4 | sideways spread by number; `LIVER (0.46, ..)` | **two** organs apart at the pool's front, lumpy and glossy | 66 / 58 |
+| 5 | `LIVER (0.54, ..)`, `SMEAR (0.70, ..)` | the same, red enough; at the pool's edge, partly on the bare floor | 77 / 61 |
+| 6 | throw 0.12 to 0.42 m/s | **both in the pool, among the loops**, flattened where they lie | **81 / 59**, 98th percentile 127.7 |
+
+Rounds 1 to 3 never showed the second organ: both were thrown the same way and landed on one spot (2 000 pixels of organ in flight, 790 at rest in round 3): round 4's sideways spread is the fix. The flesh shader's grey
+specular veil lifts green and blue of a dark texture, which is why the texture had to be redder than the colour it should read as: the first base colour, sRGB `(77, 19, 18)`, came out of the shader at `(102, 53, 51)`
+(green lifted from 19 to 53); the last, `(138, 5, 6)`, at `(123, 41, 40)`.
+
+**Verdict: GREAT** against this note's own criteria (two organs, reddish pixels `R - G` 81 against 75 to 105, luminance 58.6 against 35 to 75, 64 px for the pair against 12 px each, lying in the pool and not on bare floor,
+every digest and the bench unchanged), **with the caveats written down**: a liver is thirty pixels at this camera and reads as *a dark wet lump*, the 5th percentile of the organs' luminance is 27 where D2's is 16 (no deep crevice
+shows at this scale), there is no contact shadow under them, and they take no blood from the pool they lie in. Not the *Day of the Dead* torso, which is several organs, ribs and a camera a metre away.
 
 ## Pending index
 

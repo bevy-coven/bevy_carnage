@@ -6,6 +6,22 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+### Added
+
+- **`viscera::organ_mesh(seed, size)`, `organ_image()`, `ORGAN_HALF_EXTENTS`, `ORGAN_TAPER`, `ORGAN_LUMP`, `ORGAN_FLAT`; `preset::Organ`, `ORGANS_PER_SPILL`, `ORGAN_ROUGHNESS`.** An organ is a closed, wedge-shaped, lumpy mesh of Gray's liver
+  (*Anatomy of the Human Body*, 1918: 20 to 22.5 cm across, 15 to 17.5 deep, 10 to 12.5 thick, "a soft solid", "a dark reddish brown") with a contact patch where it lies, its lowest point at `y = 0`, seamless normals found by
+  differences of the displacement and `UV_0` round the organ for `organ_image()`; both are pure functions of their arguments and spawn nothing. Cosmetic: outside every digest.
+
+### Changed
+
+- **A spill has lumps in it** (iteration 13, AG-152, `docs/research/organs.md`). A torso hit that reaches muscle spilled loops and nothing else, where the *Day of the Dead* opened torso (Ref D2: reddish pixels
+  mean sRGB `(127, 38, 40)`, red minus green 89) is a mass with dark lumps in it. It now also throws `ORGANS_PER_SPILL` (2) organs, 0.9 to 1.3 times Gray's liver, sideways by their number, at 0.12 to 0.42 m/s, each a `Flying`
+  piece that falls to `GoreDials::floor_y` and lies there, in a `FleshMaterial` of the guts' muscle profile under `organ_image()` at roughness 0.35; `GoreDials::strands` at 0 and a viscera policy that refuses guts refuse them
+  too, and there is no new `GoreDials` field. Measured on the pixels that differ between 0.8.6 and now (`capture_preset` frame 300, 993 of them): mean sRGB `(123, 41, 40)`, red minus green 81, luminance 58.6 (D2: 56.9),
+  98th percentile 127.7 (D2: 133). **No digest moves**: `capture_preset`, `capture_entrails`, `capture_flesh` and all eight `capture_skinned` variants print what they printed in 0.8.6, twice each; `bench_carnage`'s digest is
+  0.8.6's and its frame time within its noise (0.0933 ms against 0.0932, p99 2.70 against 2.67). **What it does not do, named**: a liver is thirty pixels at the preset's camera and reads as a dark wet lump, the organs
+  have no contact shadow, and a stomach and a spleen are the same wedge with another seed. Slime strings were built, measured and **parked** (`docs/research/slime-strings.md`, branch `loop/iter-13`).
+
 ## [0.8.6] - 2026-11-01
 
 ### Added

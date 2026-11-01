@@ -3,6 +3,7 @@
 mod frame;
 mod hash;
 mod look;
+mod organ;
 mod plugin;
 mod settings;
 mod solver;
@@ -12,6 +13,7 @@ mod tube;
 
 pub use plugin::{VisceraPlugin, VisceraSystems};
 pub use look::{GUT_ROUGHNESS, SOAK_BASE, SOAK_FILM_MM, SOAK_PATCH, SOAK_PATCH_M, SOAK_STEPS, WOUND_REACH_M, gut_image, soak, soak_tint};
+pub use organ::{organ_image, organ_mesh, ORGAN_FLAT, ORGAN_HALF_EXTENTS, ORGAN_LUMP, ORGAN_TAPER};
 pub use settings::{
     ViscSettings, DEFAULT_COMPLIANCE_BEND, DEFAULT_COMPLIANCE_STRETCH, DEFAULT_DAMPING,
     DEFAULT_FLOOR_Y, DEFAULT_GRAVITY, DEFAULT_ITERATIONS, DEFAULT_MAX_STRANDS, DEFAULT_SUBSTEPS,
