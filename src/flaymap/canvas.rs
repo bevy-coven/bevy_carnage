@@ -61,6 +61,20 @@ const TISSUE_BIN_HMM: u16 = 10;
 /// bands on the thick rows; on the head's 2 mm bands an edge can skip one.
 const RAGGED_MM: f32 = 3.0;
 
+/// **How far a fully torn crater's longest split reaches past the rim**, in crater radii: `1.3`, so a split of a crater of
+/// radius `r` runs out to `2.45 r` from the centre at most. See [`FlayCanvas::paint_uv_torn`]. **Tuned** against the exit wound
+/// of a revolver's lead bullet in Glessner Lee's chest plate, whose longest split runs about nine times the hub's radius
+/// (`docs/research/torn-exits.md`); a crater here is the *wound's* radius, the hub and the margin the skin burst
+/// outward in, so the shorter reach.
+pub const TEAR_REACH: f32 = 1.3;
+
+/// **How deep a split is, as a share of the crater's depth**: `0.5`. A split opens the skin and shows what is under
+/// it; it does not bore into the muscle as the crater at its hub does. **Tuned**, a design default.
+pub const TEAR_SPLIT_DEPTH: f32 = 0.5;
+
+/// **How wide a split is at its root, in texels**: `1.6`, tapering to a point at its tip. **Tuned.**
+pub const TEAR_SPLIT_WIDTH: f32 = 1.6;
+
 /// The coarse octave's cell, millimetres — a few texels on a 128 canvas, so the tears are shapes
 /// rather than speckle.
 const RAGGED_CELL_MM: f32 = 24.0;
@@ -428,6 +442,30 @@ impl FlayCanvas {
         self.dirty_since
     }
 
+    /// **Peel at a UV with the margin torn**: [`paint_uv`](Self::paint_uv), and for a `tear` over zero a **star of radial
+    /// splits** laid over the crater, the way an exit wound is. `tear` is in `[0, 1]`; `0.0` (or a non-finite value) is
+    /// `paint_uv` to the byte, which is how `paint_uv` is written.
+    ///
+    /// **What an exit wound is** (`docs/research/torn-exits.md`): where a projectile leaves a body the skin is not cut
+    /// but burst outward from inside, and the margin is irregular and torn, often stellate: a small hub and thin
+    /// radiating splits of different lengths, against the entrance's small round hole with a clean margin. Frances
+    /// Glessner Lee's 1940 chest plates model both with a revolver's lead bullet (public domain, Wikimedia Commons:
+    /// `Experimental_gunshot_exit_wound.jpg` against `Experimental_gunshot_entrance_wound_-_dist_to_target_25_inch.jpg`):
+    /// the entrance a round hole and a few specks, the exit a hub of six or seven splits that run several hub radii.
+    /// **What this paints** is that: the crater as `paint_uv` makes it, its rim shifted a little by two low harmonics of
+    /// the angle (so it is not a circle), and `5 + 3 h` splits (`h` a hash of the place, five to seven), each at
+    /// its own angle, `TEAR_SPLIT_WIDTH` texels wide at the root and tapering to a point, reaching from half a radius
+    /// out to between `1.15` and `1.15 + TEAR_REACH · tear` radii from the centre, and `TEAR_SPLIT_DEPTH` of the depth
+    /// of the crater, so a split opens the skin and shows what is under it and does not bore into the muscle.
+    ///
+    /// **Everything is a function of the place.** The angles, lengths and widths are `crate::bloodstain::hash_f32` of the
+    /// centre texel, so the same hit in the same place tears the same way on every run and on every machine, and two
+    /// hits a texel apart tear differently. The angle goes through `libm`, the one math path of this crate. Depth is added
+    /// as for any crater, and the bone handoff fires as it does for any crater.
+    pub fn paint_uv_torn(&mut self, uv: Vec2, radius_uv: f32, depth_mm: f32, tear: f32, tick: u32) -> Handoff {
+        self.peel(uv, radius_uv, depth_mm, tear, tick)
+    }
+
     /// **Peel at a UV.** Adds `depth_mm` of removed tissue at the centre, falling smoothly to nothing
     /// at `radius_uv`, and saturating at `Layers::span_mm()`.
     ///
@@ -444,6 +482,12 @@ impl FlayCanvas {
     /// error, whereas peeling a body's edge texels down to bone because a ray came back with a UV of
     /// `1.4` is a gameplay one — the caller would then get a bone handoff for a hit that never landed.
     pub fn paint_uv(&mut self, uv: Vec2, radius_uv: f32, depth_mm: f32, tick: u32) -> Handoff {
+        self.peel(uv, radius_uv, depth_mm, 0.0, tick)
+    }
+
+    /// The one crater: [`paint_uv`](Self::paint_uv) at `tear` zero, [`paint_uv_torn`](Self::paint_uv_torn) over it.
+    fn peel(&mut self, uv: Vec2, radius_uv: f32, depth_mm: f32, tear: f32, tick: u32) -> Handoff {
+        let tear = if tear.is_finite() { tear.clamp(0.0, 1.0) } else { 0.0 };
         let refused = Handoff {
             deepest_layer: Layer::Skin,
             bone_reached: false,
@@ -472,17 +516,21 @@ impl FlayCanvas {
         let n = self.size as i64;
         // Half the stamp, in texels, so the footprint is symmetric about its centre texel by
         // construction: an even edge length would put one more column on one side than the other and
-        // a crater would drift by half a texel per hit.
+        // a crater would drift by half a texel per hit. A torn crater is as wide as its longest split.
         let r_tex = radius_uv * self.size as f32;
-        let half = (r_tex.round() as i64).clamp(0, n);
+        let cx = ((uv.x * self.size as f32) as i64).clamp(0, n - 1);
+        let cy = ((uv.y * self.size as f32) as i64).clamp(0, n - 1);
+        let half = if tear > 0.0 { ((r_tex * (1.15 + TEAR_REACH * tear)).ceil() as i64).clamp(0, n) } else { (r_tex.round() as i64).clamp(0, n) };
         let px = 2 * half + 1;
-        self.build_mask(px, half, r_tex);
+        if tear > 0.0 {
+            self.build_torn_mask(px, half, r_tex, tear, (cx as u32).wrapping_mul(0x9E37_79B1) ^ (cy as u32).wrapping_mul(0x85EB_CA6B));
+        } else {
+            self.build_mask(px, half, r_tex);
+        }
 
         let hmm = (depth_mm * HMM_PER_MM).round().clamp(0.0, u16::MAX as f32) as u32;
         let cap = self.cap_hmm();
         let cortex = self.cortex_hmm();
-        let cx = ((uv.x * self.size as f32) as i64).clamp(0, n - 1);
-        let cy = ((uv.y * self.size as f32) as i64).clamp(0, n - 1);
 
         let mut changed = false;
         let mut crossed = false;
@@ -545,6 +593,23 @@ impl FlayCanvas {
         }
     }
 
+    /// **[`paint_world`](Self::paint_world) with the margin torn**: the same ray, the crater of
+    /// [`paint_uv_torn`](Self::paint_uv_torn). `tear` zero is `paint_world` to the byte.
+    #[allow(clippy::too_many_arguments)]
+    pub fn paint_world_torn(
+        &mut self,
+        mesh: &Mesh,
+        xf: &GlobalTransform,
+        from: Vec3,
+        dir: Vec3,
+        radius_uv: f32,
+        depth_mm: f32,
+        tear: f32,
+        tick: u32,
+    ) -> Option<Handoff> {
+        self.world(mesh, xf, from, dir, radius_uv, depth_mm, tear, tick)
+    }
+
     /// **Peel where a world-space ray hits this actor.**
     ///
     /// Möller–Trumbore over the mesh's `ATTRIBUTE_POSITION` and index buffer, then a barycentric read
@@ -565,12 +630,28 @@ impl FlayCanvas {
         depth_mm: f32,
         tick: u32,
     ) -> Option<Handoff> {
+        self.world(mesh, xf, from, dir, radius_uv, depth_mm, 0.0, tick)
+    }
+
+    /// The one ray: [`paint_world`](Self::paint_world) at `tear` zero.
+    #[allow(clippy::too_many_arguments)]
+    fn world(
+        &mut self,
+        mesh: &Mesh,
+        xf: &GlobalTransform,
+        from: Vec3,
+        dir: Vec3,
+        radius_uv: f32,
+        depth_mm: f32,
+        tear: f32,
+        tick: u32,
+    ) -> Option<Handoff> {
         let inv = xf.affine().inverse();
         let origin = inv.transform_point3(from);
         let local_dir = inv.transform_vector3(dir);
         match ray_uv(mesh, origin, local_dir) {
             Pick::At { uv, point, normal } if (0.0..=1.0).contains(&uv.x) && (0.0..=1.0).contains(&uv.y) => {
-                let mut handoff = self.paint_uv(uv, radius_uv, depth_mm, tick);
+                let mut handoff = self.peel(uv, radius_uv, depth_mm, tear, tick);
                 handoff.at = Some(point);
                 handoff.normal = Some(normal);
                 Some(handoff)
@@ -828,6 +909,66 @@ impl FlayCanvas {
         let starts = self.layers.starts_mm();
         let cortex = starts.get(3).copied().unwrap_or(f32::INFINITY);
         (cortex * HMM_PER_MM).round().clamp(0.0, u16::MAX as f32) as u16
+    }
+
+    /// Fill [`mask`](Self::mask) with a `px × px` **torn crater**: [`build_mask`](Self::build_mask)'s falloff with its
+    /// rim moved in and out by two low harmonics of the angle, and, laid over it by `max`, `5 + 3 h` thin splits that
+    /// reach out from half a radius and taper to a point. Every number is a hash of `seed` (a place); the angles go
+    /// through `libm`; the weights are bytes. See [`paint_uv_torn`](Self::paint_uv_torn).
+    fn build_torn_mask(&mut self, px: i64, half: i64, r_tex: f32, tear: f32, seed: u32) {
+        let need = (px * px).max(0) as usize;
+        if self.mask.len() != need {
+            self.mask.resize(need, 0);
+        }
+        let r = r_tex.max(1.0e-6);
+        let h = |salt: u32| crate::bloodstain::hash_f32(seed ^ salt.wrapping_mul(0x27D4_EB2F));
+        let tau = core::f32::consts::TAU;
+        // The rim: `1 + tear (a2 cos(2 th + p2) + a3 cos(3 th + p3))`, a few per cent out of round each way.
+        let (p2, p3) = (h(0x11) * tau, h(0x12) * tau);
+        let (a2, a3) = (0.10 * tear * (0.5 + 0.5 * h(0x13)), 0.08 * tear * (0.5 + 0.5 * h(0x14)));
+        // The splits: five to seven, each at its own angle, reach and width.
+        const MAX_SPLITS: usize = 7;
+        let count = (5 + (h(0x21) * 3.0) as usize).min(MAX_SPLITS);
+        let phase = h(0x22) * tau;
+        // (cos, sin) of the split's angle, its tip and root width, how far its tip is bent off the straight, and the ripple.
+        let mut splits = [(0.0f32, 0.0f32, 0.0f32, 0.0f32, 0.0f32, 0.0f32, 0.0f32); MAX_SPLITS];
+        for (i, split) in splits.iter_mut().enumerate().take(count) {
+            let k = (i as u32 + 1) << 8;
+            let angle = phase + (i as f32 + 0.7 * (h(k | 1) - 0.5)) * tau / count as f32;
+            // Squared, so a few splits are short and most are long: the lengths of Glessner Lee's exit plate run from two to nine hubs.
+            let long = h(k | 2);
+            let tip = r * (1.05 + TEAR_REACH * tear * (0.15 + 0.85 * long * long));
+            let root = (0.7 + 0.6 * h(k | 3)) * TEAR_SPLIT_WIDTH;
+            let bend = (h(k | 4) - 0.5) * 0.5 * tip;
+            let ripple = 0.35 + 0.5 * h(k | 5);
+            *split = (libm::cosf(angle), libm::sinf(angle), tip, root, bend, ripple, h(k | 6) * tau);
+        }
+        let from = 0.5 * r;
+        for my in 0..px {
+            for mx in 0..px {
+                let (dx, dy) = ((mx - half) as f32, (my - half) as f32);
+                let th = libm::atan2f(dy, dx);
+                let rim = r * (1.0 + a2 * libm::cosf(2.0 * th + p2) + a3 * libm::cosf(3.0 * th + p3));
+                let t = (1.0 - (dx * dx + dy * dy).sqrt() / rim.max(1.0e-6)).clamp(0.0, 1.0);
+                let mut w = t * t * (3.0 - 2.0 * t);
+                for &(c, s, tip, root, bend, ripple, ph) in splits.iter().take(count) {
+                    let along = dx * c + dy * s;
+                    if along < from || along > tip {
+                        continue;
+                    }
+                    let u = (along - from) / (tip - from).max(1.0e-6);
+                    let width = (root * (1.0 - 0.8 * u)).max(0.3);
+                    // A split is not a ray: it bends toward its tip and ripples a little, as a tear does.
+                    let across = (dy * c - dx * s - (bend * u * u + ripple * libm::sinf(5.5 * u + ph))).abs();
+                    let q = (1.0 - across / width).clamp(0.0, 1.0);
+                    let split = TEAR_SPLIT_DEPTH * (q * q * (3.0 - 2.0 * q)) * (1.0 - u * u);
+                    w = w.max(split);
+                }
+                if let Some(slot) = self.mask.get_mut((my * px + mx) as usize) {
+                    *slot = (w * 255.0).round().clamp(0.0, 255.0) as u8;
+                }
+            }
+        }
     }
 
     /// Fill [`mask`](Self::mask) with a `px × px` radial falloff: 255 at the centre texel, 0 at

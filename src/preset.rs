@@ -2457,6 +2457,13 @@ pub const SURFACE_STAND_OFF: f32 = 0.05;
 /// the factor `1.6` is this crate's own.
 pub const EXIT_SCALE: f32 = 1.6;
 
+/// **How torn an exit wound's margin is**, `1.0` (the most [`crate::flaymap::FlayCanvas::paint_world_torn`] tears): the
+/// crater of an exit is laid with a star of five to seven splits, its rim out of round, and an entrance's is the round
+/// hole `paint_world` makes. Until 0.8.4 [`EXIT_SCALE`]'s own doc said an exit was "more irregular" and the crater
+/// was the entrance's, only wider. Glessner Lee's chest plates (`docs/research/torn-exits.md`) are the reference:
+/// the entrance a round hole, the exit a hub of radiating splits. A design default.
+pub const EXIT_TEAR: f32 = 1.0;
+
 /// **A hit, addressed to a dressed entity or to a character.**
 ///
 /// **Address it to whatever your physics found.** A game's raycast finds a collider, a capsule on the
@@ -3414,7 +3421,7 @@ fn take_hits(
             }
             let exit_seed = wound_seed(&exit_wound);
             if let Some(mut flay) = flay {
-                let _ = flay.paint_world(mesh, xf, outside, -out, radius_uv * EXIT_SCALE, depth_mm, tick);
+                let _ = flay.paint_world_torn(mesh, xf, outside, -out, radius_uv * EXIT_SCALE, depth_mm, EXIT_TEAR, tick);
                 if let Some(s) = flay_settings.as_deref() {
                     flay.shade(s);
                 }
