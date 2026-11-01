@@ -6,6 +6,44 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+### Changed
+
+- **Blood dries dark and stays where it dried** (iteration 9, AG-148, `docs/research/dry-blood.md`). No recorder had ever looked at blood
+  that had dried: they end seconds after the last shot and a stain takes 30 s. Looked at (`capture_skinned --dry 120`, below), the
+  preset's blood was wrong twice. **(1) Dried spatter was erased.** The substrate's soak (`WetSettings::absorbency`, 0.15) took up to
+  38 bytes from every texel over the drying, which is a spatter drop's whole film: after 1 800 ticks a cone of 1.5 texels' radius
+  was gone, one of 2 kept 1 of 11 texels over the draw edge and one of 4 kept 19 of 47, so every drop a wound throws at a 512-texel
+  wall (5.9 mm a texel) was gone or a pinhead once dry. A drying drop or pool is pinned to the surface and loses height, not area
+  (Smith, Nicloux & Brutin 2020, `doi:10.1038/s41598-020-65465-4`: "the pool is pinned to the surface and the liquid phase evaporates
+  at the surface. The volume loss corresponds then to a decrease in height"). `advance` now takes a wet texel's film down to
+  `wetmap::STAIN_FLOOR` (33 of 255: the draw edge plus one cone step, tuned) and no lower, and takes nothing from a texel already
+  under it; a pool's 255 still goes to 217. **(2) The flesh material never aged the colour.** `flesh.wesl` composited a film from its
+  thickness alone, so a pool, a wound or a drop drawn with it stayed the colour it was born, only its gloss following the clock
+  (measured on one clip, wet and dried: the floor pool `(119, 53, 59)` and `(124, 63, 68)`, the wall's drops `(142, 61, 62)` and
+  `(148, 65, 63)`). The CPU's colour walk (`bloodstain::dry::appearance_with_fresh`, Bremmer et al. 2011,
+  `doi:10.1371/journal.pone.0021845`) is now baked at its two stops into eight new rows of the flesh tables
+  (`flesh::aged_blood_lut`, below the blood table, with a golden of its own; `the_flesh_tables_are_frozen` is untouched), and the
+  shader interpolates between the stops by the wetness byte it already reads, in encoded sRGB, as the CPU does: fresh blood is the
+  colour it always was to the bit, dried blood is dark brown and matte. The age is read at the texels, by the spline's own weights
+  over the ones that have blood in them, so a fresh drop has no brown ring and a fresh drop beside an old one is visibly younger.
+  **Measured**, the wall of `capture_skinned --through --floor 512` close up, 0.8.2 and now: 6 s after the shots 37 drops and
+  1 884 px of blood against 40 and 2 478 (the soak no longer shrinks them while they dry); dried, 19 drops and 626 px
+  `(146, 66, 64)` against 40 and 2 490 px `(77, 51, 46)`. `WetSettings::absorbency` is as it was; there is no setting that brings
+  the erasure back. **Every recorder digest where blood soaks moves, on purpose**; `bench_carnage`'s does not (it never calls a
+  canvas). **Cost**: `hit_tick_cost` retires 13.66 billion instructions before and 13.81 after (+1.1 %, the persistent blood
+  keeps a few more texels in each tick); the shader reads the wet map 16 more times for a pixel with blood in it and 8 more
+  table rows, and adds no texture, sampler or uniform. `flesh.wesl` is re-checked on WebGL2 (headless Chrome 143 over SwiftShader,
+  `tools/webgl2/check.sh`): the flesh pipeline builds and draws blood with no error, and the same check fails on a shader with one
+  type error added.
+
+### Added
+
+- `wetmap::STAIN_FLOOR`, `flesh::{AGED_ROWS, AGE_KNOT, aged_blood_lut, aged_lut_digest}`, and `capture_skinned --dry N` (blood
+  dries in `N` ticks instead of 1 800, so a 360-frame clip shows the dried state: `--through --floor 512 --dry 120`).
+- `tools/webgl2/`: the WebGL2 check `CLAUDE.md` asks for after a change to `flesh.wesl`, as a script (`check.sh <source-tree>`; a cold
+  wasm build of Bevy takes about 38 minutes, an incremental one 30 s to a few minutes). `Cargo.toml` now also excludes
+  `docs/media/*.gif` from the package, as `docs/*.gif` already were.
+
 ## [0.8.2] - 2026-10-31
 
 ### Changed

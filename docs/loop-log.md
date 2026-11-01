@@ -1046,3 +1046,109 @@ drops"); `tests/readme.rs` and the doctests re-ran green on it. The first push o
 dev-shader path in `flesh.rs`) were reverted before the first commit and never committed. Left, not mine and not deleted: the branches `loop/iter-1`, `loop/iter-1b`, `loop/iter-2`,
 `loop/iter-3`, `loop/iter-4` (merged), `loop/iter-4-floor-stains`, `loop/iter-5`, `loop/iter-6` and `loop/iter-7` (merged), and five other loops' `/tmp/c*` directories. Mine and kept:
 `loop/iter-8` (merged, pushed).
+
+## Iteration 9 — 2026-11-01 — blood dries dark and stays where it dried (AG-148)
+
+**Item and why it ranked first.** `gh issue list` is empty (no bug, no `consumer` request); `git branch --list 'wiggum/parked-*'` finds nothing
+(the only `WIP(pass 7, parked)` commit, `2ed4559`, is iteration 1's `tools/qa.sh` work, adopted then); `origin/loop-stats`' last audit row (pass 15,
+`v0.8.2`) has nothing `missing`. `catalog_recent` (limit 200): nothing in a domain (psychology and relationships bulk, `sig2024_*` and `sig2026_*`
+rendering titles), so no `Research: corpus` commit; `system_status` healthy (two scribes, distill idle on CUDA, 18 673 documents). Ranked from iteration 8's
+backlog and one finding of this pass: (1) **dried blood**, found by looking at a state no recorder had ever looked at (below); (2) the spray as a whole
+beside Ref 1 (a mist for walls and skins, a power-law size draw, tails: measured on a close frame of the wall, the equivalent diameters p90 / p50 are 1.36 against
+Ref 1's 4.02 and p90 / p10 2.1 against 6.85, 156 stains of at least 3 px against 232, **and** at 5.9 mm a texel the canvas can draw only 8 to 33 mm, a factor of
+four, so most of that gap is the canvas's resolution and not the throw's); (3) a heavy wound on a wall at 9 ms a hit and 12 ms a tick; (4) `digest=` for a body that
+breaks; (5) the horror-film items (wound sheen, the drying rim) and `#[non_exhaustive]`. Picked (1): the others make a stain *look* better, this one found the crate
+**forgetting** them: every drop a wound threw at a wall was gone or a pinhead 30 s later, and nothing the flesh material drew ever turned brown.
+
+**What was measured before any change** (`docs/research/dry-blood.md`; new knob `capture_skinned --dry N`, which sets `WetSettings::dry_ticks`, so a 360-frame clip
+shows blood dried; the recorders end 6 s after the last shot and a stain takes 30 s, so none had ever shown it). The wall of `--through --floor 512`, close camera, one
+region: 37 drops and 1 884 px of blood at 6 s, **19 drops and 626 px dried**, every survivor a pinhead. At the canvas (a probe test, removed), `paint_cone` then 3 600
+ticks of the shipped substrate: a drop of radius 1.5 texels or less is gone after 1 800 ticks, radius 2 keeps 1 texel of 11 over the draw edge, radius 3 keeps 6 of 27,
+radius 4 keeps 19 of 47. The soak (`absorbency` 0.15, 38 bytes over the drying, from **every** texel) is a spatter drop's whole film. And the colour: the floor pool
+`(119, 53, 59)` wet and `(124, 63, 68)` dried, the chest wound `(113, 43, 48)` and `(116, 45, 49)`, the wall's drops `(142, 61, 62)` and `(148, 65, 63)`. The CPU does age the
+colour (the canvas's albedo image dries from `(113, 33, 42)` to `(49, 21, 15)` for a thick film) but the flesh material does not read that image: `blood_over(base, depth_mm)`
+takes thickness alone and only the clear coat follows the wetness byte, so a pool or a wound drawn with it was fresh-red at any age.
+
+**What changed** (`8baa500` research, `0537b2c`, `cf1ecdb`, `72d71b4`; the docs and this entry follow):
+
+- `wetmap::STAIN_FLOOR` (33 of 255, **tuned**: `DETAIL_EDGE` 10 plus one `CONE_SLOPE` step of 23) and `advance`: a wet texel is soaked down to the floor and no lower, a texel
+  under it not at all. A drying drop or pool is pinned to the surface and loses height, not area (Smith, Nicloux & Brutin 2020, `doi:10.1038/s41598-020-65465-4`, quoted in
+  the note). It is exact for a cone: every texel of one is within a step of its neighbours, so levelling its inside to 33 moves the 4 % contour by under a tenth of a texel and
+  makes no difference of 25 for the spread pass to creep on. A pool's 255 still goes to 217. `WetSettings::absorbency` is as it was and there is no setting that restores
+  the erasure (one path per feature). The by-definition oracle of `the_passes_are_what_their_definitions_say` moves with the model (one line, the floor).
+- `flesh::aged_blood_lut` (+ `AGED_ROWS`, `AGE_KNOT`, `aged_lut_digest`): the blood table at the two stops of the CPU's colour walk (`appearance_with_fresh` at 0.35 and 1.0 of the
+  drying, Bremmer et al. 2011), eight rows after the blood table in the same image, with a golden of its own (`the_flesh_tables_are_frozen`, which folds the subsurface and blood
+  tables, is untouched). `flesh.wesl`: `blood_row(u, r, dried)` interpolates between the fresh row and these in encoded sRGB as the CPU does; fresh blood takes the old branch and
+  is the colour it was **to the bit**. The age is `1 - wetness`, read **at the texels** (`textureLoad`) over the spline's 4 by 4 support by the spline's own weights **counting only
+  texels that have blood**: through the spline, wetness falls to zero at the rim of every drop and a fresh drop would wear a brown ring. Two drafts were thrown away: the first
+  named two locals `from` and `to`, reserved words, and the native renderer drew an all-black frame (which is how the shader error showed, at once, in the log); the second took the
+  youngest of nine texels and drew the boundary between two ages as hard lines in a pool. No texture, sampler or uniform is added.
+- `capture_skinned --dry N`. **Tests**: `a_dried_drop_keeps_its_footprint` (**fails on 0.8.2**, first assertion: a cone of radius 0.8 is 2.08 texel squares painted and 0 dried),
+  `the_substrate_takes_a_pools_film_and_nothing_under_a_stains_depth`, and in `flesh`: `the_aged_blood_table_is_the_cpus_walk_and_only_darkens`, `the_aged_blood_table_is_frozen`
+  (`5508892977834009270`) and the layout test extended to the new rows (its two shader-offset constants asserted: `BLOOD_ROW0` 80, `LUTS_H` 92). No existing assertion was removed
+  or loosened; two comments that described the old erasure ("faint spatter soaks away to nothing") were rewritten.
+
+**Sources.** Physics: Smith, Nicloux & Brutin 2020 (`doi:10.1038/s41598-020-65465-4`, in the corpus): "the pool is pinned to the surface and the liquid phase evaporates at the surface. The
+volume loss corresponds then to a decrease in height"; Bremmer et al. 2011 (`doi:10.1371/journal.pone.0021845`): "bloodstains transit from bright red to dark brown". Horror and forensic
+references under `/tmp/c9/refs/` (removed) and cited by URL in the note: Ref Q, "Bloody Handprint from Good-Luck Sacrifice - Shop Wall - Qazvin" (CC BY-SA 2.0; 268 181 blood pixels,
+darkest 5 % `(88, 9, 3)`, lower quartile `(113, 35, 12)`, median `(134, 70, 32)`, lightest 5 % `(171, 135, 89)`), Ref N, an Oslo police photograph of 1950s crime-scene floor
+(public domain: dark matte drops and footprints, nothing faded for being thin), Ref 1 (iteration 8's wall), and *Evil Dead* (2013) via filmhounds.co.uk (the blood stays on the set's walls
+through the shoot). Technique: Coenen, *DOOM Eternal - Graphics Study* ("the decal count can go up to thousands of them": games keep blood and cull it, they do not let it fade).
+
+**Critique and verdict** (`/tmp/c9/critique.md`, `docs/media/dried.gif`, `docs/media/dried.png`; the scratch is removed). **A dried stain keeps its footprint: GREAT.** The same wall region:
+0.8.2 37 drops and 1 884 px at 6 s, 19 and 626 dried; now 40 and 2 478 at 6 s, **40 and 2 490 dried** (the soak no longer shrinks them while they dry, so the wet figure rose too);
+the pool and the wound keep their footprints texel for texel; against Ref N the dried frame holds (every drop that landed is there, at its size). **Blood's colour follows its age in
+the flesh material: GREAT for the defect it fixes** (dried blood drawn fresh-red): at 6 s the drops go from a mean `(141, 63, 64)` to `(128, 61, 58)`, dried they are `(77, 51, 46)`
+(darkest fifth `(72, 49, 45)`, against `(146, 66, 64)` on 0.8.2), the floor pool `(91, 58, 57)` and a dark crust round a black-brown crater on the chest; a fresh drop beside an old one is plainly
+younger and no fresh drop has a ring. **Not great, named, and not this item's constants**: against Ref Q the dried colour is darker and about 2.5 times less saturated (R minus G of 25
+against Ref Q's 64 to 78) because the walk's hemichrome is an authored `(0.26, 0.11, 0.08)` and a thin film shows the grey wall through it; it is **flat**, one tone a drop, where Ref Q has a darker
+rim and amber thin deposits (`appearance.rim`, the drying front, is not read by the shader); and the raw margin of a wound stays bright red (the cut film is not aged), which a wound's margin may.
+The two clauses of my own target 7 ("thin edges lighter than thick cores", the hue) are therefore **not met** and graded as such in the note. Rounds: one on the model (the floor), three on the shader
+(the reserved words, the nine-texel maximum, the spline-weighted mean); stopped because what is left is calibration and a new shader term, each its own item.
+
+**Numbers.**
+
+- *Reproducibility* (every `capture_skinned` variant and `capture_preset` twice on the final build): all 9 pairs equal. Against 0.8.2 (whose digests this pass re-measured and found as iteration 8
+  logged them) the digests move **on purpose** wherever blood soaks: default and `--blows` `90b95dfc7aa439cd` to `5f8eb5573aea933f`, `--break` `8bf75a8ea2659fd3` to `f89e1d5e3bcfc119`, `--shirt`
+  `a67f17b0511b3a83` to `579e84b9d3ccfe51`, `--through` `aef30ab245128785` to `cfcabf28b3d9b0a6`, `--guard` `eac0328e6c4b8ec9` to `33118d5449e57748`, `--stroll` `8ebe761bcc8b4d83` to `6cb633ae2cf7941c` (its
+  spill is painted wet at frame 0), `capture_preset` `7ed6213d12a430ec` to `04758d82ec10aa5b`. **`--quiet` keeps `f83a631a7426808d`, and `flay=` and `dermis=` equal 0.8.2's in every variant.**
+  `bench_carnage` digest `0x4366a8b64352c85a` before and after.
+- *Cost*: `hit_tick_cost` alternated four times with 0.8.2's test binary, **instructions retired** for the whole run (the host was at load 8 to 15 under a 38-minute wasm build, so the milliseconds it prints are
+  noise: a wet tick of one case read 54.9 ms and 1.7 ms): 13.70, 13.65, 13.63, 13.66 billion before, 13.84, 13.76, 13.78, 13.84 after (+1.1 %: the blood that now stays keeps a few more texels in each wet
+  tick). `bench_carnage` never calls a canvas: `carnage_frame_ms` 1.189 and 1.149 before, 1.180 after, p99 33.6 and 32.7 before, 33.4 after; 3 of its 6 runs refused ("NO STABLE PLATEAU"), a reading of the
+  load. The shader reads the wet map 16 more times (`textureLoad`) and the aged table 4 to 8 times for a pixel with blood in it, and nothing for any other pixel.
+- *Locks and mass*: every golden in section 3 passes untouched; the drip and spread conservation tests pass untouched. Gate (in the loop's order, on the branch): `cargo build` rc 0 100 s; `cargo build
+  --release` rc 0 190 s; `cargo test --no-fail-fast` rc 0 in 1 895 s (466 passed, 0 failed, 8 ignored over every binary and the doctests); `cargo build --examples` rc 0. Not run: rustfmt (not clean at
+  `main`), `tools/qa.sh` (no ImageMagick on this host), clippy (no standing gate).
+- *WebGL2* (`flesh.wesl` changed, so the rule applies): `bevy` built with `webgl2` for `wasm32-unknown-unknown`, `carnage_web` served and loaded in headless Chrome 143 over SwiftShader (WebGL 2.0, ANGLE),
+  **`WEBGL2 PIPELINE OK`** on the shipped shader, no console line matching error, validation, failed or too many, 2 455 distinct colours in the frame, and again with three shots fired (the chest wound and a
+  floor of dark red-brown drops drawn through the aged path, 4 036 colours). The same harness prints `WEBGL2 PIPELINE FAIL` on a copy of the shader with one added type error (naga: `deliberately_broken is
+  expected to be i32, but got vec4<f32>`), and a first draft of the harness reported OK on that broken shader because cargo reused a stale build by mtime: fixed (the source tree is fingerprinted and the synced files
+  touched). The harness is `tools/webgl2/` (a cold build of Bevy for wasm took 38 minutes on this host, an incremental one 30 s to a few minutes). What it cannot see: real GPUs, the 16-texture limit, the look of blood
+  on WebGL2 beyond one frame.
+
+**Assumed decisions (owner may override).** (1) `STAIN_FLOOR` is a constant and not a `WetSettings` dial: a dial that can put the erasure back is two implementations of one thing. (2) The walk's authored
+hemichrome and methaemoglobin colours are left as they are, though Ref Q says they are a little desaturated: they are the CPU's authority, cited, and calibrated on one photograph of animal blood on tile they
+would be a worse number; the item is in the backlog with its measurement. (3) The shader approximates nothing: it reads the CPU's own table at the CPU's own stops. (4) A PATCH release, `0.8.3`: no
+API was removed or changed (new public items only) and the digests moving is the point; `cargo semver-checks` agreed (below).
+
+**Found, not fixed.** (1) The dried colour's hue and flatness (above). (2) **The spray as a whole is resolution-bound**: at 5.9 mm a texel (`--floor 512`) the canvas can draw 8 to 33 mm, so a wall's size
+spread beside Ref 1 cannot be had from the throw alone; at the shipped 256 texels the least drop drawn is 1.6 cm. A mist for walls would add dots of one drawn size, not fine spatter: it wants an area-conserving
+thinning of drops under a texel (draw a sub-texel drop with the probability its area is of the least drawable one) before it wants a count. (3) The cut film (`blood_over(tissue, film, 0.0)`) has no age, so a
+wound's graze ring stays raw red once everything round it has dried. (4) A cloth canvas takes the floor too (`advance` is one pass for every surface), so a soaked shirt's thin stain now persists; `--shirt --dry 120`
+was looked at dried on both builds and the shirt's blood is only a little darker (the wick re-youngs the cloth's blood as it spreads: `spread` keeps the youngest age). (5) The harness's blood frame is one moment: the dried look has been looked at on Metal only.
+
+### Ranked backlog for iteration 10
+
+1. **Calibrate the dried colour** against a measured source and give it its rim: `SRGB_MET` and `SRGB_HEMI` against Ref Q's chromaticity (R/G 3.2 and a median of `(134, 70, 32)`; ours is `(77, 51, 46)` through
+   the lit scene), then read `appearance.rim` (the drying front, Smith et al. 2020) in `flesh.wesl` so a dried drop has a darker ring and a pool a wet middle in a matte ring. A shader term: `tools/webgl2/check.sh`.
+2. **The spray as a whole, resolution-aware**: thin sub-texel drops by area instead of drawing them at the least size; then a mist for walls and skins (a separate dial, `a_wall_and_a_skin_take_no_mist`
+   pins today's), a power-law size draw for the mist (Comiskey et al. 2018: drops are percolation clusters, the cluster-size exponent of 3-D percolation is 2.186, Stauffer; a `BloodSettings` field, the owner's word)
+   and a tail on an oblique impact.
+3. **A heavy wound on a wall is still 9 ms on its hit and 12 ms a tick** (iteration 8's item 3): stamp each droplet at the tick it arrives.
+4. **`digest=` for a body that breaks** (iteration 5's item 1): a per-frame wet trace beside `flay=` and `dermis=`.
+5. **The horror-film items** (wound sheen, fracture debris, a cut film that ages), `#[non_exhaustive]` on the error enums, the Bevy 0.19 citation sweep; `vfx` on Bevy 0.20 still waits on `bevy_hanabi`.
+
+**Merged tree and release.** <filled in below>
+
+**Cleanup.** <filled in below>
