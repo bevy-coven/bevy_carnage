@@ -906,3 +906,20 @@ probe: 16 of two texels, 7 of three, 5 of four, 20 of five, one of 24).
    the next MINOR or never.
 5. **The horror-film items** (pooling and drying ring, wound sheen, fracture debris), each needing `magick`; `vfx` on Bevy 0.20 still
    waits on `bevy_hanabi`. Cheaper first: `drip`'s row slices, and a first-stamp warm-up.
+
+**Merged tree and release.** `main` moved under the pass: `0c5109c`, the owner's change to `.omp/commands/build-loop.md` ("every pass commits, pushes,
+publishes, documents and demos"; no time limit between releases; read the last audit on `loop-stats` first, which did not exist yet). Merged `loop/iter-7`
+into it (`2663616`, `--no-ff`; the merged tree differs from the tested branch only by that command file), bumped to `0.8.1` (`7b80f7f`, `release: v0.8.1`: the
+changelog, `Cargo.toml` and `Cargo.lock`, the Status and a `0.8.1` entry in `docs/guide/history.md`, which `tests/readme.rs` reads, and the stale line in
+`docs/guide/install.md` that still said `0.7` is on crates.io) and re-ran the gate on that tree: `cargo build` rc 0; `cargo build --release` rc 0, 3 m 30 s;
+`cargo test --no-fail-fast` rc 0 (lib 359 and three ignored, `wetmap` 17, `readme` 4, `leaf` 3, every other binary and the doctests); `cargo build --examples` rc 0;
+`main` pushed (`0c5109c..7b80f7f`). `cargo semver-checks check-release --baseline-version 0.8.0 --only-explicit-features --features serde,flesh` (7 m 24 s): 202
+checks pass, "no semver update required", so a PATCH. `cargo publish --dry-run` packaged 198 files, 4.5 MiB (1.7 MiB compressed). **Released `0.8.1`**
+(https://crates.io/crates/bevy_carnage/0.8.1, tag `v0.8.1` at `7b80f7f`; the crates.io API answers `0.8.1` and `cargo info` resolves it).
+
+**Cleanup.** Removed, all mine: the worktree `~/c7_base` (a plain `git worktree remove`, after reverting my own scratch edits in it), `/tmp/c7` (6.1 GB: 18 recorder runs of
+360 frames before and after, the binaries and lib-test binaries copied out of the cache, the references), `/tmp/c7-semver` (465 MB) and `target/package` (7 MB) in the clone's
+cache; `df`: 14 G free before, 20 G after. The volume is at 98 %: the clone's own cache (60 G and more) is kept as instructed, and other loops share the disk. No `*-target`
+was made (the baseline built into the shared cache). Left, not mine and not deleted: the branches `loop/iter-1`, `loop/iter-1b`, `loop/iter-2`, `loop/iter-3`, `loop/iter-4`
+(merged), `loop/iter-4-floor-stains`, `loop/iter-5` (merged), `loop/iter-6` (merged), and other loops' `/tmp` directories (969 entries). Mine and kept: `loop/iter-7`
+(merged, pushed).
