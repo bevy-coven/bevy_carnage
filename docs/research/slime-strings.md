@@ -107,3 +107,18 @@ Stills are copyrighted film frames, kept under `/tmp/c13/refs/` for judging and 
 - The four physics papers are quoted from their abstracts (`paper_search`): `paper_download` was not tried, and `distill_search` for "filament thinning" and "bio-fluid filament breakup" found nothing relevant.
 - *My adventures in slime* could be read only to its first lines.
 - No home-still paper on the extensional rheology of **mucus or K-Y-type gels**; the breakup numbers are tuned, not derived.
+
+## Outcome (iteration 13): built, measured, **not shipped**
+
+The model was built as written (`viscera::Thread`, `spill_threads`, `preset::GutThread`, three unit tests, every recorder digest unchanged through four rounds) and parked on the branch `loop/iter-13`
+(`b790d92`, never merged, never released). **Verdict: NOT YET, and the blocker is scale, not code.** At the preset's camera a pixel is about 7 mm (a gut 40 mm across is 5.5 px), so Ref T3's 2 to 3 mm
+thread is a sixth of a pixel and the 5 mm radius that was tried (10 mm wide, 1.4 px) is a faint hairline. What the four rounds showed, so nobody repeats them:
+
+1. A rope-like **slack** (a parabola exactly as long as the slack, bowing under gravity) tangled into **coils of orange wire** at the wound: a liquid thread has no slack, it is a straight bridge; the bow was removed.
+2. **Clear/pale threads** (the colour of Ref T3) are cream on a beige skin and vanish: they need a dark background, which a body in a lit room does not give. **Red, slick threads** (Ref D1) read against the skin.
+3. The strands the threads hold **fall in a third of a second** (the solver pins tear at 12 mm), so a thread lives about 15 frames; and the wound end is fixed **in the world**, as the mesentery's tether is, so when the
+   body breaks and falls away the halves of a snapped thread hang in the air at the old wound for ten ticks.
+4. The threads are **behind the body's pieces** in the preset's camera for most of their life.
+
+**What it needs**, in order: a wound end that follows the body (the hit entity's transform, or the fragment nearest the wound), a stretch that is slow enough to see (guts that are pulled, not dropped), and either a
+closer camera or a thread wide enough to be two pixels. The code on `loop/iter-13` is complete for the model; adopt it, not rewrite it, when those exist.
