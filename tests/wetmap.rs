@@ -549,3 +549,237 @@ fn a_speck_refuses_nonsense_and_is_clipped_at_the_edge() {
     let max = std::f32::consts::PI * bevy_carnage::wetmap::SPECK_MAX_SEMI.powi(2) * 255.0;
     assert!(coverage(&huge) as f32 <= 1.1 * max + 14.0, "a speck of a hundred texels laid {} (the largest is {max})", coverage(&huge));
 }
+
+/// **What a reader draws.** The blood of a canvas as the flesh shader and the detailed images read it: each texel's
+/// byte over 255 through the cubic B-spline, and drawn where that crosses `DETAIL_EDGE`. Sampled every eighth of a texel
+/// over the `side`-texel square from `(x0, y0)`; returns the drawn area in texel squares, its centroid, and its
+/// *roundness*, the spread of its radius about the centroid (largest minus smallest of 64 rays, over their mean).
+struct Drawn {
+    area: f32,
+    centroid: Vec2,
+    roundness: f32,
+    /// The second moments `(xx, yy, xy)` about the centroid, texel squares.
+    moments: (f32, f32, f32),
+}
+
+fn drawn(canvas: &WetCanvas, x0: i32, y0: i32, side: i32) -> Drawn {
+    fn weight(x: f32) -> f32 {
+        let x = x.abs();
+        if x < 1.0 {
+            (4.0 - 6.0 * x * x + 3.0 * x * x * x) / 6.0
+        } else if x < 2.0 {
+            let t = 2.0 - x;
+            t * t * t / 6.0
+        } else {
+            0.0
+        }
+    }
+    const K: i32 = 8;
+    let field = |px: f32, py: f32| {
+        let (ix, iy) = (px.floor() as i32, py.floor() as i32);
+        let mut sum = 0.0;
+        for j in iy - 2..=iy + 2 {
+            for i in ix - 2..=ix + 2 {
+                if i < 0 || j < 0 {
+                    continue;
+                }
+                let a = canvas.amount_at(i as u32, j as u32) as f32 / 255.0;
+                sum += a * weight(px - (i as f32 + 0.5)) * weight(py - (j as f32 + 0.5));
+            }
+        }
+        sum
+    };
+    let n = side * K;
+    let mut mask = vec![false; (n * n) as usize];
+    let (mut count, mut sx, mut sy) = (0u32, 0.0f32, 0.0f32);
+    for j in 0..n {
+        for i in 0..n {
+            let (px, py) = (x0 as f32 + (i as f32 + 0.5) / K as f32, y0 as f32 + (j as f32 + 0.5) / K as f32);
+            if field(px, py) > bevy_carnage::wetmap::DETAIL_EDGE {
+                mask[(j * n + i) as usize] = true;
+                count += 1;
+                sx += px;
+                sy += py;
+            }
+        }
+    }
+    if count == 0 {
+        return Drawn { area: 0.0, centroid: Vec2::ZERO, roundness: 0.0, moments: (0.0, 0.0, 0.0) };
+    }
+    let c = Vec2::new(sx / count as f32, sy / count as f32);
+    let (mut mxx, mut myy, mut mxy) = (0.0f32, 0.0f32, 0.0f32);
+    for j in 0..n {
+        for i in 0..n {
+            if mask[(j * n + i) as usize] {
+                let (dx, dy) = (x0 as f32 + (i as f32 + 0.5) / K as f32 - c.x, y0 as f32 + (j as f32 + 0.5) / K as f32 - c.y);
+                mxx += dx * dx;
+                myy += dy * dy;
+                mxy += dx * dy;
+            }
+        }
+    }
+    let k = count as f32;
+    let (mut lo, mut hi, mut mean) = (f32::MAX, 0.0f32, 0.0f32);
+    for ray in 0..64 {
+        let t = ray as f32 / 64.0 * std::f32::consts::TAU;
+        let (dx, dy) = (t.cos(), t.sin());
+        let mut r = 0.0;
+        let mut step = 0.0;
+        while step < side as f32 / 2.0 {
+            let (px, py) = (c.x + dx * step - x0 as f32, c.y + dy * step - y0 as f32);
+            let (i, j) = ((px * K as f32) as i32, (py * K as f32) as i32);
+            if i >= 0 && j >= 0 && i < n && j < n && mask[(j * n + i) as usize] {
+                r = step;
+            }
+            step += 1.0 / 16.0;
+        }
+        lo = lo.min(r);
+        hi = hi.max(r);
+        mean += r / 64.0;
+    }
+    Drawn { area: count as f32 / (K * K) as f32, centroid: c, roundness: (hi - lo) / mean, moments: (mxx / k, myy / k, mxy / k) }
+}
+
+/// **A cone is drawn at the size it was given, round, where it was put.** A reader that draws at `DETAIL_EDGE` — the
+/// flesh shader's edge, and the detailed images' — must draw the ellipse a cone was painted for: its area within 5 %
+/// and its centre within a tenth of a texel, and no more than a fifth of its radius out of round, at every offset of the
+/// texel from a radius of a texel and a half to the largest. At a texel (two across) the canvas holds four to nine texels of the
+/// drop and the spline's smoothing of a rim two texels round is what the drawn area reads: within 15 % and a quarter out of round.
+/// The speck this replaces for the preset drew a drop of two texels across at four and a half, on a square.
+#[test]
+fn a_cone_is_drawn_at_the_size_it_was_given_and_round() {
+    use std::f32::consts::PI;
+    for r in [1.0f32, 1.5, 2.0, 2.5, 3.0, 4.0] {
+        let (area_tol, round_tol) = if r < 1.5 { (0.15, 0.25) } else { (0.05, 0.2) };
+        for (sx, sy) in [(0.5, 0.5), (0.0, 0.0), (0.33, 0.71), (0.9, 0.2), (0.5, 0.0)] {
+            let (_images, mut canvas) = scratch(64);
+            canvas.paint_cone(Vec2::new((30.0 + sx) / 64.0, (30.0 + sy) / 64.0), [r, r], Vec2::X, 1);
+            let d = drawn(&canvas, 20, 20, 20);
+            let want = PI * r * r;
+            assert!((d.area - want).abs() <= area_tol * want, "a cone of radius {r} at ({sx}, {sy}) was drawn {} texel squares, not {want}", d.area);
+            assert!(d.centroid.distance(Vec2::new(30.0 + sx, 30.0 + sy)) <= 0.1, "a cone of radius {r} at ({sx}, {sy}) was drawn centred on {:?}", d.centroid);
+            assert!(d.roundness <= round_tol, "a cone of radius {r} at ({sx}, {sy}) was drawn {} out of round", d.roundness);
+        }
+    }
+}
+
+/// A cone follows its ellipse: the long axis along the direction it was given, and the area of an ellipse, not a circle
+/// of either radius.
+#[test]
+fn a_cone_is_an_ellipse_along_its_direction() {
+    use std::f32::consts::PI;
+    for (direction, angle) in [(Vec2::X, 0.0f32), (Vec2::new(1.0, 1.0), PI / 4.0), (Vec2::new(0.0, 1.0), PI / 2.0), (Vec2::new(-1.0, 0.5), (0.5f32).atan2(-1.0))] {
+        let (_images, mut canvas) = scratch(64);
+        canvas.paint_cone(Vec2::new(30.3 / 64.0, 30.6 / 64.0), [3.0, 1.5], direction, 1);
+        let d = drawn(&canvas, 20, 20, 20);
+        let want = PI * 3.0 * 1.5;
+        assert!((d.area - want).abs() <= 0.1 * want, "an ellipse of 3 by 1.5 along {direction:?} was drawn {} texel squares, not {want}", d.area);
+        // The principal axis of the drawn blood, from its second moments, and the ratio of its two spreads.
+        let (mxx, myy, mxy) = d.moments;
+        let axis = 0.5 * (2.0 * mxy).atan2(mxx - myy);
+        let off = ((axis - angle + PI / 2.0).rem_euclid(PI) - PI / 2.0).abs();
+        assert!(off <= 0.09, "the drawn long axis is {axis} rad, not {angle} ({direction:?})");
+        let half = ((mxx - myy) * 0.5).hypot(mxy);
+        let (big, small) = (0.5 * (mxx + myy) + half, 0.5 * (mxx + myy) - half);
+        let ratio = (big / small).sqrt();
+        assert!((ratio - 2.0).abs() <= 0.3, "the drawn axes are in the ratio {ratio}, not 2 ({direction:?})");
+    }
+}
+
+/// **A cone is a drop, not a film: it does not creep.** Blood moves on a canvas while it is wet: the spread pass rounds
+/// `spread_rate / 4 · difference` to a byte, and at the shipped rate a difference of 25 moves one. A cone's neighbouring
+/// texels differ by 23 at most, so nothing leaves it. With the substrate soaking nothing (`absorbency` 0) six hundred ticks,
+/// under both gravities, leave every byte of a cone as it was painted, up to the largest that holds no more than the drip pass
+/// leaves in a texel (`drip_rate`, 0.35 of 255: a drop thicker than that sheds the excess downhill, which is a drop beginning
+/// to run). With the shipped substrate the drying takes its share from the rim in, which is the soak's own design ("faint
+/// spatter soaks away to nothing"); that only ever *shrinks* a cone, and it never grows or moves it. (The speck this replaces went
+/// from 4.5 texel squares of blood on a bump of 255 to a plateau of 77 and a diamond, over the first hundred ticks.)
+#[test]
+fn a_cone_does_not_creep_while_it_dries() {
+    let tick_for = |canvas: &mut WetCanvas, s: &WetSettings, ticks: u32| {
+        for tick in 1..=ticks {
+            let gravity = if tick < ticks / 2 { Vec2::new(0.0, 1.0) } else { Vec2::new(1.0, 0.0) };
+            canvas.tick(tick, gravity, s);
+        }
+    };
+    let bytes = |canvas: &WetCanvas| (0..64u32).flat_map(|y| (0..64u32).map(move |x| (x, y))).map(|(x, y)| canvas.amount_at(x, y)).collect::<Vec<u8>>();
+    let rinsed = WetSettings { absorbency: 0.0, ..WetSettings::default() };
+    for r in [1.0f32, 1.5, 2.0, 3.0] {
+        let (_images, mut canvas) = scratch(64);
+        canvas.paint_cone(Vec2::new(30.4 / 64.0, 30.6 / 64.0), [r, r], Vec2::X, 0);
+        let painted = bytes(&canvas);
+        assert!(painted.iter().any(|&b| b > 0), "the premise: a cone of radius {r} painted nothing");
+        tick_for(&mut canvas, &rinsed, 600);
+        assert_eq!(painted, bytes(&canvas), "a cone of radius {r} crept: blood moved on a canvas whose substrate takes none");
+    }
+    for r in [1.5f32, 2.0, 3.0, 4.0] {
+        let (_images, mut canvas) = scratch(64);
+        canvas.paint_cone(Vec2::new(30.4 / 64.0, 30.6 / 64.0), [r, r], Vec2::X, 0);
+        let before = drawn(&canvas, 16, 16, 28);
+        tick_for(&mut canvas, &WetSettings::default(), 600);
+        let after = drawn(&canvas, 16, 16, 28);
+        assert!(after.area <= 1.02 * before.area, "a cone of radius {r} grew from {} to {} texel squares while it dried", before.area, after.area);
+        assert!(after.area >= 0.3 * before.area, "a cone of radius {r} was soaked from {} to {} texel squares in a third of its drying", before.area, after.area);
+        assert!(after.centroid.distance(before.centroid) <= 0.15, "a cone of radius {r} moved from {:?} to {:?}", before.centroid, after.centroid);
+    }
+}
+
+/// A cone is a pure function of its arguments, and is placed to a fraction of a texel: two canvases painted alike hold
+/// the same bytes, and one painted a twentieth of a texel off does not.
+#[test]
+fn a_cone_is_reproducible_and_is_placed_finely() {
+    let paint = |dx: f32| {
+        let (_images, mut canvas) = scratch(64);
+        for i in 0..12 {
+            let f = i as f32;
+            canvas.paint_cone(Vec2::new((10.0 + 3.7 * f + dx) / 64.0, (12.0 + 2.9 * f) / 64.0), [0.8 + 0.2 * f, 0.7 + 0.1 * f], Vec2::new(f.cos(), f.sin()), 5);
+        }
+        canvas.digest()
+    };
+    assert_eq!(paint(0.0), paint(0.0), "a cone depends on something other than its arguments");
+    assert_ne!(paint(0.0), paint(0.05), "a cone is placed on a whole texel");
+}
+
+/// **A drop too small to draw is drawn at the smallest that can be**, not left out: a stain of a hundredth of a texel
+/// is a drop of `CONE_MIN_SEMI`, so a floor that took a hundred of them shows a hundred.
+#[test]
+fn a_cone_too_small_to_draw_is_drawn_at_the_least() {
+    use bevy_carnage::wetmap::CONE_MIN_SEMI;
+    for r in [0.01f32, 0.2, 0.5] {
+        let (_images, mut canvas) = scratch(64);
+        canvas.paint_cone(Vec2::new(30.5 / 64.0, 30.5 / 64.0), [r, r], Vec2::X, 1);
+        let d = drawn(&canvas, 20, 20, 20);
+        let least = std::f32::consts::PI * CONE_MIN_SEMI * CONE_MIN_SEMI;
+        assert!(d.area >= 0.7 * least && d.area <= 1.3 * least, "a cone of radius {r} was drawn {} texel squares; the least is {least}", d.area);
+    }
+}
+
+/// Nonsense is refused and writes nothing, a cone at the canvas's edge is clipped and never wrapped to the far side, and one
+/// wider than the largest a cone draws is clamped to it.
+#[test]
+fn a_cone_refuses_nonsense_and_is_clipped_at_the_edge() {
+    let (_images, mut canvas) = scratch(32);
+    let centre = Vec2::new(0.5, 0.5);
+    for (uv, semi, direction) in [
+        (Vec2::new(f32::NAN, 0.5), [1.0, 1.0], Vec2::X),
+        (centre, [f32::NAN, 1.0], Vec2::X),
+        (centre, [1.0, f32::INFINITY], Vec2::X),
+        (centre, [0.0, 0.5], Vec2::X),
+        (centre, [1.0, -0.5], Vec2::X),
+        (centre, [1.0, 1.0], Vec2::new(f32::NAN, 0.0)),
+    ] {
+        canvas.paint_cone(uv, semi, direction, 1);
+    }
+    assert_eq!(coverage(&canvas), 0, "a refused cone wrote");
+    assert!(!canvas.is_dirty(), "a refused cone dirtied the canvas");
+    // On the corner: a quarter of it is on the canvas, and none wraps to the far corner.
+    canvas.paint_cone(Vec2::ZERO, [2.0, 2.0], Vec2::X, 1);
+    assert!(canvas.amount_at(0, 0) > 0, "a cone on the corner left it bare");
+    assert_eq!(canvas.amount_at(31, 31) + canvas.amount_at(31, 0) + canvas.amount_at(0, 31), 0, "a cone wrapped to the far side");
+    // Far past the largest a cone draws: clamped to it, not drawn at a hundred texels.
+    let (_images, mut huge) = scratch(64);
+    huge.paint_cone(centre, [100.0, 100.0], Vec2::X, 1);
+    let d = drawn(&huge, 12, 12, 40);
+    let max = std::f32::consts::PI * bevy_carnage::wetmap::CONE_MAX_SEMI.powi(2);
+    assert!(d.area <= 1.1 * max, "a cone of a hundred texels was drawn {} texel squares (the largest is {max})", d.area);
+}

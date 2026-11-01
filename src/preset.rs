@@ -1032,25 +1032,28 @@ fn shape_on(gore: &Gore, shape: &StainShape, texels: u32) -> StainShape {
     }
 }
 
-/// **How many texels across a droplet's stain must be before the canvas draws it as a stamp**: `4`. Under it the stain
-/// is a speck ([`paint_drop`]).
-const FINE_TEXELS: f32 = 4.0;
+/// **How many texels across a droplet's stain must be before the canvas draws it as a stamp**: `8`. Under it the stain
+/// is a cone ([`paint_drop`]); it was `4`, and a speck, until `paint_cone`.
+const FINE_TEXELS: f32 = 8.0;
 
 /// **A droplet's stain on a canvas, at the canvas's resolution**: `shape` in metres, painted on `wet` at `uv`.
 ///
 /// From [`FINE_TEXELS`] across it is a stamp, [`shape_on`]'s, with its spines and satellites. **Under it the canvas cannot
-/// draw them, and a stamp is the wrong picture of what it can**, for two reasons that were each measured on the floor at
-/// 12 mm a texel:
+/// draw them, and a stamp is the wrong picture of what it can**, for three reasons that were each measured
+/// (`docs/research/drop-edge.md`):
 ///
-/// - *Coverage.* A stamp's profile saturates only inside about 0.44 of its radius and it is placed on a whole texel, so
-///   a stamp of two texels, whose four texels all lie off its centre, peaked at 73 of 255, one of three at 243 and a
-///   slanted one of one texel at 18; and a stain smaller than the stamp's floor of a texel and a half is drawn as a
-///   whole one. [`WetCanvas::paint_speck`] lays the stain's own area, over a soft round footprint, at its own place to a
-///   fraction of a texel: a 3 mm drop is a tint of a 12 mm texel, a 12 mm one is a saturated texel, and nothing in
-///   between is dimmer than a smaller one.
-/// - *Cost.* The mask holds the whole silhouette, so a spine is a share of the stamp's own width, and on a stain of four
-///   texels the longest is a texel and a half. A two-texel stamp with its spines and satellites rasterised at four
-///   samples a texel cost 45 µs (`hit_tick_cost`), nearly all of it `exp` and `atan2` per sample; a speck costs under 2.
+/// - *Size and shape.* A stamp is a soft profile on a whole texel, and a speck (`WetCanvas::paint_speck`, until 0.8.1 the
+///   answer under four texels) lays the stain's area as a blur: a shader that draws a canvas where it crosses 4 % of full
+///   draws either at one size whatever is under it, two to four texels across for a drop of one, on a grid, a rounded
+///   square. [`WetCanvas::paint_cone`] writes the stain's own edge instead, as a cone of blood whose 4 % level is the ellipse, so
+///   a drop is drawn at the size its stain is, round, at its own place to a fraction of a texel, and never smaller than
+///   `wetmap::CONE_MIN_SEMI` (a drop under a texel and four tenths across is drawn that size, not left out).
+/// - *Creep.* The spread pass diffuses a wet stain over the next hundred ticks into the diamond a four-neighbourhood makes, with a
+///   flat top at a third of full that reads as a pale glint: a stamp of five texels measured 77 of 255 at its middle, from a
+///   stamp of 255. A cone's neighbouring texels differ by less than the pass moves a byte for, so it holds still.
+/// - *Cost.* The mask holds the whole silhouette, so a spine is a share of the stamp's own width, and on a stain of eight
+///   texels the longest is two. A two-texel stamp with its spines and satellites rasterised at four samples a texel cost
+///   45 µs (`hit_tick_cost`), nearly all of it `exp` and `atan2` per sample; a cone costs a few microseconds.
 fn paint_drop(wet: &mut WetCanvas, gore: &Gore, uv: Vec2, shape: &StainShape, tick: u32, edges: &WetSettings) {
     let texels = wet.size();
     let t = texels.max(1) as f32;
@@ -1058,7 +1061,7 @@ fn paint_drop(wet: &mut WetCanvas, gore: &Gore, uv: Vec2, shape: &StainShape, ti
     if major >= FINE_TEXELS {
         wet.paint_uv_with(uv, &shape_on(gore, shape, texels), tick, edges);
     } else {
-        wet.paint_speck(uv, [0.5 * major, 0.5 * minor], Vec2::from(shape.direction), tick);
+        wet.paint_cone(uv, [0.5 * major, 0.5 * minor], Vec2::from(shape.direction), tick);
     }
 }
 
@@ -2326,8 +2329,9 @@ pub const GORE_SPATTER_SPEED_SCALE: f32 = 0.25;
 /// mist it throws 90 more at the floors, **nine for each of those**: they are the same stream (`droplet(wound, i)` is a
 /// pure function of the wound and the ordinal, so ordinals `0..9` are what they were and the mist is ordinals `9..90`), each
 /// is tested against the same surfaces and is blocked by the first it reaches, and the floor takes the ones nothing
-/// blocks, one `crate::wetmap::WetCanvas::paint_speck` apiece. **A wall, a skin and a cloth take no mist**, so what they
-/// take, and what it costs to stamp it, is what it was.
+/// blocks, one `crate::wetmap::WetCanvas::paint_cone` apiece. **A wall, a skin and a cloth take no mist**, so the droplets
+/// they take, and where they land, are what they were (a wall and a skin draw a droplet under eight texels across as `paint_cone`
+/// does, as a floor does).
 ///
 /// **Why a floor's count is the preset's and not the leaf's**, as with [`GORE_SPATTER_SPEED_SCALE`]: the leaf's `2400`
 /// is pinned by `the_spatter_model_is_frozen`, and nine stains on a floor for a shot is what a floor of jam read as. The
@@ -3055,7 +3059,13 @@ fn throw_spray(
                 StainShape { major: radius * 2.4, minor: radius * 1.6, spines: 2, satellites: 1, direction: [0.0, 1.0], seed: seed.wrapping_add(i as u32) }
             }
         };
-        wet.paint_uv_with(l.uv, &shape_on(&s.gore, &shape, texels), tick, edges);
+        // A wall or a skin draws a droplet under `FINE_TEXELS` across as the cone its stain is; a cloth takes the blob it
+        // always has, which its weave and `Soaking` read.
+        if matches!(s.gore.kind, GoreKind::Wall | GoreKind::Skin(_)) {
+            paint_drop(&mut wet, &s.gore, l.uv, &shape, tick, edges);
+        } else {
+            wet.paint_uv_with(l.uv, &shape_on(&s.gore, &shape, texels), tick, edges);
+        }
         if s.gore.kind == GoreKind::Cloth
             && let Some(landings) = soak.get_mut(k)
         {
@@ -6191,11 +6201,15 @@ mod tests {
         assert!(floor_wet > 0.0, "nothing landed on the floor");
     }
 
-    /// **The separate stains on a canvas**: each run of 4-connected texels holding more than 32 of 255, as
-    /// `(texels, widest side in texels)`.
+    /// **The separate stains on a canvas**: each run of 4-connected texels holding more than the canvas's draw edge,
+    /// `DETAIL_EDGE` of 255, as `(texels, widest side in texels)`. A stain is counted where the canvas draws it. Until `paint_cone` it
+    /// was counted at 32 of 255, a level only a drop's blood *diffused over a plateau several times its own area* reached: a
+    /// drop of its own size, whose edge sits at the draw edge and whose middle is a little above it, is a stain a player sees
+    /// and a count of 32 missed it. What the tests ask of the count is unchanged.
     fn stains_on(wet: &WetCanvas) -> Vec<(u32, u32)> {
         let n = wet.size();
-        let lit = |x: u32, y: u32| wet.amount_at(x, y) > 32;
+        let edge = (crate::wetmap::DETAIL_EDGE * 255.0) as u8;
+        let lit = |x: u32, y: u32| wet.amount_at(x, y) > edge;
         let mut seen = vec![false; (n * n) as usize];
         let mut found = Vec::new();
         for y in 0..n {

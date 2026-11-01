@@ -579,6 +579,14 @@ from frame 35, in a 168 by 92 pixel patch at its lower edge; the frames of `skin
 floor in front of the body (`capture_skinned --eye 0,4.2,0.3 --at 0,0,0` does). Each clip is true to the build that recorded
 it and will stay so until it is re-cut.
 
+**Drops (the release after 0.8.1).** A droplet's stain under eight texels across, on a floor, a wall or a skin, is a `WetCanvas::paint_cone`
+(`docs/research/drop-edge.md`), drawn round and at its own size where the speck and the stamp drew a rounded square two to three
+times too big that diffused into a diamond. `docs/media/drops.png` is frame 359 of the floor view and of `--through`, 0.8.1 beside the
+change. The committed clips of the preset and of `--through`, `--guard`, `--break`, `--shirt` and the default were recorded before it, with `vfx`, and **cannot be re-cut
+here** (`vfx` does not build on Bevy 0.20, and the recorders without it drop the GPU bursts those clips carry): each is true to the
+build that recorded it and keeps the old drops until it is re-cut. On the headless recorders without `vfx`, `capture_skinned`'s default,
+`--break`, `--shirt`, `--through`, `--guard` and `--blows` and `capture_preset` change digest and frames; `--stroll` and `--quiet` do not.
+
 ### `capture_skinned --guard --slow 4` — a hit, slowed four times
 
 ![Slowed four times: one shot through the forearm held across the mannequin's chest throws a fan of thin red streaks from both wounds, which slow and shorten as they fly, and a soft red mist hangs where the shot went in](skinned_spray.gif)
