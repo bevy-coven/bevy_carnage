@@ -3740,3 +3740,37 @@ pass	seq	phase	kind	category	tool	start	seconds	detail
 15	517	orient	model	model		2026-11-01T03:08:59Z	2.1	
 15	518	orient	tool	read files	read	2026-11-01T03:09:01Z	0.0	Reading the README what-you-can-do list :: README.md:58-70
 15	519	orient	model	model		2026-11-01T03:09:01Z	7.1	
+15	520	orient	tool	wait: gate	wait	2026-11-01T03:09:08Z	1448.4	Waiting for the merged-tree gate
+15	521	orient	model	model		2026-11-01T03:33:16Z	4.5	
+15	522	orient	tool	edit files	edit	2026-11-01T03:33:21Z	0.0	Adding the README line for the drops :: [README.md#5EDE] PUT >63: +- **Throw a spray that reads as drops**: each droplet a wound throws lands as its own round stain at the size it is, on a floor, a wa
+15	523	orient	model	model		2026-11-01T03:33:21Z	3.7	
+15	524	orient	tool	cargo test	bash	2026-11-01T03:33:24Z	0.0	[launched bg_24] Re-running the README tests and doctests :: cd /Users/ladvien/bevy_carnage_loop && wc -l README.md && (cargo test --test readme 2>&1 | grep -E "^test result|FAILED|error") && (cargo test --doc 2>&1 | grep
+15	525	orient	model	model		2026-11-01T03:33:24Z	2.7	
+15	526	orient	tool	wait: tests	wait	2026-11-01T03:33:27Z	48.5	Waiting for README tests and doctests
+15	527	orient	model	model		2026-11-01T03:34:16Z	5.0	
+15	528	orient	tool	push gate	bash	2026-11-01T03:34:21Z	1.9	Committing the release and pushing main :: cd /Users/ladvien/bevy_carnage_loop && git status --short && git add CHANGELOG.md Cargo.toml Cargo.lock README.md docs/guide/history.md && git commit -q -m "rel
+15	529	orient	model	model		2026-11-01T03:34:23Z	3.8	
+15	530	orient	tool	git	bash	2026-11-01T03:34:26Z	1.5	Inspecting what landed on origin/main :: cd /Users/ladvien/bevy_carnage_loop && git fetch -q origin && git log --oneline HEAD..origin/main && git diff --stat HEAD...origin/main | tail -8
+15	531	orient	model	model		2026-11-01T03:34:28Z	5.2	
+15	532	orient	tool	push gate	bash	2026-11-01T03:34:33Z	2.5	Merging the command-file change and pushing main :: cd /Users/ladvien/bevy_carnage_loop && git merge --no-edit origin/main 2>&1 | tail -2 && git push origin main 2>&1 | tail -2 && git log --oneline -4
+15	533	orient	model	model		2026-11-01T03:34:36Z	8.2	
+15	534	orient	tool	cargo publish	bash	2026-11-01T03:34:44Z	0.0	[launched bg_25] Dry-running the publish :: cd /Users/ladvien/bevy_carnage_loop && git status --short && (cargo publish --dry-run 2>&1 | tail -8)
+15	535	orient	model	model		2026-11-01T03:34:44Z	3.1	
+15	536	orient	tool	wait: release	wait	2026-11-01T03:34:47Z	47.9	Waiting for the publish dry run
+15	537	orient	model	model		2026-11-01T03:35:35Z	4.0	
+15	538	orient	tool	cargo publish	bash	2026-11-01T03:35:39Z	0.0	[launched bg_26] Publishing bevy_carnage 0.8.2 to crates.io :: cd /Users/ladvien/bevy_carnage_loop && cargo publish 2>&1 | tail -6
+15	539	orient	model	model		2026-11-01T03:35:39Z	2.8	
+15	540	orient	tool	wait: release	wait	2026-11-01T03:35:42Z	16.5	Waiting for the publish
+15	541	orient	model	model		2026-11-01T03:35:58Z	4.4	
+15	542	orient	tool	push gate	bash	2026-11-01T03:36:03Z	2.6	Tagging v0.8.2 and verifying it on crates.io :: cd /Users/ladvien/bevy_carnage_loop && git tag -a v0.8.2 126949a -m v0.8.2 && git push origin v0.8.2 2>&1 | tail -1 && cargo info bevy_carnage@0.8.2 2>&1 | head
+15	543	orient	model	model		2026-11-01T03:36:05Z	6.0	
+15	544	orient	tool	shell	bash	2026-11-01T03:36:11Z	2.0	Measuring what this pass created before cleanup :: df -h /Users/ladvien | tail -1; du -sh /tmp/c8 /tmp/c8-semver /Users/ladvien/target/bevy_carnage-loop/package ~/c8_base 2>/dev/null; cd /Users/ladvien/bevy_carn
+15	545	orient	model	model		2026-11-01T03:36:13Z	6.2	
+15	546	orient	tool	git	bash	2026-11-01T03:36:19Z	8.2	Removing this pass's worktree and scratch :: cd /Users/ladvien/bevy_carnage_loop && git worktree remove ~/c8_base && rm -rf /tmp/c8 /tmp/c8-semver /Users/ladvien/target/bevy_carnage-loop/package && git wor
+15	547	orient	model	model		2026-11-01T03:36:28Z	11.8	
+15	548	orient	tool	push gate	bash	2026-11-01T03:36:39Z	2.6	Appending the release and cleanup log, pushing main :: cd /Users/ladvien/bevy_carnage_loop && cat >> docs/loop-log.md <<'EOF' **Merged tree and release.** Merged `loop/iter-8` into `main` (`5361e25`, `--no-ff`; `ori
+15	549	orient	model	model		2026-11-01T03:36:42Z	13.3	
+15	550	orient	tool	learn	learn	2026-11-01T03:36:55Z	0.0	Recording the iteration's durable lessons
+15	551	orient	model	model		2026-11-01T03:36:55Z	3.6	
+15	552	orient	tool	git	bash	2026-11-01T03:36:59Z	1.6	Final check that everything is pushed and the tree is clean :: cd /Users/ladvien/bevy_carnage_loop && git status --short && git fetch -q origin && git rev-parse HEAD origin/main && git tag --points-at 126949a
+15	553	orient	model	model		2026-11-01T03:37:00Z	12.7	
