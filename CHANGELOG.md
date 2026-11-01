@@ -6,6 +6,8 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-11-01
+
 ### Added
 
 - **`viscera::soaked_tube(strand, sides, floor_y)`, `soak`, `soak_tint`, `Strand::with_seed` and `seed`**, and their constants (`LUMP_MAJOR`, `LUMP_MAJOR_NODES`,
