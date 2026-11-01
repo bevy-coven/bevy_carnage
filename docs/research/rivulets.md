@@ -130,3 +130,22 @@ Kept under `/tmp/c10/refs/`, never committed.
    blood round it, no drape.
 5. `https://commons.wikimedia.org/wiki/File:Bloodywoman.jpg` (Mikamatto, CC BY 2.0): a thin streak across a forehead 3 to 4 mm wide and a glossy drop on the lip.
 6. Tom Savini, as retold at `https://frombeautytoblood.substack.com/p/tom-savini-made-gore-mean-something`: "A wound has to read true, not just wet."
+
+## Outcome (iteration 10): not shipped, and why
+
+The change was built (`rivulet_width`, per-well variety, an outward lean; `preset::bleed`), captured on the real renderer and **reverted**, because the
+canvas bounds what a run can be and the item could not reach GREAT inside it. Measured with the real `WetCanvas` (a throwaway integration test that
+painted the wells' stamps and ticked the canvas, read through the shader's cubic B-spline at its 4 % edge; removed):
+
+- **A thin stamp widens.** The spread pass lets a byte go only from a difference of 25 (`round(0.02 x d)`), so a film stops creeping when its slope
+  is under 25 of 255 a texel. A stamp of three texels at full coverage (the least that runs: a stamp of two peaks at 73, under the drip threshold of 89)
+  is six or seven texels wide after 400 ticks. At the mannequin's 3.5 mm a texel that is 2 cm, not 4 mm.
+- **The wells are too close for threads.** The wells sit on the wound's rim, `radius x density` from its centre, fanned 50 degrees either side of
+  downhill: for a 3.5 cm hole on that canvas, 5 texels apart. Threads of six texels at five apart are one sheet, which is what the three runs were. Fanned
+  to 69 degrees (9 texels apart) they still merge as they widen, and the result was a wide skirt with one thin finger, worse than a curtain.
+- **A rivulet that wanders needs a different drip pass.** `DripStep::across` is a function of the line alone, so every texel of a line steps alike and
+  at most one parcel arrives at a texel: that is the conservation argument of the pass. A per-texel sideways step is a bijection of a row, or a rule for
+  two parcels reaching one texel without a byte lost or a texel over 255. Named, not built.
+
+What would move it: a canvas twice as fine along the run (the physical width needs it: 4 mm is a texel and a third at 3.5 mm), a drip pass that conserves
+under a per-texel sideways step, and wells spaced by the wound's circumference and not its area. The derivation above stands and is the model for it.
