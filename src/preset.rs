@@ -1034,7 +1034,7 @@ fn shape_on(gore: &Gore, shape: &StainShape, texels: u32) -> StainShape {
 
 /// **How many texels across a droplet's stain must be before the canvas draws it as a stamp**: `4`. Under it the stain
 /// is a speck ([`paint_drop`]).
-const FINE_TEXELS: f32 = 4.0;
+const FINE_TEXELS: f32 = 8.0;
 
 /// **A droplet's stain on a canvas, at the canvas's resolution**: `shape` in metres, painted on `wet` at `uv`.
 ///
@@ -1045,9 +1045,9 @@ const FINE_TEXELS: f32 = 4.0;
 /// - *Coverage.* A stamp's profile saturates only inside about 0.44 of its radius and it is placed on a whole texel, so
 ///   a stamp of two texels, whose four texels all lie off its centre, peaked at 73 of 255, one of three at 243 and a
 ///   slanted one of one texel at 18; and a stain smaller than the stamp's floor of a texel and a half is drawn as a
-///   whole one. [`WetCanvas::paint_speck`] lays the stain's own area, over a soft round footprint, at its own place to a
-///   fraction of a texel: a 3 mm drop is a tint of a 12 mm texel, a 12 mm one is a saturated texel, and nothing in
-///   between is dimmer than a smaller one.
+///   whole one. [`WetCanvas::paint_cone`] draws the stain's own edge, a round line at its own size, at its own place to a
+///   fraction of a texel: a 3 mm drop is a drop a quarter of a texel across on a 12 mm floor, drawn no smaller than the
+///   canvas can show, and a 12 mm one is a disc of a texel.
 /// - *Cost.* The mask holds the whole silhouette, so a spine is a share of the stamp's own width, and on a stain of four
 ///   texels the longest is a texel and a half. A two-texel stamp with its spines and satellites rasterised at four
 ///   samples a texel cost 45 µs (`hit_tick_cost`), nearly all of it `exp` and `atan2` per sample; a speck costs under 2.
@@ -1058,7 +1058,7 @@ fn paint_drop(wet: &mut WetCanvas, gore: &Gore, uv: Vec2, shape: &StainShape, ti
     if major >= FINE_TEXELS {
         wet.paint_uv_with(uv, &shape_on(gore, shape, texels), tick, edges);
     } else {
-        wet.paint_speck(uv, [0.5 * major, 0.5 * minor], Vec2::from(shape.direction), tick);
+        wet.paint_cone(uv, [0.5 * major, 0.5 * minor], Vec2::from(shape.direction), tick);
     }
 }
 
@@ -3055,7 +3055,13 @@ fn throw_spray(
                 StainShape { major: radius * 2.4, minor: radius * 1.6, spines: 2, satellites: 1, direction: [0.0, 1.0], seed: seed.wrapping_add(i as u32) }
             }
         };
-        wet.paint_uv_with(l.uv, &shape_on(&s.gore, &shape, texels), tick, edges);
+        // A wall or a skin draws a droplet under `FINE_TEXELS` across as the cone its stain is; a cloth takes the blob it
+        // always has, which its weave and `Soaking` read.
+        if matches!(s.gore.kind, GoreKind::Wall | GoreKind::Skin(_)) {
+            paint_drop(&mut wet, &s.gore, l.uv, &shape, tick, edges);
+        } else {
+            wet.paint_uv_with(l.uv, &shape_on(&s.gore, &shape, texels), tick, edges);
+        }
         if s.gore.kind == GoreKind::Cloth
             && let Some(landings) = soak.get_mut(k)
         {
@@ -6191,11 +6197,15 @@ mod tests {
         assert!(floor_wet > 0.0, "nothing landed on the floor");
     }
 
-    /// **The separate stains on a canvas**: each run of 4-connected texels holding more than 32 of 255, as
-    /// `(texels, widest side in texels)`.
+    /// **The separate stains on a canvas**: each run of 4-connected texels holding more than the canvas's draw edge,
+    /// `DETAIL_EDGE` of 255, as `(texels, widest side in texels)`. A stain is counted where the canvas draws it. Until `paint_cone` it
+    /// was counted at 32 of 255, a level only a drop's blood *diffused over a plateau three times its own area* reached: a
+    /// drop of its own size, whose edge sits at the draw edge and whose middle is a little above it, is a stain a player sees
+    /// and a count of 32 missed it. What the tests ask of the count is unchanged.
     fn stains_on(wet: &WetCanvas) -> Vec<(u32, u32)> {
         let n = wet.size();
-        let lit = |x: u32, y: u32| wet.amount_at(x, y) > 32;
+        let edge = (crate::wetmap::DETAIL_EDGE * 255.0) as u8;
+        let lit = |x: u32, y: u32| wet.amount_at(x, y) > edge;
         let mut seen = vec![false; (n * n) as usize];
         let mut found = Vec::new();
         for y in 0..n {
