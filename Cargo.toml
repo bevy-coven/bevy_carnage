@@ -402,7 +402,7 @@ categories = ["game-development", "graphics"]
 # the clips. Excluded here and served from the repository's `main` branch instead; `README.md`'s image
 # links are absolute for exactly this reason. `docs/DEMOS.md` stays in the package and its relative links
 # resolve in the repository, where it is actually read.
-exclude = ["docs/*.gif"]
+exclude = ["docs/*.gif", "docs/media/*.gif"]
 
 [dependencies]
 # The umbrella with defaults off, matching `bevy_speech_bubbles`' precedent in the parent workspace.

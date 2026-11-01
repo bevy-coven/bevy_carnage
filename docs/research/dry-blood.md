@@ -73,8 +73,10 @@ physics (pigment mass does not leave).
 by the film's own red so a thin film stays lighter) is baked **at its two knots** into new rows of the flesh tables
 (`flesh::aged_blood_lut`, below the blood table, rows `BLOOD_ROW0 + 4 ..`), and the shader interpolates between the stops by
 `1 - wetness`, in encoded sRGB, exactly as `appearance_with_fresh` does, then decodes. The age is read from the **unsmoothed** wet map,
-the youngest of the 3 by 3 texels round the one a fragment is in: the smoothed wetness falls to zero at the rim of any drop (the
-bare texels beside it carry none), which would draw a brown ring on every fresh one. One spectral model, as for the fresh table;
+averaged over the four by four texels the spline reads, **by the spline's own weights and counting only the texels that have blood
+in them** (`R > 0`; a dried texel has blood and no wetness): the smoothed wetness falls to zero at the rim of any drop (the
+bare texels beside it carry none), which would draw a brown ring on every fresh one, and the youngest-of-nine that was tried first drew
+the texel boundaries between two ages as hard lines. One spectral model, as for the fresh table;
 no texture, sampler, uniform or binding is added, so the WebGL2 limits `CLAUDE.md` keeps are as they were.
 
 ## Parameters
@@ -83,7 +85,7 @@ no texture, sampler, uniform or binding is added, so the WebGL2 limits `CLAUDE.m
 |---|---|---|
 | `STAIN_FLOOR` | 33 of 255 | **Tuned, and says so.** `DETAIL_EDGE` (10) + `CONE_SLOPE` (23): the least a texel holds and still keeps a cone's rim where it was drawn. |
 | aged stops | `t = 0.35` and `1.0` | Not new: the knots of `appearance_with_fresh` (Bremmer 2011/2012: oxidation is mostly the early, fast phase). |
-| age read | youngest of 3 by 3 texels, `A` byte | **Design default.** The smoothed byte would ring every fresh drop. |
+| age read | spline-weighted mean of the `A` byte over texels with blood, 4 by 4 | **Design default.** The smoothed byte would ring every fresh drop; the youngest of nine was blocky. |
 | new rows | 8, `BLOOD_ROW0 + 4 ..= + 11` | Own layout; `lut_digest` (subsurface and blood tables) is unchanged, the new rows have a golden of their own. |
 
 ## Validation targets
@@ -103,7 +105,7 @@ no texture, sampler, uniform or binding is added, so the WebGL2 limits `CLAUDE.m
 7. **Look**, against Refs Q and N: wall drops that survive the drying, at the count they had; a dried pool and wound dark brown and
    matte, thin edges lighter than thick cores; no brown ring on a fresh drop.
 8. **WebGL2**: `flesh.wesl` re-checked in a browser (headless Chrome over SwiftShader, the `carnage_web` example with `webgl2`).
-9. **Cost**: `hit_tick_cost` and `bench_carnage` no slower; the shader's extra 17 taps are for blood pixels only.
+9. **Cost**: `hit_tick_cost` and `bench_carnage` no slower; the shader's 16 extra reads (and 8 extra table taps, 4 to 8 a blood pixel) are for blood pixels only.
 
 ## Deviations
 
@@ -113,9 +115,39 @@ no texture, sampler, uniform or binding is added, so the WebGL2 limits `CLAUDE.m
 - **The substrate no longer takes thin films at all.** A texel under 33 of 255 is never soaked. A caller's film of 5 of 255 (a smear)
   persisted forever where it used to vanish; that is the pinned-footprint physics, not a bug.
 - **Every recorder digest where blood soaks moves** (the bytes are different); the flesh tables' golden does not.
-- **The shader reads the wet map unsmoothed (`textureLoad`), 9 times a blood pixel.** Marked a design default.
+- **The shader reads the wet map unsmoothed (`textureLoad`), 16 times a blood pixel.** Marked a design default.
 - **The cut-film (`blood_over` over exposed tissue) is not aged**: it has no age (a crater's graze is wet with its own blood by
   construction).
+
+## Results (graded against the targets above)
+
+1. **Footprint: met.** `a_dried_drop_keeps_its_footprint`: the drawn area of a cone of radius 0.8, 1, 1.5, 2, 3 and 4 texels after a full drying
+   stays within 90 to 102 % of what was painted (the test's bounds) and its centroid within 0.15 texel; it **fails on 0.8.2** (radius 0.8: 2.08 texel squares to 0,
+   first assertion). On the wall of `capture_skinned --through --floor 512` (close camera, one region): 0.8.2 37 drops and 1 884 px at
+   6 s, 19 and 626 px dried; now 40 and 2 478 px at 6 s, 40 and 2 490 px dried.
+2. **A pool is still soaked: met.** `the_substrate_takes_a_pools_film_and_nothing_under_a_stains_depth`: with drip and spread off a
+   pool ends at exactly 217 and no texel gains, loses over 38, goes under `min(had, 33)` or changes footprint; a faint cone is byte for byte.
+3. **Mass: met.** The drip and spread conservation tests pass untouched.
+4. **Nothing else moves: met.** The flesh tables' golden, `hash_f32` and every bloodstain, flaymap, laceration and cross-section golden pass
+   untouched (gate: 466 passed, 0 failed, 8 ignored); `bench_carnage`'s digest is `0x4366a8b64352c85a` before and after.
+5. **The colour walk is the CPU's: met in the form that can fail.** The baked table is `appearance_with_fresh` asked at the two knots;
+   `the_aged_blood_table_is_the_cpus_walk_and_only_darkens` holds red monotone (fresh, methaemoglobin, hemichrome) at every column and row
+   and a thin dried film lighter than a thick one over white, and `the_aged_blood_table_is_frozen` locks the bytes (`5508892977834009270`).
+6. **Reproducibility: met.** Every `capture_skinned` variant and `capture_preset`, twice each, prints equal digests; `flay=` and `dermis=`
+   are 0.8.2's in every variant; `--quiet` keeps `f83a631a7426808d`. Moved on purpose: default and `--blows` `90b95dfc7aa439cd` to
+   `5f8eb5573aea933f`, `--break` `8bf75a8ea2659fd3` to `f89e1d5e3bcfc119`, `--shirt` `a67f17b0511b3a83` to `579e84b9d3ccfe51`, `--through`
+   `aef30ab245128785` to `cfcabf28b3d9b0a6`, `--guard` `eac0328e6c4b8ec9` to `33118d5449e57748`, `--stroll` `8ebe761bcc8b4d83` to
+   `6cb633ae2cf7941c`, `capture_preset` `7ed6213d12a430ec` to `04758d82ec10aa5b`.
+7. **Look: met except two of its clauses.** Wall drops survive at the count they had, dried; the pool, the wound's crust and the drops are
+   dark brown and matte; a fresh drop beside an old one is a different colour and wears no brown ring. **Not met: "thin edges lighter than
+   thick cores"** (a dried drop is one flat tone: `appearance.rim`, the drying front, is not read) **and the hue against Ref Q** (ours is
+   darker and about 2.5 times less saturated: R minus G of 25 against Ref Q's 64 to 78; the walk's hemichrome is authored, 0.26, 0.11, 0.08,
+   and the films are thin over a grey wall). Both are named in the log's backlog.
+8. **WebGL2: met.** `flesh.wesl` as shipped builds on WebGL2 (headless Chrome 143 over SwiftShader, `carnage_web` built with bevy's
+   `webgl2`): no validation or compile error, 2 455 distinct colours in the frame; the same harness fails on a shader with one added
+   type error. The first draft of this shader named two locals `from` and `to`, reserved words, which the native renderer rejected
+   (an all-black frame) before any WebGL2 run.
+9. **Cost: met.** `hit_tick_cost` (the whole run, instructions retired, four alternations): 13.66 billion before, 13.81 after (+1.1 %).
 
 ## Pending index
 
