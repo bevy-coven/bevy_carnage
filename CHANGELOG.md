@@ -6,6 +6,34 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+### Changed
+
+- **A wounded scene costs the caller about two fifths less a tick, with every byte unchanged** (iteration 7, AG-146,
+  `docs/research/wet-tick-cost.md`). A heavy wound facing a wall took 28 ms of one tick, and the blood it left kept the scene at
+  26 ms a tick for as long as it was wet: the canvases' own passes were the larger share of every hit, and the stamp the rest.
+  Five reductions, each exact. `bloodstain::stain::rasterise` tabulates, per angular bucket, which spines can reach it and an
+  upper bound on the rim there, so a texel outside the stain skips its spines and the rest walk only the spines that can reach
+  them, in the same order (`rasterise_writes_the_mask_its_definition_does`, widened to the ceiling of 24 spines and 24
+  satellites and to the impacts `stain_shape` makes, holds every byte to the mask by definition). `WetCanvas`'s shade pass keeps a
+  table on `(level, age)` where one remembered pair thrashed along every rim; its spread reads the flux from a table of the 511
+  differences and its soak is tabulated by age; both skip the bare texels whose surroundings are bare, which is most of what a
+  tick covers; and **a tick now covers a spray's own blood and not the tiles it fell in**: the live tiles kept each tile's
+  bounding rectangle of blood, which for a spray of fine drops was 9 388 texels covered for 1 144 with blood
+  (`a_spray_is_covered_by_its_own_blood_and_not_by_its_tiles` fails on 0.8.0), and the passes are paid per texel covered. The
+  passes are held to their definitions on every tick (`the_passes_are_what_their_definitions_say`: `wet` and every pixel of both
+  images, four scripted runs). Median hit tick of 45 hits one tick apart, alternated with 0.8.0 eight times on a loaded host:
+  a bullet on a floor 4.5 to 3.0 ms, facing a wall 6.9 to 4.8, a heavy wound 8.3 to 5.0, a heavy wound facing a wall 28.5 to
+  18.7; and the tick after the last hit, with nothing new thrown, 4.8 to 2.8, 9.4 to 5.7, 5.6 to 2.8 and 26.5 to 15.4. The whole
+  of `hit_tick_cost` retires 41 % fewer instructions (30.5 to 18.0 billion). **No digest moves**: `bench_carnage`
+  `0x4366a8b64352c85a`, every recorder variant's `digest=`, `flay=` and `dermis=`, and every one of the 6 480 frames the
+  recorders write are 0.8.0's, byte for byte. A canvas holds up to 8 KiB more once it has shaded blood and a byte an age of its
+  drying span (`WetCanvas::heap_bytes` counts both).
+
+### Added
+
+- `preset::tests::hit_tick_cost` also prints `wet_tick_ms_median_*`, the median of the 90 ticks after the last hit with nothing
+  new thrown: every frame of a scene while its blood is wet, which until now nothing measured.
+
 ## [0.8.0] - 2026-10-31
 
 ### Changed
