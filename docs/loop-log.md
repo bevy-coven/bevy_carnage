@@ -819,8 +819,8 @@ each exact (no model, look, default or dial changed):
 
 - `stain::rasterise`: `RimBounds`, a 32-bucket table of which spines can reach each angle and an upper bound on the rim there, rounded
   up by three pads; a texel outside the stain skips its spines (outside the largest bound, its `atan2`), the rest walk only the spines
-  that can reach them in the same order; a texel outside a satellite's disc skips its square root. 8x faster than the mask by
-  definition (22 ms to 2.2 ms for a 96-texel mask).
+  that can reach them in the same order; a texel outside a satellite's disc skips its square root. About 8x faster than the mask by
+  definition (21.6 ms to 2.6 ms for an 84-texel mask of a 6 mm droplet at 25 m/s), on a host whose single runs vary by 30 %.
 - `shade`: a 1024-slot direct-mapped table on `(level, age)` kept between ticks (the one-slot memo thrashed along every rim: 190 ns a
   blood texel), and the wetness byte memoised by age.
 - `spread` reads its flux from a table of the 511 differences; `advance` its soak from a byte table of the age.
@@ -871,8 +871,8 @@ the bare texels, the spans), each measured; stopped because the next levers move
   5.66, 5.56 to 2.84, 26.52 to 15.35. No case slower. Wall time on this host varies by two between single runs (other loops, load 3 to
   7), so the stable number is `/usr/bin/time -l`'s **instructions retired**, repeatable to 0.05 %: the whole run 30.47 billion to 18.03
   (-41 %; 21.5, 35 and 41 % after the first, second and third group of reductions). `bench_carnage` never calls the preset or a canvas:
-  15.75 billion instructions before and 15.75 to 15.80 after; its timing refused ("NO STABLE PLATEAU") in 9 of 13 runs at load 4 to 7, and
-  the four it gave (0.9885, 0.9877 after, 0.9942, 0.9918 before, `carnage_frame_ms`; p99 27.9 to 29.1) are noise around nothing.
+  15.75 billion instructions before and 15.75 to 15.80 after; its timing refused ("NO STABLE PLATEAU") in 11 of 17 runs at load 4 to 7, and
+  the six it gave (`carnage_frame_ms` 0.9885, 0.9877 and 0.9466 after, 0.9942, 0.9918 and 0.7516 before; p99 26.4 to 29.1) are noise around nothing.
 - *Locks and mass*: the gate's `cargo test --no-fail-fast` is green (lib 359 and three ignored, `wetmap` 17, `leaf` 3, `readme` 4, every other
   binary and the doctests); no golden touched. The drip and spread conservation tests pass untouched. No geometry touched.
 - *Gate*, in the loop's order, on the final code: `cargo build` rc 0 30 s; `cargo build --release` rc 0 27 s; `cargo test --no-fail-fast`
