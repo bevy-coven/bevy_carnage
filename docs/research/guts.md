@@ -1,4 +1,4 @@
-# Guts that read as guts: bloodied, lumpy, slumped, glossy
+# Guts that read as guts: bloodied, lumpy, slumped
 
 Iteration 12 (2026-11-01). Item: what a spilled strand of bowel looks like. Ranked first by the owner's run instruction (replicate 80s
 practical-effects gore, "things like *The Thing*"), and by the measurement below: of the seventeen ideas drawn from the reference stills, this is the one that is
@@ -132,8 +132,8 @@ Stills are copyrighted film frames, kept under `/tmp/c12/refs/` for judging and 
   multiplies it. Design default.
 - The soak does not age: a strand's blood does not dry in this pass. The wet maps dry on the canvases, not on a strand, and a strand has no canvas; a strand
   that dried would need a clock, and the viscera module has none (`CLAUDE.md`). Recorded as the next item.
-- The tint is a multiplier, so the strand can only darken from the texture's pink: the bright arterial red of D1 is reached by the film being thick and the
-  coat reflecting, not by adding red.
+- The tint is a multiplier, so the strand can only darken from the texture's pink: the bright arterial red of D1 is reached by the film being thick, not by adding red;
+  and the film's own translucency (D1's guts glow where light passes through them) is not drawn.
 
 ## Pending index
 
@@ -141,3 +141,15 @@ Stills are copyrighted film frames, kept under `/tmp/c12/refs/` for judging and 
 - Lagarde 2013 and the Visual Computer 2020 wet-absorbent paper: abstracts only (paywalled / blog).
 - No home-still paper on **intestinal serosa optical properties** was found (`distill_search`: nothing relevant on the first page); the colour here is
   therefore matched to the reference set, not derived.
+
+## Results (iteration 12)
+
+Final constants: `SOAK_BASE` 0.5, `SOAK_PATCH` 0.5, lumps 0.22 and 0.09, `GUT_ROUGHNESS` unchanged at 0.3. `capture_preset` frame 130, the validation box: reddish pixels
+`(117, 36, 35)`, red minus green 80.3 (target 80; 0.8.5 was 58; D1 101.7), saturation 0.70 (D1 0.77), luminance 53.2 (D1 57.6), 5th percentile 27.9 (D1 16.5), 98th percentile
+110.6 (D1 136.8). A strand in the pool at frame 200 is `(124, 29, 32)` to `(109, 19, 21)`, luminance 44 to 49 against the pool's 67: darker than the pool, as the target asks.
+Every digest of `capture_preset`, `capture_entrails` and the eight `capture_skinned` variants equals 0.8.5's, twice each. Rounds that did not work: the first tint
+(`soak * 0.35 mm`, linear) made every strand one dark red; roughness 0.15 and 0.10 did nothing the eye or the 98th percentile could find; lumps of 0.14 and 0.06 read as a
+smooth pipe from the preset's camera.
+
+**Not done, named (the next items, in order)**: (1) the heap and the web of D1 and T1: more, thinner strands that overlap, and organ blobs; (2) a sharper glint, which needs the
+flesh shader to draw a coat from the material (a `flesh.wesl` change and a 79-minute WebGL2 re-check); (3) slime strings between two surfaces (T3, H1); (4) a strand that dries.
