@@ -633,6 +633,13 @@ the player never sees up close, and the wrong one for the one they shoot.
 - **One gravity direction per canvas.** On a rigid mesh whose UV islands point different ways, blood
   runs correctly on the islands that agree with `gravity_uv`. A skinned part follows the pose at its
   wounds instead, and the same limit holds across the islands it has.
+- **A dried crust cracks only where you can see it, and a drop is not ringed** (0.8.5). Blood dries from its edge in: a pool or a run is
+  a dark crust round a red middle at the half dry, and once dry its deep films are crazed in patches into plates 12 mm across, in the
+  shader, from the film's own extent in the wet map (`docs/research/drying-front.md`). The plates are faded out where they are under 12
+  pixels across and gone under 2, so from the far side of a room a dried pool is a dark crust with no cracks; the same crust seen at arm's
+  length is cracked. A film under a fifth of the canvas's depth (a wall's drops, a smear) has no crust ring and no cracks, so a dried drop
+  is one dark tone. A dried pixel costs 42 more taps of the wet map than a fresh one and the crack lattice where it cracks; fresh blood costs
+  nothing more. The CPU canvas is as it was: no digest moves.
 
 ## Examples
 
