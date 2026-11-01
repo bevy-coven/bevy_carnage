@@ -6,6 +6,48 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+### Changed
+
+- **A drop is drawn at the size it is: round, crisp, and not diffused into a diamond** (iteration 8, AG-147,
+  `docs/research/drop-edge.md`). On a default `GorePlugin` floor and wall the stains of a wound's spray read as rotated squares
+  and rounded diamonds with a pale middle, all about one size, and iteration 6 and 7 put it down to the floor's texel and the
+  flesh shader's edge. It was the canvas's own data. A speck (`paint_speck`) laid the stain's area as a blur twice its size, which a
+  shader draws where it crosses 4 % of full (`WET_EDGE`, `DETAIL_EDGE`): two to four texels across for a drop of one, on a grid a
+  rounded square, and a stamp or a speck then *spread*: the pass rounds `spread_rate / 4 · difference` to a byte from a difference of
+  25, so a wet stain of five texels went from a centre of 255 to a plateau of 77 and the L1 ball of a four-neighbourhood, with every
+  edge at 45°. The new `WetCanvas::paint_cone` writes the stain's own edge instead, after Green's distance fields ("Improved
+  alpha-tested magnification...", Valve, SIGGRAPH 2007): the canvas under a drop is `DETAIL_EDGE − CONE_SLOPE · d` for `d`
+  the signed distance from the edge, which the cubic B-spline the shader reads through reproduces exactly, so the 4 % line is the
+  ellipse. Measured: within 1.5 % of the stain's area from a radius of 1.5 texels at any offset in the texel; round to a fifth of
+  the radius; **with the substrate soaking nothing, 600 ticks leave every byte as painted** (its slope is under the 25 the spread
+  rounds to a byte). `paint_drop` uses it for every droplet a floor, a wall or a skin takes under **eight** texels across
+  (`FINE_TEXELS` was four, and a wall and a skin never took a speck: every droplet there was a spined stamp); a cloth keeps its
+  blob. A drop is drawn no smaller than `CONE_MIN_SEMI` (0.7 texel), and no spine is drawn on a stain under eight texels, where it
+  was under two texels wide. **The look**: a shot into a room leaves a fine spatter of round drops of the sizes the model
+  throws, where it left a field of rounded squares two to three times too big. **Cost**, `hit_tick_cost`, median of six runs
+  alternated with 0.8.1: a heavy wound facing a wall 18.8 to 9.3 ms on its hit tick and 15.5 to 12.1 on every tick after, a wound
+  facing a wall 4.9 to 2.7 and 5.7 to 3.7, a bullet on a floor 3.0 to 2.7; no case slower; the whole run retires 25 % fewer
+  instructions (18.0 to 13.6 billion). **Every digest that has a drop under eight texels moves, on purpose**: `capture_skinned`'s
+  default, `--break`, `--shirt`, `--through`, `--guard` and `--blows`, and `capture_preset`; `--stroll` and `--quiet`, `bench_carnage`
+  (`0x4366a8b64352c85a`) and every golden are 0.8.1's. The drying still takes a thin film: a cone of a texel's radius soaks away
+  by the time it is dry, as faint spatter always has (`absorbency`), and a larger one shrinks from the rim. A cone is not a
+  mass: its bytes do not sum to the stain's area.
+
+### Added
+
+- `WetCanvas::paint_cone(uv, semi, direction, tick)` and `wetmap::{CONE_SLOPE, CONE_MIN_SEMI, CONE_MAX_SEMI}`: see Changed. Six
+  contract tests in `tests/wetmap.rs` (`a_cone_is_drawn_at_the_size_it_was_given_and_round`, `a_cone_is_an_ellipse_along_its_direction`,
+  `a_cone_does_not_creep_while_it_dries`, and the reproducibility, least-size and refusal ones). `paint_speck` and its
+  tests are kept, for a caller who wants a stain's blood as a mass; the preset no longer calls it.
+
+### Fixed
+
+- The test helper `preset::tests::stains_on` counted a stain at 32 of 255, a level only a drop's blood *diffused over a plateau several
+  times its own area* reached; a drop of its own size has an edge at the draw edge (`DETAIL_EDGE`, 10 of 255) and a middle a little
+  above it, and was missed. It counts at the draw edge now; what `a_shot_leaves_a_fan_of_drops_on_the_floor_not_a_few_blobs` asks of
+  the count (at least 15 stains, four times the mist-free count, none wider than 12 cm) is unchanged. Assumed decision (owner may
+  override): the assertion's *thresholds* stand; its *measure* followed the model it measured.
+
 ## [0.8.1] - 2026-10-31
 
 ### Changed

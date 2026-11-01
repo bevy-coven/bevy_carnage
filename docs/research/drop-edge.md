@@ -119,7 +119,8 @@ weave and `Soaking` read it). Stamps, with their spines and satellites, are for 
 
 ## Validation targets
 
-Set before the code; graded in the log.
+The size and round targets were set from the Python model before the Rust was written and their tolerances widened to what the
+Rust measured at a radius of one texel (the first test failed at 8 % and 0.2); the rest were set before. Graded in the log.
 
 1. **Size.** The area a reader draws at `DETAIL_EDGE` is the stain's own, `π a b`: within 5 % from a radius of 1.5 texels and
    within 15 % at one, at every offset (`a_cone_is_drawn_at_the_size_it_was_given_and_round`).
@@ -147,6 +148,17 @@ Set before the code; graded in the log.
 - **The wall and the skin lose the stamp's spines on a stain under eight texels.** They were under two texels wide and did not
   read (iteration 7's finding); a drop reads as an ellipse along its throw. A *tail* (the exclamation mark of an oblique
   impact) is the next lever and is not built here.
+- **No shader change, so no WebGL2 re-check.** `flesh.wesl` and `flesh_prepass.wesl` are byte for byte as they were, with no new uniform,
+  texture or tap; the change is in the bytes a canvas holds. `the_flesh_tables_are_frozen` is untouched.
+- **A test helper's measure changed, its assertions did not.** `preset::tests::stains_on` counted a stain at 32 of 255, a level
+  only a diffused plateau reached (a cone of a texel's radius peaks at 33 of 255 at its best offset and 18 at its worst), so
+  `a_shot_leaves_a_fan_of_drops_on_the_floor_not_a_few_blobs` counted two stains on the new floor where the frames show dozens. It
+  counts at the draw edge (`DETAIL_EDGE`, 10 of 255) now; the assertions (15 stains, four times the mist-free count, none wider than 12 cm) are as they
+  were. **Assumed decision (owner may override):** the alternative, a floor at 512 texels by default, is 8 MiB a floor and a
+  caller's call (iteration 6).
+- **A thin film soaks away, and a cone is one.** The substrate's cut (`absorbency`, 38 bytes over the drying span) takes a cone's rim
+  and, from a radius of about one texel down, all of it: fine spatter is gone by the time it is dry, as a speck's was. Dried blood
+  in Ref 7's photograph stays, so this is a deviation from the references that the pass inherits and does not fix.
 
 ## Pending index
 
@@ -175,8 +187,10 @@ equivalent diameters in the image's own pixels).
    <https://commons.wikimedia.org/wiki/File:Blood,_guts_and_gore_galore,_Moulage_crew_brings_horror_to_life_140723-A-IX584-092.jpg>.
    The floor: a drip and spatter field on a grey floor, round opaque drops from 1 px to 90 px, one cluster merged; the gel wound
    above it is the wound-sheen item.
-3. **Ref 8**: the same photograph series, `...140723-A-IX584-057.jpg`, public domain: wound makeup.
+3. **Ref 8**: the same photograph series, `...140723-A-IX584-057.jpg`, public domain: moulage gel appliances laid out on a table, each a
+   translucent gel piece with dark glossy blood in a cut. Wound makeup, for the wound-sheen item; not used for the drops.
 4. *Evil Dead* (2013), KNB's methylcellulose blood, <https://filmhounds.co.uk/2023/04/17/gory-groovy-the-splatter-of-evil-dead/>,
-   press, reference only: thrown blood is a mass of beads, dark and glossy, a wide size range.
+   press page (read as text, not as an image, this pass; iteration 6 measured its still): the craft source for thrown blood being
+   thick enough to keep a drop's shape.
 5. *Terrifier 3* (2024), Variety, <https://variety.com/2024/artisans/news/terrifier-3-kills-art-the-clown-1236177913/>, press,
-   reference only: flecks and drops on white fur, a spread of sizes (p90 / p10 24).
+   reference only, measured in iteration 6: flecks and drops on white fur, a spread of sizes (p90 / p10 24).

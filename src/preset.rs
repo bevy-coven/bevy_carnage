@@ -6203,7 +6203,7 @@ mod tests {
 
     /// **The separate stains on a canvas**: each run of 4-connected texels holding more than the canvas's draw edge,
     /// `DETAIL_EDGE` of 255, as `(texels, widest side in texels)`. A stain is counted where the canvas draws it. Until `paint_cone` it
-    /// was counted at 32 of 255, a level only a drop's blood *diffused over a plateau three times its own area* reached: a
+    /// was counted at 32 of 255, a level only a drop's blood *diffused over a plateau several times its own area* reached: a
     /// drop of its own size, whose edge sits at the draw edge and whose middle is a little above it, is a stain a player sees
     /// and a count of 32 missed it. What the tests ask of the count is unchanged.
     fn stains_on(wet: &WetCanvas) -> Vec<(u32, u32)> {
