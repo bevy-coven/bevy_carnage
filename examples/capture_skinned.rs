@@ -189,6 +189,17 @@ fn main() {
     // `flay=` and `dermis=` are the craters and the bruises and burns it cannot see, folded every frame
     // because a breaking body is gone at the end (`digest::SkinTrace`). `digest::fold` sorts.
     let mut values: Vec<u64> = world.query::<&WetCanvas>().iter(world).map(|w| w.digest()).collect();
+    // SCRATCH (iteration 8): dump each canvas's amounts, reverted before any commit.
+    if let Ok(dir) = std::env::var("CARNAGE_DUMP") {
+        std::fs::create_dir_all(&dir).ok();
+        for (i, w) in world.query::<&WetCanvas>().iter(world).enumerate() {
+            let n = w.size();
+            let mut bytes: Vec<u8> = Vec::with_capacity((n * n) as usize + 4);
+            bytes.extend_from_slice(&n.to_le_bytes());
+            for y in 0..n { for x in 0..n { bytes.push(w.amount_at(x, y)); } }
+            std::fs::write(format!("{dir}/canvas{i}_{n}.bin"), bytes).ok();
+        }
+    }
     // Only a cloth that was holed, so a clip in which nothing was holed keeps the digest it had.
     let mut holes = world.query::<&ClothHoles>();
     values.extend(holes.iter(world).filter(|h| h.is_holed()).map(ClothHoles::digest));

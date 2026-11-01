@@ -82,6 +82,32 @@ pub const SPECK_FLOOR: f32 = 1.2;
 /// rounded up.
 const SPECK_FOOTPRINT: usize = 10;
 
+/// **How steeply a cone's blood falls away from its edge**, as a share of full coverage per texel: `0.09`, 23 of 255.
+/// **Tuned, and says so**, by two constraints that meet here. The cone's *edge* is where the canvas is read at
+/// [`DETAIL_EDGE`], so the slope is what makes that level a sharp, round line rather than a skirt; and it must stay under
+/// what the spread pass moves: `spread_rate / 4 · difference` rounds to a whole byte only from a difference of
+/// 25 at the shipped `0.08`, so a cone whose neighbouring texels differ by 23 is a fixed point of the spread, and a drop
+/// stays the size it landed rather than creeping into the diamond the four-neighbourhood makes of anything it diffuses
+/// (`docs/research/drop-edge.md`). Higher fits a round contour better and creeps.
+pub const CONE_SLOPE: f32 = 0.09;
+
+/// **The largest semi-axis a cone draws**, texels: `4`, eight across. Past it a stain is a stamp's, spines and satellites
+/// and all: a spine of a stamp is a share of its width, and under eight texels the longest is a texel or two, which a canvas
+/// of that size cannot show and the spread pass erases (`docs/research/drop-edge.md`).
+pub const CONE_MAX_SEMI: f32 = 4.0;
+
+/// **The smallest semi-axis a cone draws**, texels: `0.7`, a drop under a texel and four tenths across. A smaller one's
+/// blood, spread by the cubic B-spline the shader reads a canvas through, never reaches [`DETAIL_EDGE`] and would
+/// be drawn as nothing: measured, the peak of the smoothed field is under the edge below a radius of 0.6.
+pub const CONE_MIN_SEMI: f32 = 0.7;
+
+/// **How much a cone is drawn past its stain's edge to make up for the B-spline**: `0.15 · (1.85 − r)²` texels for a
+/// semi-axis `r` under `1.85`. The spline smooths a cone's rim a little inward, and the loss falls with the radius;
+/// the numbers are a fit to the drawn radius, measured over 16 offsets each of radii from 0.7 to 2.4 texels
+/// (`docs/research/drop-edge.md`), and bring it to within 0.02 texel of the stain's own. Tuned, and says so.
+const CONE_LIFT: f32 = 0.15;
+const CONE_LIFT_UNTIL: f32 = 1.85;
+
 /// **Texture-space blood accumulation for one actor.** Two images out, and the authority stays here.
 ///
 /// # The state is one buffer, and its order is the canonical order
@@ -578,6 +604,100 @@ impl WetCanvas {
                 }
                 let (x, y) = (x0 + dx as i64, y0 + dy as i64);
                 if x < 0 || y < 0 || x >= n || y >= n {
+                    continue;
+                }
+                let Some(cell) = self.wet.get_mut((y * n + x) as usize) else { continue };
+                cell.0 = cell.0.saturating_add(cov);
+                cell.1 = 0;
+                touched = true;
+                mark(&mut self.live, self.size, x, y);
+            }
+        }
+        if touched {
+            self.quiet = None;
+            if self.dirty_since.is_none() {
+                self.dirty_since = Some(tick);
+            }
+        }
+    }
+
+    /// **A droplet's stain too small for a stamp, drawn at the size it is**: a *cone* of blood whose edge, where the
+    /// canvas is read at [`DETAIL_EDGE`], is the ellipse of semi-axes `semi` texels, `semi[0]` along `direction`, placed
+    /// to a fraction of a texel.
+    ///
+    /// **What [`paint_speck`](Self::paint_speck) cannot do.** It lays the stain's area as a soft bump over twice its size, and a
+    /// shader reads that through a cubic B-spline and draws it where it crosses [`DETAIL_EDGE`], 4 % of full: a bump
+    /// that is faint over a wide footprint crosses 4 % far outside the ellipse, so every drop under four texels came out the same
+    /// two to four texels across, 1.5 to 3 times its own size, and, on a grid, a rounded square. Measured on a floor at
+    /// 6 mm a texel, its blood then spread: `spread_rate / 4 · difference` moves a byte from a difference of 25, so
+    /// a bump whose centre is 255 and whose flanks are 145 flattens over the next ticks into a plateau with a
+    /// four-neighbourhood's diamond edge.
+    ///
+    /// **What it does instead** is the idea of Green, "Improved alpha-tested magnification for vector textures and special
+    /// effects" (Valve, SIGGRAPH 2007): store, in a texture too coarse for the shape, a quantity that a *bilinear* read
+    /// reconstructs exactly, a distance, and threshold it. Here the stored value is `DETAIL_EDGE − CONE_SLOPE · d`
+    /// for `d` the signed distance of a texel's centre from the ellipse's edge (negative inside), so the canvas is a cone
+    /// of height `DETAIL_EDGE` over the stain's edge, `CONE_SLOPE` a texel above it, and nothing a third of a texel outside. A
+    /// linear field is reproduced exactly by the cubic B-spline, so where the shader and the detailed images threshold the
+    /// canvas at [`DETAIL_EDGE`] is the ellipse, round at any offset in the texel, to within about a hundredth of a
+    /// texel above a radius of 1.2. The distance is first order: `(rho − 1) · rho / |∇rho|` for the ellipse's `rho`, which is
+    /// exact on a circle and close at the edge of an ellipse, where it matters.
+    ///
+    /// **Blood does not creep on it.** The slope is under the difference the spread pass rounds to a byte, and its
+    /// peak under what the drip pass lets go (`WetSettings::drip_rate`), so a cone is a fixed point of both, and a drop is
+    /// the size it landed until it dries. Nothing here is a mass: the bytes do not sum to the stain's area, [`paint_speck`]'s
+    /// contract; the stain's area is the area inside the edge.
+    ///
+    /// **The least and the most.** Each semi-axis is drawn at least [`CONE_MIN_SEMI`] (a drop smaller than that cannot be
+    /// drawn at its own size, and would not be drawn), and its radius is lifted by `CONE_LIFT · (1.85 − r)²` to make up for the
+    /// spline's smoothing of the rim; `semi[0]` is clamped to [`CONE_MAX_SEMI`] texels, `semi[1]` to `semi[0]`. Every
+    /// operation is a multiply, an add, a compare or a square root on `f32`, none a transcendental, so the bytes are
+    /// the same on every machine. The deposit is the same as a stamp's: it adds to the texel, ages it to zero and marks it
+    /// live. Refused, writing nothing, for a non-finite argument or an axis that is not positive.
+    pub fn paint_cone(&mut self, uv: Vec2, semi: [f32; 2], direction: Vec2, tick: u32) {
+        let [a, b] = semi;
+        if !(uv.is_finite() && a.is_finite() && b.is_finite() && direction.is_finite()) || a <= 0.0 || b <= 0.0 {
+            return;
+        }
+        let (a, b) = (a.max(b), a.min(b));
+        let (a, b) = (a.min(CONE_MAX_SEMI), b.min(CONE_MAX_SEMI));
+        let lift = |r: f32| {
+            let r = r.max(CONE_MIN_SEMI);
+            if r < CONE_LIFT_UNTIL { r + CONE_LIFT * (CONE_LIFT_UNTIL - r) * (CONE_LIFT_UNTIL - r) } else { r }
+        };
+        let (a, b) = (lift(a), lift(b));
+        let len = direction.length();
+        let (ux, uy) = if len > 0.0 { (direction.x / len, direction.y / len) } else { (1.0, 0.0) };
+        let size = self.size as f32;
+        let (cx, cy) = (uv.x.clamp(0.0, 1.0) * size, uv.y.clamp(0.0, 1.0) * size);
+        // Nothing further out than the cone's foot, a third of a texel past the edge along the longest axis.
+        let reach = a + DETAIL_EDGE / CONE_SLOPE;
+        let (x0, y0) = ((cx - reach).floor() as i64, (cy - reach).floor() as i64);
+        let (x1, y1) = ((cx + reach).ceil() as i64, (cy + reach).ceil() as i64);
+        let n = self.size as i64;
+        let (inv_a2, inv_b2) = (1.0 / (a * a), 1.0 / (b * b));
+        let (inv_a4, inv_b4) = (inv_a2 * inv_a2, inv_b2 * inv_b2);
+        let mut touched = false;
+        for y in y0.max(0)..=y1.min(n - 1) {
+            for x in x0.max(0)..=x1.min(n - 1) {
+                // The texel's centre from the drop's, along the direction and across it.
+                let (px, py) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
+                let (u, v) = (px * ux + py * uy, py * ux - px * uy);
+                let rho2 = u * u * inv_a2 + v * v * inv_b2;
+                // The signed distance from the edge, first order: `(rho - 1) / |grad rho|`, with `|grad rho| = sqrt(u^2/a^4 + v^2/b^4) / rho`.
+                // On the centre `rho` is nil and so is the gradient's direction: the distance to the nearest edge is the short axis.
+                let dist = if rho2 > 1.0e-8 {
+                    let rho = rho2.sqrt();
+                    (rho - 1.0) * rho / (u * u * inv_a4 + v * v * inv_b4).sqrt().max(1.0e-6)
+                } else {
+                    -b
+                };
+                let blood = DETAIL_EDGE - CONE_SLOPE * dist;
+                if blood <= 0.0 {
+                    continue;
+                }
+                let cov = ((blood * 255.0 + 0.5) as u32).min(255) as u8;
+                if cov == 0 {
                     continue;
                 }
                 let Some(cell) = self.wet.get_mut((y * n + x) as usize) else { continue };
