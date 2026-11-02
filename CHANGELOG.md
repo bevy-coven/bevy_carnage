@@ -6,6 +6,21 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.10] - 2026-11-01
+
+### Added
+
+- **An arterial wound throws an arc a heartbeat** (iteration 16, AG-155, `docs/research/hose.md`). `GoreHit::arterial()` set the blood's saturation and nothing else, and `bloodstain::arterial_arc` (one arc of large droplets a systole, falling with
+  the pressure) had a generator, tests and documentation and no caller: an arterial wound bled as a venous one did. Now **the wound spurts**: on each beat of its schedule (`spurt_bpm` 96, one every 38 ticks at 60 Hz, until the clot at six
+  seconds) `preset::spurt` throws `arterial_arc`'s droplets from where the wound is on the pose on screen and along the way it faces now (the winding normal of the triangle it opened on, so a wound on a waving forearm or a turning head sweeps
+  its arc), each **flying the parabola** at `BloodSettings::gravity` (walked as chords of `HOSE_CHORD_M`, cast through the mesh index) onto the first wall or floor it meets and drawn as the stain `hard_stain` makes of it **as it arrives**, at
+  `HOSE_DROP_SCALE` (3.5) times the generator's diameter. **On a wall a stain runs** (a narrow stamp drawn down from it, `HOSE_RUN_WIDTH_M`, `HOSE_RUN_STAINS`, `HOSE_RUN_MAX_M`) and **three fine drops fall beside each large one**
+  (`HOSE_SATELLITES`, `HOSE_SATELLITE_CONE`). New public: `Spurts` and `SpurtSite` (a component beside `Wounds`, which a `GoreReset` clears: `WoundSite` is a public struct a field would break) and the `HOSE_*` constants. Walls and floors only: a
+  jet that meets a body or a cloth passes through, and a cut face does not spurt. A tier that draws no blood or no decals throws nothing. `take_hits`'s mesh index is now a resource (`MeshIndex`) the new system shares and not a local. **Nothing else
+  moves**: every existing recorder digest is 0.8.9's, twice each, and `bench_carnage`'s digest `0x4366a8b64352c85a` is unchanged (`carnage_frame_ms` 0.09360 to 0.09437, +0.8 %, `carnage_p99_ms` 2.672 to 2.676); `capture_skinned --hose` prints
+  its own, `0c903766bf51f0f2`, and `--hose --vein` (the same hit, venous) `38099dce0d339ebc`. A beat costs about a tenth of a millisecond for 28 droplets against a floor and three walls and a tick without one nothing (the system runs only
+  while some body has a `Spurts`). Not done, named: the curve of the references' stains (a beat's droplets leave on one tick), the gloss, the jet in flight, a jet that meets a body. Additive API: a patch.
+
 ## [0.8.9] - 2026-11-01
 
 ### Added

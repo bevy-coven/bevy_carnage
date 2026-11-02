@@ -31,6 +31,9 @@
 //! `--smear` takes no hits and no body: a wall and a floor, a pool painted on the floor, and four contacts sent as `GoreSmear`s (`docs/research/smear.md`): at frame 30 a body, a third of a
 //! metre wide and bleeding as it goes, is dragged out of the pool for a metre and a half; at 40 a hand soaked in blood is slid down the wall; at 130 a less soaked one, at a slant; at 200 a clean hand
 //! is wiped sideways across the first one's streaks. The floor is dressed at 512 a side. It prints its own digest.
+//! `--hose` stands the body left of a wall and turns it, and takes one arterial hit (`GoreHit::arterial`) at frame 20 to the back of the raised forearm, facing the wall (`docs/research/hose.md`): every heartbeat
+//! the wound throws a bolus of large droplets that fly the parabola and land on the wall and the floor, each stain with a run below it and a stipple of fine drops beside it, the arc swept across the wall as the body
+//! turns and shortening as the pressure falls. `--vein` is the same hit, venous: what 0.8.9 and earlier threw for an arterial one too. It prints its own digest.
 //!
 //! Writes `frame0000.png …` and prints one digest line; two runs must print the same line. `digest=`
 //! folds the wetmaps and the holed cloth as the clip ends; `flay=` and `dermis=` fold the craters and
@@ -81,12 +84,15 @@ fn main() {
     let stroll = flag("--stroll");
     let smear = flag("--smear");
     let guard = flag("--guard");
+    let hose = flag("--hose");
     // A stroll is seen from above and to the side, the whole path in frame and the prints facing up at
     // it; a guard from in front and to the left, close on the chest and the forearm across it.
     let at = point("--at").unwrap_or(if stroll {
         Vec3::new(0.05, 0.5, 0.05)
     } else if smear {
         Vec3::new(0.25, 0.75, -1.0)
+    } else if hose {
+        Vec3::new(0.0, 1.05, -0.6)
     } else if guard {
         Vec3::new(-0.03, 1.24, 0.06)
     } else {
@@ -96,6 +102,7 @@ fn main() {
         Some(eye) => Transform::from_translation(eye).looking_at(at, Vec3::Y),
         None if stroll => Transform::from_xyz(-2.9, 2.75, 0.15).looking_at(at, Vec3::Y),
         None if smear => Transform::from_xyz(-0.9, 1.9, 1.5).looking_at(at, Vec3::Y),
+        None if hose => Transform::from_xyz(0.5, 1.6, 3.0).looking_at(at, Vec3::Y),
         None if guard => Transform::from_xyz(-0.5, 1.46, 1.5).looking_at(at, Vec3::Y),
         None => mannequin::view(),
     };
@@ -124,6 +131,9 @@ fn main() {
         } else {
             app.add_systems(Update, mannequin::animate);
         }
+        if flag("--hose") {
+            app.add_systems(Update, hose_turn);
+        }
     }) else {
         return;
     };
@@ -136,6 +146,14 @@ fn main() {
         }
     }
     rec.warm_up(6);
+    if hose {
+        // The sheet the set hangs in the spray would stand between the wall and the lens; the hose throws at the wall.
+        let world = rec.world();
+        let sheets: Vec<Entity> = world.query_filtered::<Entity, With<preset_scene::Sheet>>().iter(world).collect();
+        for sheet in sheets {
+            world.despawn(sheet);
+        }
+    }
     let breaking = breaking();
     let through = flag("--through") || guard;
     let shirt = shirted();
@@ -171,8 +189,13 @@ fn main() {
             if smear {
                 smear_script(world, frame, &contacts);
             }
+            let vein = flag("--vein");
             let hit = aim.get(world).ok().and_then(|aim| match frame {
                 _ if quiet || stroll || smear => None,
+                // **The hose**: one arterial hit to the back of the raised forearm, which is waving, so what the
+                // wound throws sweeps the wall behind it as the arm swings.
+                20 if hose => aim.shot_from_behind(Bone::ArmLowL, 0.13, 0.025, 7.0).map(|h| if vein { h } else { h.arterial() }),
+                _ if hose => None,
                 40 if guard => aim.shot(Bone::ArmLowR, 0.16, 0.014, 7.0),
                 _ if guard => None,
                 60 if blows => aim.blow(Bone::LegLowL, 0.32, 0.04),
@@ -259,6 +282,17 @@ fn smear_script(world: &mut World, frame: u32, contacts: &[Entity]) {
     }
 }
 
+/// **The victim of `--hose` stands at the left of the wall and turns**, about her own vertical axis, three quarters of a radian either way over seven seconds: a wound that faces
+/// the wall throws along a line the wall's own height spans, and the turn is what sweeps that line across it, to the open wall at her right. The preset follows the turn: the
+/// wound's axis is read off the triangle it opened on.
+fn hose_turn(time: Res<Time>, mut root: Query<&mut Transform, With<Mannequin>>) {
+    let yaw = 0.75 * (time.elapsed_secs() * core::f32::consts::TAU / 7.0).sin();
+    for mut transform in &mut root {
+        transform.rotation = Quat::from_rotation_y(yaw);
+        transform.translation = Vec3::new(-0.7, 0.0, 0.0);
+    }
+}
+
 /// Whether a bare flag was given.
 fn flag(name: &str) -> bool {
     std::env::args().any(|a| a == name)
@@ -292,7 +326,7 @@ fn setup(
     } else {
         preset_scene::spawn_set(&mut commands, &mut meshes, &mut materials);
     }
-    if flag("--through") || flag("--guard") {
+    if flag("--through") || flag("--guard") || flag("--hose") {
         preset_scene::spawn_wall(&mut commands, &mut meshes, &mut materials);
     }
 }

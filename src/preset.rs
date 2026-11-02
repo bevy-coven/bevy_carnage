@@ -20,7 +20,8 @@
 //! 2. **Throws blood** — the wound's `crate::bloodstain::stain::stains` in closed form, painted onto every
 //!    [`Gore::floor`] they land on, and a stain at the wound on the body's own wetmap.
 //! 3. **Opens a bleed** — `crate::bloodstain::bleed`, pulsing more blood onto the wetmap each systole until
-//!    the clot, which the wetmap then runs under gravity and dries.
+//!    the clot, which the wetmap then runs under gravity and dries. **An arterial wound** ([`GoreHit::arterial`])
+//!    also throws an arc of large droplets at the walls and floors on every beat, as a hose does ([`Spurts`]).
 //! 4. **A slash gapes** — [`GoreHit::slash`] lays a `laceration` along the cut instead of a
 //!    crater, and its bed is banded by `cross_section`.
 //! 5. **Guts spill** — a torso hit that reached muscle spawns `viscera` strands tethered to the
@@ -644,7 +645,7 @@ fn mesh_stamp(mesh: &Mesh) -> Option<MeshStamp> {
 /// **The rigid meshes hits are cast at, indexed** ([`crate::bvh`]), kept across ticks by asset and
 /// built again when its [`MeshStamp`] moves or Bevy reports the asset modified. A skinned surface is
 /// cast at its pose, a new mesh each batch, and walks its triangles.
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct MeshIndex {
     built: std::collections::HashMap<AssetId<Mesh>, (MeshStamp, crate::bvh::Bvh)>,
     /// For each skinned mesh, the boxes its joints carry, or `None` for a rig they cannot box.
@@ -1716,6 +1717,26 @@ impl Wounds {
     }
 }
 
+/// **One wound that spurts**: which wound it is, and where on the mesh its axis is read from.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SpurtSite {
+    /// `Bleed::seed` of the [`WoundSite`] this belongs to, by which the wound is found again each beat. A wound replaced by a hit beside it takes its
+    /// spurt with it.
+    pub seed: u32,
+    /// **The triangle the wound opened on**, kept as a skin keeps its place: its three vertices and the spot in it. Each beat the jet's axis is this
+    /// triangle's winding normal as the mesh is drawn *now*, so a wound on a forearm that waves throws its arc about as the arm sweeps, and one on a head
+    /// that turns turns it.
+    pub anchor: SkinAnchor,
+    /// `1.0` when the wound faced the way that triangle's winding normal does, `-1.0` when it faced the other way.
+    pub sign: f32,
+}
+
+/// **Every wound this entity has that throws an arc a heartbeat**: those a [`GoreHit::arterial`] opened, beside [`Wounds`]. Read by [`spurt`]: on each beat
+/// of a wound in [`Wounds`] whose seed is here, the wound throws [`crate::bloodstain::arterial_arc`] at the walls and floors, pressure falling until the
+/// clot. `GoreReset` of the entity ends them.
+#[derive(Component, Clone, Debug, Default)]
+pub struct Spurts(pub Vec<SpurtSite>);
+
 /// **A body built at runtime that the preset may break.** For a body that is a loaded scene, put
 /// [`crate::FractureSubject`] on its root and the preset reads the cache; a body assembled in code
 /// has no asset path to seed a cached bake from, so it bakes once with [`crate::fracture_mesh`] and
@@ -2495,7 +2516,7 @@ pub struct GoreHit {
     pub radius_m: f32,
     /// Which injury.
     pub kind: HitKind,
-    /// The blood's saturation: arterial for a breached vessel, venous otherwise.
+    /// The blood's saturation: arterial for a breached vessel, venous otherwise. A wound at or above `SO2_ARTERIAL` also throws an arc a heartbeat: see [`Spurts`].
     pub so2: f32,
     /// **Whether the projectile leaves the body** — see [`GoreHit::through`]. Only an impact reads it.
     pub through: bool,
@@ -2534,7 +2555,7 @@ impl GoreHit {
         self.dir = -outward;
         self
     }
-    /// The same hit, bleeding arterial blood.
+    /// The same hit, bleeding arterial blood: the wound throws an arc of large droplets at the walls and floors on every beat, the pressure falling until the clot ([`Spurts`], `docs/preset.md#arterial-wounds`).
     pub fn arterial(mut self) -> Self {
         self.so2 = crate::bloodstain::spectral::SO2_ARTERIAL;
         self
@@ -2671,6 +2692,7 @@ impl Plugin for GorePlugin {
             app.add_plugins(FleshPlugin);
         }
         app.init_resource::<GoreDials>()
+            .init_resource::<MeshIndex>()
             .init_resource::<GoreClock>()
             .add_message::<GoreHit>()
             .add_message::<GoreReset>()
@@ -2681,7 +2703,23 @@ impl Plugin for GorePlugin {
             .configure_sets(FixedUpdate, GoreSystems.before(VisceraSystems))
             .add_systems(
                 FixedUpdate,
-                (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, pour_cut_faces, take_steps, take_smears, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly)
+                (
+                    advance_clock,
+                    dress,
+                    reset_gore,
+                    take_hits,
+                    throw_bodies,
+                    bleed,
+                    spurt.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<Spurts>),
+                    pour_cut_faces,
+                    take_steps,
+                    take_smears,
+                    age_bruises,
+                    soak_cloth,
+                    tick_canvases,
+                    flush_dermis,
+                    fly,
+                )
                     .chain()
                     .in_set(GoreSystems),
             )
@@ -2937,7 +2975,7 @@ struct HitContext<'w, 's> {
     /// The material every spilled organ shares, and the `mm_per_unit` bits it was made under.
     organ_look: Local<'s, Option<(u32, Handle<FleshMaterial>)>>,
     /// The rigid meshes hits are cast at, indexed across ticks, and what Bevy reports changing them.
-    index: Local<'s, MeshIndex>,
+    index: ResMut<'w, MeshIndex>,
     mesh_events: MessageReader<'w, 's, AssetEvent<Mesh>>,
 }
 
@@ -3163,17 +3201,42 @@ fn drawn_now<'a>(
 /// **Open a bleeding wound on `entity`**: beside the ones it already has, or in place of one it
 /// landed inside. Silenced, as `try_insert` is: an earlier hit this tick may have broken the body and
 /// despawned the part.
-fn open_site(commands: &mut Commands, entity: Entity, site: WoundSite, reach: f32, cap: usize) {
+fn open_site(commands: &mut Commands, entity: Entity, site: WoundSite, reach: f32, cap: usize, spurt: Option<(SkinAnchor, f32)>) {
     if let Ok(mut e) = commands.get_entity(entity) {
-        e.queue_silenced(move |mut e: EntityWorldMut| match e.get_mut::<Wounds>() {
-            Some(mut wounds) => wounds.open(site, reach, cap),
-            None => {
-                let mut wounds = Wounds::default();
-                wounds.open(site, reach, cap);
-                e.insert(wounds);
+        e.queue_silenced(move |mut e: EntityWorldMut| {
+            let seed = site.bleed.seed;
+            match e.get_mut::<Wounds>() {
+                Some(mut wounds) => wounds.open(site, reach, cap),
+                None => {
+                    let mut wounds = Wounds::default();
+                    wounds.open(site, reach, cap);
+                    e.insert(wounds);
+                }
             }
+            // A venous wound on a body that has never spurted leaves the entity as it was. Otherwise the spurts are the ones whose wound is still open, and this
+            // one's if it spurts.
+            if spurt.is_none() && !e.contains::<Spurts>() {
+                return;
+            }
+            let open: Vec<u32> = e.get::<Wounds>().map(|w| w.0.iter().map(|s| s.bleed.seed).collect()).unwrap_or_default();
+            let mut spurts = e.get::<Spurts>().cloned().unwrap_or_default();
+            spurts.0.retain(|s| s.seed != seed && open.contains(&s.seed));
+            if let Some((anchor, sign)) = spurt {
+                spurts.0.push(SpurtSite { seed, anchor, sign });
+            }
+            e.insert(spurts);
         });
     }
+}
+
+/// **What an arterial hit keeps to spurt by**: the triangle it landed on and which way the wound faced along that triangle's winding normal, or `None` for
+/// a wound that is not arterial. `normal_world` is the wound's normal and `xf` the transform `landing` was cast through (the identity for a posed skin).
+fn spurt_of(hit: &GoreHit, landing: &Landing, xf: &GlobalTransform, normal_world: Vec3) -> Option<(SkinAnchor, f32)> {
+    if !(hit.so2 >= crate::bloodstain::spectral::SO2_ARTERIAL) {
+        return None;
+    }
+    let winding = xf.affine().transform_vector3(landing.normal).normalize_or_zero();
+    Some((SkinAnchor { tri: landing.tri, bary: landing.bary }, if winding.dot(normal_world) < 0.0 { -1.0 } else { 1.0 }))
 }
 
 /// The scene graph [`take_hits`] walks to find a hit's baked subject and its skin material.
@@ -3496,7 +3559,8 @@ fn take_hits(
             };
             if let (Some(uv), Some((at_local, skin))) = (exit_uv, exit_at) {
                 let site = WoundSite { uv, at_local, skin, wound: exit_wound, bleed: crate::bloodstain::Bleed::new(tick, &exit_wound), cut: None };
-                open_site(&mut commands, hit.entity, site, exit_radius * gore.density(), dials.open_wounds);
+                let spurt = spurt_of(&hit, &exit, xf, exit_normal);
+                open_site(&mut commands, hit.entity, site, exit_radius * gore.density(), dials.open_wounds, spurt);
             }
             wounded.write(Wounded { area: exit_wound.area, ..announce(&hit, exit_world, exit_normal) });
             continue;
@@ -3739,7 +3803,8 @@ fn take_hits(
         };
         if let (Some(uv), Some(at_local)) = (painted, site_at) {
             let site = WoundSite { uv, at_local, skin: site_skin, wound, bleed: crate::bloodstain::Bleed::new(tick, &wound), cut };
-            open_site(&mut commands, hit.entity, site, hit.radius_m * gore.density(), dials.open_wounds);
+            let spurt = landed.and_then(|l| spurt_of(&hit, &l, xf, normal_world));
+            open_site(&mut commands, hit.entity, site, hit.radius_m * gore.density(), dials.open_wounds, spurt);
         }
         wounded.write(announce(&hit, at_world, normal_world));
 
@@ -4190,7 +4255,7 @@ fn reset_gore(
             if let Some(untorn) = untorn {
                 entity.try_insert(Mesh3d(untorn.0.clone()));
             }
-            entity.try_remove::<(Wounds, Bruising, Laceration, Untorn, Broken, ThrowNow, CutFaceBleed, Tread, Smeared)>();
+            entity.try_remove::<(Wounds, Bruising, Laceration, Untorn, Broken, ThrowNow, CutFaceBleed, Tread, Smeared, Spurts)>();
         }
     }
 }
@@ -4769,6 +4834,272 @@ fn take_smears(
     }
 }
 
+/// **How long a chord of a jet's flight is**, metres: `0.2`. A jet is walked as a polyline and each chord is cast at the walls whose box it crosses, so a chord must be
+/// shorter than the thinnest thing it should hit and long enough that a flight of a few metres is a few dozen casts. A droplet at 8 m/s crosses a metre in five
+/// chords. This crate's own number (`docs/research/hose.md`).
+pub const HOSE_CHORD_M: f32 = 0.2;
+
+/// **The most chords a jet's flight is walked in**: `24`, 4.8 m of arc. A flight past that lands on nothing it was walked to. This crate's own number.
+pub const HOSE_MAX_CHORDS: u32 = 24;
+
+/// **The longest a jet is followed**, seconds of flight: `1.5`. At the shipped 18 m/s² a droplet launched at 8 m/s from a metre up is on the floor within a second.
+/// This crate's own number.
+pub const HOSE_MAX_FLIGHT_S: f32 = 1.5;
+
+/// **How much larger than the droplet `arterial_arc` throws its stain is drawn**, as a multiple of its diameter: the references' stains are the size of a palm
+/// and a 5 mm droplet is not (`docs/research/hose.md`, tuned from the render). This crate's own number.
+pub const HOSE_DROP_SCALE: f32 = 3.5;
+
+/// **How long a run is under a stain a jet leaves on a wall**, as a multiple of the stain's own length: `3`, from `0.5` to `1.5` times it by the droplet's seed. The wetmap's
+/// drip pass sheds a stain's excess one texel a tick and cannot hold the volume a long run is fed from (a byte is coverage, not litres), so a large wet stain on a wall is given
+/// the run it would grow, as a bleeding wound's wells are (`BLEED_WELLS`). `F2` and `F3` (`docs/research/hose.md`) run several stain-lengths. This crate's own number.
+pub const HOSE_RUN_STAINS: f32 = 3.0;
+
+/// **The most a run is drawn down**: `0.5` m. This crate's own number.
+pub const HOSE_RUN_MAX_M: f32 = 0.5;
+
+/// **How wide a run is**, metres: `0.006`, which `docs/research/rivulets.md` measured a rivulet of blood on a vertical surface at (2 to 5 mm) with a texel's smoothing; a canvas
+/// draws nothing narrower than a texel and a half. This crate's own number.
+pub const HOSE_RUN_WIDTH_M: f32 = 0.006;
+
+/// **How many fine droplets the column breaks into beside each large one**: `3`, each `0.12` to `0.30` of its diameter, at `0.85` to `1.15` of its speed, within `HOSE_SATELLITE_CONE` of its
+/// direction: the stipple of small round drops along the curve in `F3` (`docs/research/hose.md`). "It exits as a column of blood and separates into drops". This crate's own number.
+pub const HOSE_SATELLITES: u32 = 3;
+
+/// **How far a fine droplet's direction is from the large one's**, as the tangent of the angle, either way across and along: `0.1`, about 6 degrees. This crate's own number.
+pub const HOSE_SATELLITE_CONE: f32 = 0.1;
+
+/// **One beat of one wound**: where it throws from, and what it throws.
+struct Throw {
+    seed: u32,
+    at: Vec3,
+    droplets: Vec<crate::bloodstain::Droplet>,
+}
+
+/// **What the hose can land on**: a wall or a floor drawn rigidly, with its box.
+struct HoseTarget<'a> {
+    entity: Entity,
+    mesh: AssetId<Mesh>,
+    asset: &'a Mesh,
+    xf: GlobalTransform,
+    kind: GoreKind,
+    bounds: Option<Bounds>,
+}
+
+/// **Where a spurting wound is and which way it faces, as the body is drawn now**: the spot is the wound's own anchor (the triangle a skin keeps it by, or `at_local`
+/// on a rigid mesh) and the axis is the winding normal of the triangle it opened on, in the pose, signed to face as it did. A body whose pose cannot be had yet
+/// throws nothing this beat; a triangle with no area throws along the normal the wound opened with.
+fn spurt_place(site: &WoundSite, spurt: &SpurtSite, asset: &Mesh, xf: &GlobalTransform, skin: Option<&SkinnedMesh>, rigging: &Rigging) -> Option<(Vec3, Vec3)> {
+    let rigged = skin.filter(|_| Rig::of(asset).is_some());
+    let pose = match rigged {
+        Some(skin) => Some(rigging.pose(skin)?),
+        None => None,
+    };
+    let vertex = |i: u32| -> Option<Vec3> {
+        match &pose {
+            Some(pose) => skin::posed_vertex(asset, pose, i as usize),
+            None => positions_of(asset)?.get(i as usize).map(|p| xf.transform_point(Vec3::from(*p))),
+        }
+    };
+    let at = match (&pose, site.skin) {
+        (Some(pose), Some(anchor)) => anchor.posed(asset, pose)?,
+        _ => xf.transform_point(site.at_local),
+    };
+    let [a, b, c] = spurt.anchor.tri.map(vertex);
+    let winding = match (a, b, c) {
+        (Some(a), Some(b), Some(c)) => (b - a).cross(c - a).normalize_or_zero() * spurt.sign,
+        _ => Vec3::ZERO,
+    };
+    let axis = if winding.is_finite() && winding != Vec3::ZERO { winding } else { Vec3::from_array(site.wound.normal) };
+    (at.is_finite() && axis.is_finite()).then_some((at, axis))
+}
+
+/// **A droplet's place `t` seconds after it left `p0` at `v`**, under `gravity`: the parabola.
+fn flown(p0: Vec3, v: Vec3, gravity: f32, t: f32) -> Vec3 {
+    p0 + v * t - Vec3::Y * (0.5 * gravity * t * t)
+}
+
+/// **When a droplet launched at height `y0` with vertical speed `vy` is at height `y`**, seconds, or `None` if it starts below it or gravity is not a number.
+fn fall_time(y0: f32, vy: f32, gravity: f32, y: f32) -> Option<f32> {
+    if !(gravity > 0.0 && gravity.is_finite() && y0 >= y) {
+        return None;
+    }
+    let t = (vy + (vy * vy + 2.0 * gravity * (y0 - y)).sqrt()) / gravity;
+    t.is_finite().then_some(t)
+}
+
+/// **Where a droplet flying `p0 + v t - g t² / 2` first lands on a wall**, walked as chords of at most [`HOSE_CHORD_M`] up to `t_end`: the wall, the landing and the time
+/// it landed at. Each chord is cast at the walls whose box it crosses, through the mesh index, and the nearest landing within it wins; the first chord that lands
+/// ends the walk. A flight the chords cannot span ([`HOSE_MAX_CHORDS`]) is walked as far as they go.
+fn hose_wall(p0: Vec3, v: Vec3, gravity: f32, t_end: f32, walls: &[&HoseTarget], index: &MeshIndex) -> Option<(usize, Landing, f32)> {
+    if walls.is_empty() || !(t_end > 0.0) {
+        return None;
+    }
+    let arc = v.length() * t_end + 0.5 * gravity * t_end * t_end;
+    let chords = ((arc / HOSE_CHORD_M).ceil().clamp(1.0, HOSE_MAX_CHORDS as f32)) as u32;
+    let dt = t_end / chords as f32;
+    for k in 0..chords {
+        let t0 = k as f32 * dt;
+        let (a, b) = (flown(p0, v, gravity, t0), flown(p0, v, gravity, t0 + dt));
+        let (len, dir) = ((b - a).length(), (b - a).normalize_or_zero());
+        if !(len > 1.0e-6) {
+            continue;
+        }
+        let mut best: Option<(usize, Landing)> = None;
+        for (i, wall) in walls.iter().enumerate() {
+            if let Some(bounds) = &wall.bounds
+                && bounds.entry(a, dir).is_none_or(|enters| enters > len)
+            {
+                continue;
+            }
+            let tree = index.get(wall.mesh).map(|t| t.fitted());
+            let Some(l) = ray_cast(wall.asset, tree, &wall.xf, a, dir) else { continue };
+            if l.t <= len && best.as_ref().is_none_or(|(_, near)| l.t < near.t) {
+                best = Some((i, l));
+            }
+        }
+        if let Some((i, l)) = best {
+            let at = t0 + dt * (l.t / len);
+            return Some((i, l, at));
+        }
+    }
+    None
+}
+
+/// **Throw this beat's arc of every spurting wound.** A wound whose seed is in the body's [`Spurts`] and whose heart beats on this tick
+/// (`crate::bloodstain::bleed::pulses_on`, the schedule [`bleed`] pulses by) throws `crate::bloodstain::arterial_arc` from where the wound is and along the way it faces
+/// now: one bolus of large droplets across a fan, at the speed the pressure gives, the pressure falling over `pressure_decay_ticks`. Each droplet flies the
+/// parabola `p + v t - g t² / 2` at `BloodSettings::gravity`, lands on the first wall its chords cross or, past them all, on the floor, and leaves the stain
+/// `hard_stain` makes of it **as it arrives**, speed and angle at the time it lands. The wetmap does what it does with a large wet stain on a wall: it runs.
+/// A tier that draws no blood or no decals throws nothing; a wall or floor is rigid (a jet through a body or a cloth is not cast).
+#[allow(clippy::too_many_arguments)]
+fn spurt(
+    clock: Res<GoreClock>,
+    dials: Res<GoreDials>,
+    wet_settings: Option<Res<WetSettings>>,
+    meshes: Res<Assets<Mesh>>,
+    rigging: Rigging,
+    mut index: ResMut<MeshIndex>,
+    mut boxes: Local<std::collections::HashMap<Entity, (MeshStamp, GlobalTransform, Option<Bounds>)>>,
+    bodies: Query<(&Wounds, &Spurts, &GlobalTransform, &Mesh3d, Option<&SkinnedMesh>)>,
+    mut surfaces: Query<(Entity, &Gore, &Mesh3d, &GlobalTransform, &mut WetCanvas), Without<SkinnedMesh>>,
+    policy: Option<Res<GorePolicy>>,
+) {
+    if !policy.as_deref().is_none_or(|p| p.draws_blood() && p.blood_decals) {
+        return;
+    }
+    let (tick, hz) = (clock.0, dials.hz);
+    // This tick's beats, from where each wound is now.
+    let mut launch: Option<BloodSettings> = None;
+    let mut throws: Vec<Throw> = Vec::new();
+    for (wounds, spurts, xf, mesh3d, skin) in &bodies {
+        let Some(asset) = meshes.get(&mesh3d.0) else { continue };
+        for spurt in &spurts.0 {
+            let Some(site) = wounds.0.iter().find(|w| w.bleed.seed == spurt.seed) else { continue };
+            if !crate::bloodstain::bleed::pulses_on(&site.bleed, tick, hz, &dials.blood) {
+                continue;
+            }
+            let Some((at, axis)) = spurt_place(site, spurt, asset, xf, skin, &rigging) else { continue };
+            let wound = BloodWound { at: at.to_array(), normal: axis.to_array(), ..site.wound };
+            // Launched at the speed the pressure gives: the `0.25` a hit's floor spray flies at stands in for the air a 40 m/s bullet spatter meets, and would make an 8 m/s jet a drip.
+            let launch = launch.get_or_insert_with(|| BloodSettings { spatter_speed_scale: 1.0, ..dials.blood.clone() });
+            let droplets = crate::bloodstain::arterial_arc(&wound, &site.bleed, tick, hz, launch);
+            if !droplets.is_empty() {
+                throws.push(Throw { seed: site.bleed.seed, at, droplets });
+            }
+        }
+    }
+    if throws.is_empty() {
+        return;
+    }
+    // In an order that is a property of the wounds, not of the query.
+    crate::order::sort_total_by_key_at("preset::spurt", &mut throws, |t| (t.seed, t.at.to_array().map(f32::to_bits)));
+    // What a jet can land on, each indexed already by `take_hits` and boxed once while it stands as it is.
+    let mut targets: Vec<HoseTarget> = Vec::new();
+    for (entity, gore, mesh3d, xf, _) in &surfaces {
+        if !matches!(gore.kind, GoreKind::Wall | GoreKind::Floor) {
+            continue;
+        }
+        let Some(asset) = meshes.get(&mesh3d.0) else { continue };
+        index.ensure(mesh3d.0.id(), asset);
+        let stamp = mesh_stamp(asset).unwrap_or((0, 0, 0));
+        let bounds = match boxes.get(&entity) {
+            Some((s, placed, b)) if *s == stamp && placed == xf => *b,
+            _ => {
+                let b = Bounds::of(asset, xf);
+                boxes.insert(entity, (stamp, *xf, b));
+                b
+            }
+        };
+        targets.push(HoseTarget { entity, mesh: mesh3d.0.id(), asset, xf: *xf, kind: gore.kind, bounds });
+    }
+    let index: &MeshIndex = &index;
+    let walls: Vec<&HoseTarget> = targets.iter().filter(|t| t.kind == GoreKind::Wall).collect();
+    let mut floors: Vec<&HoseTarget> = targets.iter().filter(|t| t.kind == GoreKind::Floor).collect();
+    floors.sort_by(|a, b| b.xf.translation().y.total_cmp(&a.xf.translation().y));
+    let edges = edge_settings(&dials, wet_settings.as_deref());
+    let gravity = dials.blood.gravity;
+    let lowest = floors.last().map(|f| f.xf.translation().y);
+    // Every droplet of the beats, and the fine ones the column breaks into beside each: a stipple along the same curve.
+    #[derive(Clone, Copy)]
+    struct Shot {
+        at: Vec3,
+        v: Vec3,
+        diameter: f32,
+        seed: u32,
+        primary: bool,
+    }
+    let mut shots: Vec<Shot> = Vec::new();
+    for throw in &throws {
+        for (i, d) in throw.droplets.iter().enumerate() {
+            let v = Vec3::from_array(d.dir) * d.speed;
+            let seed = throw.seed ^ tick.wrapping_mul(0x9E37_79B9) ^ (i as u32).wrapping_mul(0x85EB_CA6B);
+            shots.push(Shot { at: throw.at, v, diameter: d.diameter * HOSE_DROP_SCALE, seed, primary: true });
+            let n = v.normalize_or_zero();
+            let (u, w) = (n.any_orthonormal_vector(), n.cross(n.any_orthonormal_vector()));
+            for s in 0..HOSE_SATELLITES {
+                let h = |k: u32| crate::bloodstain::hash_f32(seed ^ (s + 1).wrapping_mul(0x68E3_1DA4) ^ k);
+                let dir = (n + u * ((h(1) - 0.5) * 2.0 * HOSE_SATELLITE_CONE) + w * ((h(2) - 0.5) * 2.0 * HOSE_SATELLITE_CONE)).normalize_or_zero();
+                let speed = v.length() * (0.85 + 0.3 * h(3));
+                let diameter = d.diameter * HOSE_DROP_SCALE * (0.12 + 0.18 * h(4));
+                shots.push(Shot { at: throw.at, v: dir * speed, diameter, seed: seed ^ (s + 1).wrapping_mul(0x2C1B_3C6D), primary: false });
+            }
+        }
+    }
+    for shot in &shots {
+        let Shot { at, v, diameter, seed, primary } = *shot;
+        let arrives = |t: f32| {
+            let velocity = v - Vec3::Y * (gravity * t);
+            crate::bloodstain::Droplet { dir: velocity.normalize_or_zero().to_array(), speed: velocity.length(), diameter }
+        };
+        // A wall catches it anywhere on its way down to the lowest floor; past them all the floor does.
+        let t_end = lowest.and_then(|y| fall_time(at.y, v.y, gravity, y)).unwrap_or(HOSE_MAX_FLIGHT_S).min(HOSE_MAX_FLIGHT_S);
+        let landed = match hose_wall(at, v, gravity, t_end, &walls, index) {
+            Some((w, l, t)) => walls.get(w).map(|wall| (*wall, l, t)),
+            None => floors.iter().find_map(|floor| {
+                let t = fall_time(at.y, v.y, gravity, floor.xf.translation().y).filter(|t| *t <= HOSE_MAX_FLIGHT_S)?;
+                let down = flown(at, v, gravity, t) + Vec3::Y * 0.5;
+                let tree = index.get(floor.mesh).map(|t| t.fitted());
+                ray_cast(floor.asset, tree, &floor.xf, down, Vec3::NEG_Y).map(|l| (*floor, l, t))
+            }),
+        };
+        let Some((target, landing, t)) = landed else { continue };
+        let Some(shape) = hard_stain(target.asset, &target.xf, &landing, &arrives(t), &dials.blood, seed) else { continue };
+        if let Ok((_, gore, _, _, mut wet)) = surfaces.get_mut(target.entity) {
+            paint_drop(&mut wet, gore, landing.uv, &shape, tick, &edges);
+            // A stain on a wall runs: a stamp as long as it is, drawn down from its lower edge, as narrow as a rivulet. The fine droplets do not.
+            let down = gore.gravity_uv.normalize_or_zero();
+            if primary && target.kind == GoreKind::Wall && down != Vec2::ZERO {
+                let reach = shape.major.max(shape.minor);
+                let jitter = 0.5 + crate::bloodstain::hash_f32(seed ^ 0x5EED_1E55);
+                let length = (reach * HOSE_RUN_STAINS * jitter).min(HOSE_RUN_MAX_M);
+                let run = StainShape { major: length, minor: HOSE_RUN_WIDTH_M, spines: 0, satellites: 0, direction: down.to_array(), seed: seed ^ 0x2A17 };
+                paint_drop(&mut wet, gore, landing.uv + down * (0.5 * (reach + length) * gore.density()), &run, tick, &edges);
+            }
+        }
+    }
+}
+
 /// **Pour every cut face of a broken body onto the floor beneath it**, a pulse at a time, until its
 /// perfusion runs out ([`CutFaceBleed`]). Each pulse is a stain [`CUT_FACE_POUR`] of the radius a
 /// wound of the face's area paints, cast straight down from above the face's centre as the piece is
@@ -5083,6 +5414,7 @@ mod tests {
             .init_asset::<SkinnedMeshInverseBindposes>();
         app.init_resource::<FleshTables>()
             .init_resource::<GoreDials>()
+            .init_resource::<MeshIndex>()
             .init_resource::<GoreClock>()
             .add_message::<GoreHit>()
             .add_message::<GoreReset>()
@@ -5095,7 +5427,7 @@ mod tests {
             .init_resource::<WetSettings>()
             .init_resource::<FlaySettings>()
             .add_systems(FixedUpdate, scene_gore.before(dress))
-            .add_systems(FixedUpdate, (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, pour_cut_faces, take_steps, take_smears, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
+            .add_systems(FixedUpdate, (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, spurt.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<Spurts>), pour_cut_faces, take_steps, take_smears, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
         let images = app.world_mut().resource_mut::<Assets<Image>>().reserve_handle();
         app.world_mut().resource_mut::<FleshTables>().luts = images;
         app
@@ -6337,6 +6669,7 @@ mod tests {
             .add_message::<BoneExposed>()
             .add_message::<Wounded>()
             .init_resource::<FractureCache>()
+            .init_resource::<MeshIndex>()
             .init_resource::<WetSettings>()
             .init_resource::<FlaySettings>()
             .add_systems(FixedUpdate, (advance_clock, dress, take_hits, throw_bodies, bleed, pour_cut_faces, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
@@ -6445,6 +6778,7 @@ mod tests {
             .add_message::<BoneExposed>()
             .add_message::<Wounded>()
             .init_resource::<FractureCache>()
+            .init_resource::<MeshIndex>()
             .init_resource::<WetSettings>()
             .init_resource::<FlaySettings>()
             .add_systems(FixedUpdate, (advance_clock, dress, take_hits, throw_bodies, bleed, pour_cut_faces, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
@@ -7191,6 +7525,165 @@ mod tests {
         assert!((on_floor + after_two - 0.02).abs() < 0.02 * 0.03, "{on_floor} m2 on the floor and {after_two} on the hand are not the 0.02 it brought");
         let (none, _, held) = run(Some(crate::GoreTier::Stylised));
         assert_eq!((none, held), (0.0, 0.0), "a tier that draws no blood smeared {none} m2");
+    }
+
+    /// A cuboid body, a wall `1.2` m in front of its `+Z` face, one hit at that face, `ticks` ticks of the schedule: how many wounds the body keeps a spurt for, the wall's wetted area and
+    /// its digest.
+    fn hose_scene(arterial: bool, ticks: u32, policy: Option<GorePolicy>) -> (Option<usize>, f32, u64) {
+        let mut app = headless();
+        if let Some(policy) = policy {
+            app.insert_resource(policy);
+        }
+        let world = app.world_mut();
+        let (body, panel) = {
+            let mut meshes = world.resource_mut::<Assets<Mesh>>();
+            (meshes.add(Cuboid::new(0.6, 0.6, 0.2).mesh().build()), meshes.add(Plane3d::new(Vec3::NEG_Z, Vec2::splat(3.0)).mesh().build()))
+        };
+        let body = world.spawn((Mesh3d(body), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::skin(Region::Torso))).id();
+        let at_wall = Transform::from_xyz(0.0, 0.0, 1.2);
+        let wall = world.spawn((Mesh3d(panel), at_wall, GlobalTransform::from(at_wall), Gore::wall())).id();
+        app.world_mut().run_schedule(FixedUpdate);
+        let hit = GoreHit::impact(body, Vec3::new(0.05, 0.02, 2.0), Vec3::NEG_Z, 0.03, 5.0);
+        app.world_mut().write_message(if arterial { hit.arterial() } else { hit });
+        for _ in 0..ticks {
+            app.world_mut().run_schedule(FixedUpdate);
+        }
+        let w = app.world();
+        (w.get::<Spurts>(body).map(|s| s.0.len()), w.get::<WetCanvas>(wall).map_or(0.0, |c| c.wetted_area()), w.get::<WetCanvas>(wall).map_or(0, |c| c.digest()))
+    }
+
+    /// **An arterial wound throws an arc a heartbeat at the wall in front of it, and a venous one does not.** The same hit at the same body, a wall `1.2` m from it, a hundred ticks (two
+    /// beats at the shipped rate): the venous wound keeps no spurt and wets the wall only with the spray it threw as it opened; the arterial one keeps one and wets it with two beats of large drops
+    /// besides, and two runs wet it alike to the bit (`docs/research/hose.md`).
+    #[test]
+    fn an_arterial_wound_spurts_at_the_wall_in_front_of_it_and_a_venous_one_does_not() {
+        let (vein_spurts, vein_wet, _) = hose_scene(false, 100, None);
+        let (artery_spurts, artery_wet, digest) = hose_scene(true, 100, None);
+        assert_eq!(vein_spurts, None, "a venous wound kept a spurt");
+        assert_eq!(artery_spurts, Some(1), "an arterial wound kept {artery_spurts:?} spurts");
+        assert!(artery_wet > 20.0 * vein_wet && artery_wet > 0.001, "two beats of an artery wet {artery_wet} m2 of the wall, where a vein's spray alone wet {vein_wet}");
+        assert_eq!(hose_scene(true, 100, None).2, digest, "two runs wet the wall differently");
+    }
+
+    /// **A jet lands where its parabola does.** A droplet launched at `4 m/s` up and `6` toward a wall `1.5` m away is there after a quarter of a second, by when gravity has taken `0.56` m of the metre it
+    /// rose: it strikes the wall at the parabola's height to two centimetres, and a straight cast would have struck over half a metre above it.
+    #[test]
+    fn a_jet_lands_where_its_parabola_does_and_not_where_a_straight_line_would() {
+        let mut meshes = Assets::<Mesh>::default();
+        let panel = meshes.add(Plane3d::new(Vec3::NEG_Z, Vec2::splat(3.0)).mesh().build());
+        let xf = GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 1.5));
+        let Some(asset) = meshes.get(&panel) else { panic!("the panel was not added") };
+        let mut index = MeshIndex::default();
+        index.ensure(panel.id(), asset);
+        let target = HoseTarget { entity: Entity::PLACEHOLDER, mesh: panel.id(), asset, xf, kind: GoreKind::Wall, bounds: Bounds::of(asset, &xf) };
+        let (y0, gravity, v) = (1.0, 18.0, Vec3::new(0.0, 4.0, 6.0));
+        let Some((_, landing, t)) = hose_wall(Vec3::new(0.0, y0, 0.0), v, gravity, 1.0, &[&target], &index) else { panic!("the jet did not land on the wall") };
+        let struck = xf.transform_point(landing.point);
+        let parabola = y0 + v.y * 0.25 - 0.5 * gravity * 0.25 * 0.25;
+        let straight = y0 + v.y * 0.25;
+        assert!((struck.y - parabola).abs() < 0.02, "it struck at {} m, the parabola's {parabola}", struck.y);
+        assert!(straight - struck.y > 0.5, "a straight cast would have struck at {straight}, only {} above where it did", straight - struck.y);
+        assert!((t - 0.25).abs() < 0.01, "it struck at {t} s, not a quarter of a second");
+    }
+
+    /// **A tier that draws no decals throws no jet, and a reset ends one.** A policy that keeps blood and refuses what lands on the world leaves the wall dry; healing the body takes its spurt
+    /// with its wounds, so a body that is hit again later is not still throwing the old arc.
+    #[test]
+    fn a_tier_that_refuses_decals_throws_no_jet_and_a_reset_ends_one() {
+        let policy = GorePolicy { blood_decals: false, ..GorePolicy::for_tier(crate::GoreTier::Blood) };
+        let (_, dry, _) = hose_scene(true, 100, Some(policy));
+        assert_eq!(dry, 0.0, "a policy that refuses decals still wet the wall with {dry} m2");
+        let mut app = headless();
+        let body = {
+            let world = app.world_mut();
+            let mesh = world.resource_mut::<Assets<Mesh>>().add(Cuboid::new(0.6, 0.6, 0.2).mesh().build());
+            world.spawn((Mesh3d(mesh), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::skin(Region::Torso))).id()
+        };
+        app.world_mut().run_schedule(FixedUpdate);
+        app.world_mut().write_message(GoreHit::impact(body, Vec3::new(0.05, 0.02, 2.0), Vec3::NEG_Z, 0.03, 5.0).arterial());
+        app.world_mut().run_schedule(FixedUpdate);
+        assert!(app.world().get::<Spurts>(body).is_some_and(|s| s.0.len() == 1), "the arterial hit kept no spurt");
+        app.world_mut().write_message(GoreReset::new(body));
+        app.world_mut().run_schedule(FixedUpdate);
+        assert!(app.world().get::<Spurts>(body).is_none(), "a reset left the body its spurt");
+    }
+
+    /// **A wound throws on the heartbeat and on no other tick.** The wall's coverage only rises on a tick something is painted on it: the hit's own spray on the tick it lands, then each beat of the wound's
+    /// schedule (`bloodstain::bleed::pulses_on`, which `bleed` pulses by). Over two hundred ticks the ticks it rose on are the hit's and the beats, all of them, and no others.
+    #[test]
+    fn a_wound_throws_on_the_beat_and_on_no_other_tick() {
+        let mut app = headless();
+        let (body, wall) = {
+            let world = app.world_mut();
+            let (body, panel) = {
+                let mut meshes = world.resource_mut::<Assets<Mesh>>();
+                (meshes.add(Cuboid::new(0.6, 0.6, 0.2).mesh().build()), meshes.add(Plane3d::new(Vec3::NEG_Z, Vec2::splat(3.0)).mesh().build()))
+            };
+            let body = world.spawn((Mesh3d(body), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::skin(Region::Torso))).id();
+            let at_wall = Transform::from_xyz(0.0, 0.0, 1.2);
+            (body, world.spawn((Mesh3d(panel), at_wall, GlobalTransform::from(at_wall), Gore::wall())).id())
+        };
+        app.world_mut().run_schedule(FixedUpdate);
+        app.world_mut().write_message(GoreHit::impact(body, Vec3::new(0.05, 0.02, 2.0), Vec3::NEG_Z, 0.03, 5.0).arterial());
+        app.world_mut().run_schedule(FixedUpdate);
+        let hit_tick = app.world().resource::<GoreClock>().0;
+        let Some(site) = app.world().get::<Wounds>(body).and_then(|w| w.0.first().copied()) else { panic!("the hit opened no wound") };
+        let blood = app.world().resource::<GoreDials>().blood.clone();
+        let (mut rose, mut beats) = (Vec::new(), Vec::new());
+        let mut before = app.world().get::<WetCanvas>(wall).map_or(0.0, |c| c.wetted_area());
+        for _ in 0..200 {
+            app.world_mut().run_schedule(FixedUpdate);
+            let tick = app.world().resource::<GoreClock>().0;
+            let now = app.world().get::<WetCanvas>(wall).map_or(0.0, |c| c.wetted_area());
+            if now > before + 1.0e-7 {
+                rose.push(tick);
+            }
+            if crate::bloodstain::bleed::pulses_on(&site.bleed, tick, 60, &blood) {
+                beats.push(tick);
+            }
+            before = now;
+        }
+        assert!(beats.len() >= 4, "two hundred ticks held {} beats", beats.len());
+        assert_eq!(rose, beats, "the wall took blood on ticks {rose:?} and the heart beat on {beats:?} (the hit landed on {hit_tick})");
+    }
+
+    /// **The jet follows the body as it turns.** A body hit on its `+Z` face with a wall `1.2` m in front of it and another `1.2` m behind: while it faces the first, the second stays dry; turned
+    /// half a revolution about its own vertical axis, the wound faces the second and wets it, and the first takes no more. The axis is read off the triangle the wound opened on, as the body is placed
+    /// now, and not stored as it was.
+    #[test]
+    fn a_jet_follows_the_body_as_it_turns() {
+        let mut app = headless();
+        let (body, front, back) = {
+            let world = app.world_mut();
+            let (body, panel, far) = {
+                let mut meshes = world.resource_mut::<Assets<Mesh>>();
+                (
+                    meshes.add(Cuboid::new(0.6, 0.6, 0.2).mesh().build()),
+                    meshes.add(Plane3d::new(Vec3::NEG_Z, Vec2::splat(3.0)).mesh().build()),
+                    meshes.add(Plane3d::new(Vec3::Z, Vec2::splat(3.0)).mesh().build()),
+                )
+            };
+            let body = world.spawn((Mesh3d(body), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::skin(Region::Torso))).id();
+            let (at_front, at_back) = (Transform::from_xyz(0.0, 0.0, 1.2), Transform::from_xyz(0.0, 0.0, -1.2));
+            let front = world.spawn((Mesh3d(panel), at_front, GlobalTransform::from(at_front), Gore::wall())).id();
+            (body, front, world.spawn((Mesh3d(far), at_back, GlobalTransform::from(at_back), Gore::wall())).id())
+        };
+        app.world_mut().run_schedule(FixedUpdate);
+        app.world_mut().write_message(GoreHit::impact(body, Vec3::new(0.05, 0.02, 2.0), Vec3::NEG_Z, 0.03, 5.0).arterial());
+        for _ in 0..90 {
+            app.world_mut().run_schedule(FixedUpdate);
+        }
+        let area = |app: &App, e: Entity| app.world().get::<WetCanvas>(e).map_or(0.0, |c| c.wetted_area());
+        let (front_facing, back_facing) = (area(&app, front), area(&app, back));
+        assert!(front_facing > 0.001, "the jet did not reach the wall the wound faces: {front_facing} m2");
+        assert_eq!(back_facing, 0.0, "the wall behind the body was wet while the wound faced the other way");
+        let turned = Transform::from_rotation(Quat::from_rotation_y(core::f32::consts::PI));
+        app.world_mut().entity_mut(body).insert((turned, GlobalTransform::from(turned)));
+        for _ in 0..90 {
+            app.world_mut().run_schedule(FixedUpdate);
+        }
+        assert!(area(&app, back) > 0.001, "the body turned and the wall the wound now faces took {} m2", area(&app, back));
+        assert!(area(&app, front) <= front_facing, "the wall the wound had faced took more blood after it turned away: {} m2 from {front_facing}", area(&app, front));
     }
 
     /// How many open wounds an entity has.

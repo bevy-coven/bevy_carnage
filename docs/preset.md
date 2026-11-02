@@ -23,6 +23,7 @@ a plausible-looking result that is quietly wrong.
 | 10 | **Heal a character you reuse with `GoreReset`**, not by despawning and dressing it again: a respawn, a pooled enemy, a restarted round. Send it with the root, and once more with each floor or wall you want wiped. See [Healing, respawning and pooling](#healing-respawning-and-pooling). | Dressing builds every canvas and image again; a reset overwrites the bytes it already has, re-arms the bone handoff and puts a slashed skin's own mesh back. |
 | 11 | **Send a `GoreStep` from your footstep event**, one per foot per step, and dress the floors characters walk on at about 6 mm a texel. See [Footprints](#footprints). | The preset cannot tell when a foot lands. Without steps nobody tracks blood; on a coarse floor a print is two drops. |
 | 12 | **Send a `GoreSmear` per tick for a contact that is moving over a floor or a wall**: a hand slid down a wall, a body dragged, a sleeve wiped. See [Smears](#smears). | Without it a contact leaves only the blood that was already there, and the blood a body carries out of a pool is lost. |
+| 13 | **Say a hit is arterial with `GoreHit::arterial()`** when a breached vessel should spurt, and keep a wall or a floor dressed (`Gore::wall`, `Gore::floor`) for it to land on. See [Arterial wounds](#arterial-wounds). | A wound that is only bleeding runs down the body and drips; an artery throws an arc a heartbeat across the room. |
 
 Tangents are handled for you since 0.5.10: a skin mesh without `ATTRIBUTE_TANGENT` gets them when it
 is dressed, because the crater's normal map needs them.
@@ -476,6 +477,31 @@ A segment costs 1 to 41 microseconds on a 512 canvas (a hand's, a body's, a long
 
 `capture_skinned --smear` is the demo (`docs/DEMOS.md`): a body bleeding as it is dragged out of a pool, a soaked hand slid down a wall, a lighter one, and a clean one wiped across the first one's streaks.
 
+## Arterial wounds
+
+*(0.8.10, `docs/research/hose.md`.)* `GoreHit::arterial()` marks the hit's blood arterial, and since 0.8.10 the wound it opens **throws an arc a heartbeat** as well as bleeding:
+
+```rust,ignore
+writer.write(GoreHit::impact(body, from, dir, 0.025, 7.0).arterial());
+```
+
+Nothing else to send and nothing to switch on: the wound keeps a [`Spurts`] entry beside its [`Wounds`] entry, and on each beat of its schedule (`BloodSettings::spurt_bpm`, 96, so one every 38 ticks at 60 Hz; each wound
+beats out of step with the others) `bloodstain::arterial_arc` throws its bolus: `BloodSettings::arc_stains` (7) large droplets across a fan of 22 degrees either way about the way the wound faces, at
+the speed the pressure gives (`ARTERIAL_SPEED` 8 m/s at full, falling with `pressure_decay_ticks`), until the wound clots (`clot_ticks`, six seconds).
+
+- **Each droplet flies the parabola** under `BloodSettings::gravity` and lands on the first **wall or floor** it meets (`Gore::wall`, `Gore::floor`, rigid meshes), whichever is nearer along its flight. A jet that meets
+  a body or a cloth is not cast: it passes through.
+- **The stain is the one a drop of that size and speed leaves where it arrives**, drawn as large as a palm's for a droplet `HOSE_DROP_SCALE` (3.5) times the diameter the generator gives it. **On a wall it runs**: a narrow stamp
+  (`HOSE_RUN_WIDTH_M`, 6 mm) drawn down from the stain's lower edge, `HOSE_RUN_STAINS` (3) stain-lengths long, which the wetmap then runs and dries like any wet blood. **Beside each large droplet fall `HOSE_SATELLITES` (3)
+  fine ones**, the stipple of a column of blood that has broken up.
+- **It follows the body.** The jet leaves from where the wound is on the pose on screen and along the way the wound faces now (the winding normal of the triangle it opened on, as the mesh is drawn), so a wound on a
+  forearm that waves sweeps the wall and one on a head that turns turns the arc; a body whose pose cannot be had yet throws nothing that beat.
+- A tier that draws no blood or no decals throws nothing; `GoreReset` of the body ends it. A venous wound is unchanged.
+- **The jet in flight is not drawn**: the stain appears on the beat. `Wounded::class` is `PatternClass::ArterialSpurt` for such a wound, as it has been, for an effect of your own to listen to.
+- **Cost**: nothing on a tick without a beat (the system does not run unless some body has a `Spurts`), and about a tenth of a millisecond on a beat, for 28 droplets against a floor and three walls.
+
+`capture_skinned --hose` is the demo (`docs/DEMOS.md`), and `--hose --vein` the same hit as 0.8.9 threw it.
+
 ## Healing, respawning and pooling
 
 A character that respawns, a pooled enemy coming back, a round that restarts: send
@@ -486,7 +512,7 @@ or below it goes back to how it was dressed, on the next `FixedUpdate`, before t
   holes and slits are mended (`WetCanvas::clear`, `FlayCanvas::clear`, `DermisCanvas::clear`,
   `ClothHoles::clear`, each public for a game that keeps its own canvases);
 - its bleeding, bruising and soaking stop (`Wounds`, `Bruising` and a cloth's pending soaks go), and
-  a foot's `Tread` and a contact's `Smeared` are wiped;
+  a foot's `Tread`, a contact's `Smeared` and a wound's `Spurts` are wiped;
 - a slashed skin draws its own mesh again, the shared handle it wore before the slash, and its wound
   bed is despawned;
 - the bone handoff is armed again, so the next wound to reach the cortex sends `BoneExposed`;
