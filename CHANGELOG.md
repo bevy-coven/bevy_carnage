@@ -6,6 +6,26 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.11] - 2026-11-01
+
+### Changed
+
+- **A cut muscle reads as meat** (iteration 17, AG-156, `docs/research/cut-face.md`). The muscle band of the cross-section strip was a 0.3 mm film of venous blood over mid-grey: a purplish burgundy (mean sRGB `(123, 37, 48)`, L\* 29.2, below every value the beef
+  literature reports) with a hairline white net of 3 mm cells and nothing larger, so a cut face read as mud or leather. Now: **the lean is a 0.05 mm film over a pale substrate** (`MUSCLE_FILM_MM`, `MUSCLE_SUBSTRATE`: sRGB `(170, 54, 56)`, the cherry of
+  oxymyoglobin against a shank photograph's `(183, 39, 39)`), with **pale connective tissue at three scales**, the ones a cut muscle has (Biga et al., *Anatomy & Physiology 2e*, 10.2): sheets of epimysium between bellies 12 mm across, curved by a slow
+  warp, swelling and thinning along their length, each belly its own tone (`BELLY_*`, `SHEET_*`); wandering lines of perimysium between bundles, a warped Worley field broken up by noise so a line fades in and out, tapering (`MARBLE_*`); and the 0.7 mm
+  fascicle net, as before, fainter. Measured on the limb strip against windows set from measured beef (Crump et al. 2025: L\* 43-44, a\* 22; Lu et al. 2025: L\* 30-33, a\* 14-16) and a photographed shank: **mean L\* 43.4 (window 38-52), 10.6 % pale
+  texels (8-20 %), the spread of the lightness of 6 mm blocks 3.6 (0.42 before)**, linear red share 0.76. Fat, skin, cortex and marrow are byte for byte what they were; the strips' digests move **on purpose** (`the_strips_are_frozen`, re-blessed:
+  `[0x13b0398ae1709ac6, 0xe803b5652b6625b0, 0x602f16842b352486]`, was `[0x31620f0b7e9e7e88, 0x7066b93f54d6cc2c, 0x7d5d385f1cdc1df0]`), two tests hold the band to its windows and to its structure (mutation-checked: no structure, the old
+  colour and a wrong noise period each fail), and **no recorder's digest moves** (none folds a colour; every one is 0.8.10's, twice each, and `bench_carnage`'s is `0x4366a8b64352c85a`, `carnage_frame_ms` 0.09366 to 0.09425, +0.6 % at a higher load, `carnage_p99_ms` 2.661
+  to 2.701). The strips bake in 0.07-0.10 s at startup (0.05-0.07 s before). **It shows where a material does not hide it:** a plain atlas material, a laceration's bed, the flesh material's unfilmed `Cap` mode. **It does not show in the preset's cut faces
+  or its craters**, which wear a 1 mm film of blood (`CUT_FACE_FILM_MM`), opaque past about 0.15 mm: the crater close-ups differ in 0.08-0.15 % of their pixels. A per-tissue film is a shader change and is not made. `docs/cross_section.gif` and
+  `docs/laceration.gif` are regenerated; `docs/media/cutface.png` and `cutface.gif` set 0.8.10 beside now. A PATCH: no public name or signature changes.
+
+### Added
+
+- `capture_flesh --eye x,y,z --at x,y,z`: the flesh recorder looks from another place, close on the limb's strip or a crater; the digest depends on neither.
+
 ## [0.8.10] - 2026-11-01
 
 ### Added

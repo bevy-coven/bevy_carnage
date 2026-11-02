@@ -8,10 +8,13 @@
 //! at its physical size, because the strip is parameterised in millimetres by [`Layers`] and the
 //! caller's [`crate::cross_section::Scale`], so a 2 mm lobule is 2 mm on a thigh and 2 mm on a finger.
 //!
-//! The muscle band's colour is not authored: it is a thin venous film from `crate::bloodstain::spectral`
-//! over a mid-grey substrate — the same optics that colour a pool, because a freshly cut muscle
-//! surface is wet with exactly that. Fat, skin, cortex and marrow carry authored albedos; those are
-//! stated as this crate's own.
+//! The muscle band's lean colour is not authored: it is a thin venous film from `crate::bloodstain::spectral`
+//! over a pale substrate — the same optics that colour a pool, because a freshly cut muscle surface is
+//! wet with exactly that. Its pale structure is drawn at three scales, since that is what a cut muscle is:
+//! sheets of epimysium between whole bellies (centimetres), wandering lines of perimysium between
+//! bundles (millimetres) and the fascicle net (under one). The first two are what survive being
+//! seen from a metre; `docs/research/cut-face.md` has the sources and the targets. Fat, skin, cortex
+//! and marrow carry authored albedos; those are stated as this crate's own.
 //!
 //! Everything is a hash of integer texel coordinates through `crate::bloodstain::hash_f32`, so a strip is
 //! a pure function of its inputs and two machines bake the same bytes.
@@ -179,11 +182,53 @@ fn bands_of(layers: &Layers, width: u32) -> Vec<Band> {
     out
 }
 
-/// The muscle band's base colour: a 0.3 mm venous film over a mid-grey substrate, which is what a
-/// freshly cut muscle surface optically is. Computed once per strip.
+/// The muscle band's base colour: a thin venous film over a pale substrate, which is what a freshly
+/// cut muscle surface optically is, to the first order: myoglobin and haemoglobin are both haem
+/// proteins with the same family of visible absorption bands, and a wet cut is lean red under a film of
+/// its own blood. Computed once per strip.
+///
+/// **`MUSCLE_FILM_MM` and `MUSCLE_SUBSTRATE` are this crate's own, tuned.** Until 0.8.11 this was 0.3 mm
+/// over 0.45, which the optics make a purplish crimson (124, 30, 42), L\* 28: the *deoxy*, thick end of
+/// what Dobbelstein describes as the colour of meat the instant it is cut, and below every L\* the beef
+/// literature reports (30-46; `docs/research/cut-face.md`). 0.05 mm over 0.60 is (175, 46, 49), L\* 40: the
+/// cherry of the oxy end, against a shank photograph's lean of (183, 39, 39).
 fn muscle_albedo() -> [f32; 3] {
-    srgb(&Film { thickness_mm: 0.3, so2: SO2_VENOUS, substrate: 0.45 })
+    srgb(&Film { thickness_mm: MUSCLE_FILM_MM, so2: SO2_VENOUS, substrate: MUSCLE_SUBSTRATE })
 }
+
+/// The muscle film's thickness, mm. This crate's own, tuned (see [`muscle_albedo`]).
+const MUSCLE_FILM_MM: f32 = 0.05;
+/// What the muscle film lies on: the diffuse reflectance of a pale, wet tissue. This crate's own, tuned.
+const MUSCLE_SUBSTRATE: f32 = 0.60;
+/// Width of one muscle belly, mm: a forearm or calf, between the 25-35 mm of a beef shank and the
+/// 40-60 mm of a thigh. This crate's own.
+const BELLY_MM: f32 = 12.0;
+/// Full width of the epimysial sheet between two bellies, mm. This crate's own, tuned so the pale
+/// texels are 8-20 % of the band.
+const SHEET_MM: f32 = 0.7;
+/// How far a sheet's centre goes from the lean to `EPIMYSIUM`. This crate's own.
+const SHEET_BLEND: f32 = 0.9;
+/// How far the soft pink halo round a sheet goes from the lean to `EPIMYSIUM` at its strongest, over
+/// three times the sheet's width: fascia grades into the muscle rather than ending in an outline.
+/// This crate's own.
+const SHEET_HALO: f32 = 0.30;
+/// A belly's tone is `BELLY_TONE_LOW + BELLY_TONE_SPAN * h` of its own hash `h`: neighbouring bellies
+/// differ by up to 26 %, as in the cryosections and the shank photographs. This crate's own.
+const BELLY_TONE_LOW: f32 = 0.88;
+const BELLY_TONE_SPAN: f32 = 0.26;
+/// How far the belly field's coordinates are pushed about, mm: what curves a sheet. This crate's own.
+const BELLY_WARP_MM: f32 = 2.6;
+/// Cell size of the marbling field, mm. This crate's own.
+const MARBLE_MM: f32 = 3.6;
+/// Full width of a marbling line, mm. This crate's own, tuned.
+const MARBLE_LINE_MM: f32 = 0.28;
+/// How far the marbling's coordinates are pushed about, mm. This crate's own.
+const MARBLE_WARP_MM: f32 = 1.6;
+/// The noise value above which a marbling line begins to show; it is fully there 0.3 higher. This
+/// crate's own.
+const MARBLE_BREAK_AT: f32 = 0.22;
+/// How far a marbling line's centre goes from the lean to `PERIMYSIUM`. This crate's own.
+const MARBLE_BLEND: f32 = 0.85;
 
 /// Authored albedos, encoded sRGB. This crate's own; stated rather than hidden.
 ///
@@ -195,7 +240,8 @@ const SKIN_EPIDERMIS: [f32; 3] = [0.72, 0.55, 0.47];
 const SKIN_DERMIS: [f32; 3] = [0.84, 0.58, 0.54];
 const FAT_LOBULE: [f32; 3] = [0.93, 0.85, 0.60];
 const FAT_SEPTUM: [f32; 3] = [0.86, 0.68, 0.62];
-const PERIMYSIUM: [f32; 3] = [0.86, 0.78, 0.76];
+const PERIMYSIUM: [f32; 3] = [0.90, 0.66, 0.62];
+const EPIMYSIUM: [f32; 3] = [0.93, 0.74, 0.69];
 const CORTEX: [f32; 3] = [0.91, 0.87, 0.77];
 const CANAL: [f32; 3] = [0.45, 0.25, 0.22];
 const TRABECULA: [f32; 3] = [0.88, 0.83, 0.72];
@@ -224,23 +270,56 @@ fn texel(layer: Layer, frac: f32, u: f32, v: f32, tile: f32, seed: u32, muscle: 
             (c, 0.32 + 0.25 * septum)
         }
         Layer::Muscle => {
-            // Fascicles ~0.7 mm across wrapped in perimysium at ~3 mm.
+            // Three scales of pale tissue in red, because that is what a cut muscle is (Biga et al.,
+            // *Anatomy & Physiology 2e*, 10.2): a sheet of epimysium round each whole muscle, a
+            // perimysium round each bundle of fibres, and a net round the fibres. A game sees the
+            // first two: at a metre or two the 0.7 mm grain is under a pixel and averages away, and
+            // what is left is red masses divided by pale lines. See `docs/research/cut-face.md`.
             //
-            // **The net is drawn thin, and the widths are what the band averages to.** At ridge
-            // widths of 0.08 and 0.06 cell, and the fine net at 0.35 strength, the pale tissue was
-            // 11 % of the band. Averaged in linear light — what a mip level, a distant cut or a
-            // flaymap texel sees — that turned the band's dark red to rose-tan, and a cut face read
-            // as bread. At these widths the net is about 3 % and the band stays red from any
-            // distance, while up close the fascicles are still outlined.
+            // **Bellies and the sheets between them.** A Worley field at `BELLY_MM`, its coordinates
+            // pushed about by two slow periodic noise fields so the boundaries curve instead of running
+            // straight between vertices; each cell takes its own tone, and where the nearest and
+            // second-nearest points are almost equidistant the texel is on the boundary between two
+            // cells and is epimysium. The sheet's width swells and thins along its length.
+            let (zf, zp) = snap(1.0 / 9.0, tile);
+            let belly_u = (value_noise(u * zf, v * zf, zp, seed ^ 0x1B3) - 0.5) * 2.0 * BELLY_WARP_MM;
+            let belly_v = (value_noise(u * zf + 11.0, v * zf + 23.0, zp, seed ^ 0x6D5) - 0.5) * 2.0 * BELLY_WARP_MM;
+            let (bf, bp) = snap(1.0 / BELLY_MM, tile);
+            let (b1, b2, owner) = worley_cell((u + belly_u) * bf, (v + belly_v) * bf, bp, seed ^ 0x6B1);
+            let (sf, sp) = snap(1.0 / 7.0, tile);
+            let swell = 0.55 + 0.9 * value_noise(u * sf, v * sf, sp, seed ^ 0x77B);
+            let sheet_w = SHEET_MM * swell * bf;
+            // Fascia is not a drawn outline: a pale core, and a soft pink halo where the lean is
+            // sliding into it.
+            let core = smoothstep((sheet_w - (b2 - b1)) / sheet_w) * SHEET_BLEND;
+            let halo = smoothstep((3.0 * sheet_w - (b2 - b1)) / (3.0 * sheet_w)) * SHEET_HALO;
+            let sheet = core.max(halo);
+            let (df, dp) = snap(1.0 / 6.0, tile);
+            let drift = value_noise(u * df, v * df, dp, seed ^ 0x2D7);
+            let tone = (BELLY_TONE_LOW + BELLY_TONE_SPAN * owner) * (0.95 + 0.10 * drift);
+            // **Marbling.** A finer Worley field whose coordinates are pushed about by two periodic
+            // noise fields, so its ridges wander rather than run straight between vertices, and whose
+            // ridges are broken up by a third so a line fades in and out instead of closing every cell.
+            let (wf, wp) = snap(1.0 / 3.0, tile);
+            let warp_u = (value_noise(u * wf, v * wf, wp, seed ^ 0x3E1) - 0.5) * 2.0 * MARBLE_WARP_MM;
+            let warp_v = (value_noise(u * wf + 17.0, v * wf + 31.0, wp, seed ^ 0x7A9) - 0.5) * 2.0 * MARBLE_WARP_MM;
+            let (mf, mp) = snap(1.0 / MARBLE_MM, tile);
+            let (kf, kp) = snap(1.0 / 5.0, tile);
+            let taper = 0.5 + 1.1 * value_noise(u * kf + 5.0, v * kf + 9.0, kp, seed ^ 0x2A9);
+            let (m1, m2) = worley((u + warp_u) * mf, (v + warp_v) * mf, mp, seed ^ 0x9C1);
+            let line_w = MARBLE_LINE_MM * taper * mf;
+            let line = smoothstep((line_w - (m2 - m1)) / line_w);
+            let broken = smoothstep((value_noise(u * kf, v * kf, kp, seed ^ 0x51D) - MARBLE_BREAK_AT) / 0.3);
+            let marble = line * broken * MARBLE_BLEND;
+            // **Fascicles**, as before: ~0.7 mm cells, a darker core and a faint outline. Below a
+            // pixel at any game distance; they are what a close camera still finds.
             let (ff, fp) = snap(1.0 / 0.7, tile);
             let (f1, f2) = worley(u * ff, v * ff, fp, seed ^ 0x3A5);
-            let (pf, pp) = snap(1.0 / 3.0, tile);
-            let (p1, p2) = worley(u * pf, v * pf, pp, seed ^ 0x9C1);
             let fibre = 0.85 + 0.2 * (1.0 - f1).clamp(0.0, 1.0);
-            let fine_ridge = smoothstep((0.05 - (f2 - f1)) / 0.05) * 0.2;
-            let peri = smoothstep((0.03 - (p2 - p1)) / 0.03);
-            let c = lerp3(shade(muscle, fibre), PERIMYSIUM, (peri + fine_ridge).min(1.0));
-            (c, 0.22 + 0.3 * peri)
+            let fine_ridge = smoothstep((0.05 - (f2 - f1)) / 0.05) * 0.1;
+            let lean = shade(muscle, tone * fibre);
+            let c = lerp3(lerp3(lean, PERIMYSIUM, (marble + fine_ridge).min(1.0)), EPIMYSIUM, sheet);
+            (c, 0.26 + 0.12 * sheet + 0.12 * marble)
         }
         Layer::Cortex => {
             // Dense ivory with Haversian canals ~0.1 mm: a sparse dot field.
@@ -323,10 +402,19 @@ pub(crate) fn value_noise(x: f32, y: f32, tile: f32, seed: u32) -> f32 {
 /// Worley (cellular) noise: distances to the nearest and second-nearest feature points, in cell
 /// units, periodic along `y` with period `tile` cells.
 pub(crate) fn worley(x: f32, y: f32, tile: f32, seed: u32) -> (f32, f32) {
+    let (f1, f2, _) = worley_cell(x, y, tile, seed);
+    (f1, f2)
+}
+
+/// [`worley`], and a hash in `[0, 1)` of the lattice cell that owns the nearest feature point: the
+/// identity of the Voronoi cell the texel is in, which a caller can turn into one tone per cell.
+/// The hash goes through the same wrapped lattice as the points, so it is periodic in `y` too.
+pub(crate) fn worley_cell(x: f32, y: f32, tile: f32, seed: u32) -> (f32, f32, f32) {
     let py = tile.round().max(1.0) as i32;
     let (cx, cy) = (x.floor() as i32, y.floor() as i32);
     let mut f1 = f32::INFINITY;
     let mut f2 = f32::INFINITY;
+    let mut owner = 0.0;
     for dy in -1..=1 {
         for dx in -1..=1 {
             let (gx, gy) = (cx + dx, cy + dy);
@@ -336,12 +424,13 @@ pub(crate) fn worley(x: f32, y: f32, tile: f32, seed: u32) -> (f32, f32) {
             if d < f1 {
                 f2 = f1;
                 f1 = d;
+                owner = lattice(gx, gy, py, seed ^ 0xA5A5_5A5A);
             } else if d < f2 {
                 f2 = d;
             }
         }
     }
-    (f1, f2)
+    (f1, f2, owner)
 }
 
 #[cfg(test)]
@@ -455,6 +544,101 @@ mod tests {
         assert!(lum(cortex) > lum(muscle), "cortex {cortex:?} is not lighter than muscle {muscle:?}");
     }
 
+    /// CIE L\*a\*b\* under D65 of an encoded-sRGB colour in `[0, 1]`.
+    fn lab_of(c: [f32; 3]) -> [f32; 3] {
+        let [r, g, b] = c.map(srgb_to_linear);
+        let (x, y, z) = ((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.950_47, 0.2126 * r + 0.7152 * g + 0.0722 * b, (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.088_83);
+        let f = |t: f32| if t > 0.008_856 { t.cbrt() } else { 7.787 * t + 16.0 / 116.0 };
+        let (fx, fy, fz) = (f(x), f(y), f(z));
+        [116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz)]
+    }
+
+    /// Every texel of a baked strip's muscle band, as encoded sRGB in `[0, 1]`, in row-major order
+    /// together with the band's width in columns.
+    fn muscle_texels(s: &Strip) -> (Vec<[f32; 3]>, usize) {
+        let band = s.bands.iter().find(|b| b.layer == Layer::Muscle).copied().unwrap_or(Band { layer: Layer::Muscle, x0: 0, x1: 0 });
+        assert!(band.x1 > band.x0, "a strip without a muscle band");
+        let mut out = Vec::new();
+        for y in 0..s.height {
+            for x in band.x0..band.x1 {
+                let i = ((y * s.width + x) * 4) as usize;
+                out.push([s.albedo[i] as f32 / 255.0, s.albedo[i + 1] as f32 / 255.0, s.albedo[i + 2] as f32 / 255.0]);
+            }
+        }
+        (out, (band.x1 - band.x0) as usize)
+    }
+
+    /// **A cut muscle is cherry red with pale tissue through it, not burgundy.** The window is the
+    /// literature's and a photograph's, not the previous output's: longissimus dorsi at day 0 reads L\*
+    /// 43.3-44.3, a\* 21.7-21.9 (Crump et al. 2025); psoas major L\* 30-33, a\* 14-16 (Lu et al. 2025);
+    /// a shank photographed on white has pale texels, 17-27 % counting the blurred edge of each line,
+    /// and a lean of sRGB (183, 39, 39). Until 0.8.11 the band was L\* 29.4 with **3 %** pale texels
+    /// and the lean (121, 33, 43); a thick film of venous blood is the one colour that fails every row
+    /// of this table at once. A cut face that is *too* pale or too saturated fails the upper edges.
+    /// Three seeds, because the pale lines are noise and the share must not depend on which.
+    #[test]
+    fn the_muscle_reads_as_meat_not_burgundy() {
+        let layers = Layers::for_region(Region::Limb);
+        for seed in [0xC0FF_EE00, 1, 7] {
+            let s = strip(&layers, 512, 512, TILE_MM, seed);
+            let (texels, _) = muscle_texels(&s);
+            let n = texels.len() as f32;
+            let labs: Vec<[f32; 3]> = texels.iter().map(|c| lab_of(*c)).collect();
+            let mean = |k: usize| labs.iter().map(|l| l[k]).sum::<f32>() / n;
+            let (l, a, b) = (mean(0), mean(1), mean(2));
+            assert!((38.0..=52.0).contains(&l), "seed {seed}: mean L* {l:.1} is outside the beef literature's lightness");
+            assert!((22.0..=58.0).contains(&a), "seed {seed}: mean a* {a:.1} is not a red meat");
+            assert!((9.0..=40.0).contains(&b), "seed {seed}: mean b* {b:.1} is not a warm one");
+            let pale = labs.iter().filter(|l| l[0] > 60.0).count() as f32 / n;
+            assert!((0.08..=0.20).contains(&pale), "seed {seed}: {:.1} % of the band is pale connective tissue", pale * 100.0);
+            let lean: Vec<&[f32; 3]> = texels.iter().zip(&labs).filter(|(_, l)| l[0] <= 60.0).map(|(c, _)| c).collect();
+            let m = lean.len() as f32;
+            let (lr, lg) = (lean.iter().map(|c| c[0]).sum::<f32>() / m, lean.iter().map(|c| c[1]).sum::<f32>() / m);
+            assert!((0.63..=0.78).contains(&lr) && (0.10..=0.27).contains(&lg), "seed {seed}: the lean is ({lr:.2}, {lg:.2}, ..), not a fresh cut's red");
+            // Averaged in linear light, which is what a mip level or a distant cut sees, it is still red.
+            let lin: [f32; 3] = std::array::from_fn(|k| texels.iter().map(|c| srgb_to_linear(c[k])).sum::<f32>() / n);
+            assert!(lin[0] / (lin[0] + lin[1] + lin[2]) >= 0.55, "seed {seed}: the band averages to {lin:?}, which is not red");
+        }
+    }
+
+    /// **There is structure above the grain.** A band whose 0.7 mm fascicles and 3 mm net are all it
+    /// has averages to one colour at any distance a game looks from; one with bellies and sheets does
+    /// not. The statistic is the spread of the lightness of its 6 mm blocks: 0.42 L\* until 0.8.11,
+    /// 2.4-3.6 across the three seeds now, and the bar is 1.8, four times the old band's. Also that
+    /// the pale tissue is *connected* at the belly scale, not a scatter of specks: of the texels
+    /// beside a pale one in a row, at least half are pale too.
+    #[test]
+    fn the_muscle_has_structure_larger_than_its_grain() {
+        let layers = Layers::for_region(Region::Limb);
+        for seed in [0xC0FF_EE00, 1, 7] {
+            let s = strip(&layers, 512, 512, TILE_MM, seed);
+            let (texels, w) = muscle_texels(&s);
+            let ls: Vec<f32> = texels.iter().map(|c| lab_of(*c)[0]).collect();
+            let (bw, bh) = ((6.0 * s.px_per_mm(&layers)) as usize, (6.0 * 512.0 / TILE_MM) as usize);
+            let mut blocks = Vec::new();
+            for y in (0..=(512 - bh)).step_by(bh) {
+                for x in (0..=(w - bw)).step_by(bw) {
+                    let sum: f32 = (y..y + bh).map(|r| ls[r * w + x..r * w + x + bw].iter().sum::<f32>()).sum();
+                    blocks.push(sum / (bw * bh) as f32);
+                }
+            }
+            let mean = blocks.iter().sum::<f32>() / blocks.len() as f32;
+            let spread = (blocks.iter().map(|b| (b - mean) * (b - mean)).sum::<f32>() / blocks.len() as f32).sqrt();
+            assert!(spread >= 1.8, "seed {seed}: the 6 mm blocks of the band differ by {spread:.2} L* (std), which is a flat band");
+            // Pale runs: of the texels beside a pale one in the same row, most are pale too.
+            let (mut pairs, mut both) = (0u32, 0u32);
+            for row in ls.chunks(w) {
+                for pair in row.windows(2) {
+                    if pair[0] > 60.0 {
+                        pairs += 1;
+                        both += u32::from(pair[1] > 60.0);
+                    }
+                }
+            }
+            assert!(pairs > 0 && both as f32 / pairs as f32 >= 0.5, "seed {seed}: the pale texels are specks, not lines ({both} of {pairs} neighbours pale)");
+        }
+    }
+
     /// **Frozen.** Three strips, one per region, at the size and tile the plugin bakes.
     ///
     /// Re-blessed in 0.1.1: the along axis is now baked at the tile `annotate_cap` maps `v` onto
@@ -466,6 +650,12 @@ mod tests {
     /// of its old area, because once the strip gained mip levels the old net averaged the band to
     /// rose-tan; and the dermis and fat albedos were retuned (see the constants). Was
     /// `[0xd55cec77866f8a74, 0xf6f9bd95d6256cca, 0xdfc4499c89d19840]`.
+    ///
+    /// Re-blessed in 0.8.11, **deliberately**: the muscle band is a cherry red rather than a burgundy,
+    /// and carries pale sheets between bellies and wandering marbling (`docs/research/cut-face.md`).
+    /// Fat, skin, cortex and marrow are byte for byte what they were, which is why the regions' digests
+    /// all moved (each has a muscle band) and the other four bands' columns did not. Was
+    /// `[0x31620f0b7e9e7e88, 0x7066b93f54d6cc2c, 0x7d5d385f1cdc1df0]`.
     #[test]
     fn the_strips_are_frozen() {
         let got: Vec<u64> = Region::ALL
@@ -473,6 +663,6 @@ mod tests {
             .map(|r| strip(&Layers::for_region(*r), 512, 512, TILE_MM, 0xC0FF_EE00).digest())
             .collect();
         println!("{got:x?}");
-        assert_eq!(got, vec![0x31620f0b7e9e7e88, 0x7066b93f54d6cc2c, 0x7d5d385f1cdc1df0]);
+        assert_eq!(got, vec![0x13b0398ae1709ac6, 0xe803b5652b6625b0, 0x602f16842b352486]);
     }
 }
