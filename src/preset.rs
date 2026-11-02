@@ -60,7 +60,7 @@ use crate::cross_section::{CrossSectionPlugin, CrossSectionSettings, Layers, Reg
 use crate::flaymap::{BoneExposed, FlayCanvas, FlaySettings, FlaymapPlugin, Layer};
 use crate::laceration::{Gape, Laceration, LacerationBed, LacerationClock, LacerationPlugin, Tension};
 use crate::viscera::{GUT_ROUGHNESS, Mesentery, Strand, ViscSettings, VisceraPlugin, VisceraSystems, gut_image, organ_image, organ_mesh, soaked_tube, spill};
-use crate::wetmap::{Print, StainShape, WetCanvas, WetSettings, WetmapPlugin};
+use crate::wetmap::{Print, Smear, StainShape, WetCanvas, WetSettings, WetmapPlugin};
 use crate::bloodstain::{BloodSettings, Wound as BloodWound, WoundKind, hash_f32, wound_seed};
 
 use crate::flesh::{FleshMaterial, FleshMode, FleshParams, FleshPlugin, FleshTables};
@@ -2675,12 +2675,13 @@ impl Plugin for GorePlugin {
             .add_message::<GoreHit>()
             .add_message::<GoreReset>()
             .add_message::<GoreStep>()
+            .add_message::<GoreSmear>()
             .add_message::<GoreFractured>()
             .add_systems(FixedUpdate, scene_gore.before(dress).in_set(GoreSystems))
             .configure_sets(FixedUpdate, GoreSystems.before(VisceraSystems))
             .add_systems(
                 FixedUpdate,
-                (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, pour_cut_faces, take_steps, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly)
+                (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, pour_cut_faces, take_steps, take_smears, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly)
                     .chain()
                     .in_set(GoreSystems),
             )
@@ -4039,6 +4040,77 @@ pub const TREAD_LIFT: f32 = 0.3;
 /// floor under the foot, never on one a storey down. This crate's own number.
 pub const STEP_REACH_M: f32 = 0.25;
 
+/// **A contact moved across a surface**: a hand slid down a wall, a body dragged out of a pool, a sleeve wiped through a splash. The game says where the contact was and where it is, on which side of the
+/// surface it lies, and how wide it is; the preset finds the floor or wall under both ends and draws the **smear** between them (`WetCanvas::smear_uv`, `docs/research/smear.md`): it lifts the wet blood
+/// it crosses, lays what it carries along the path in streaks parallel to the motion, heavy where the contact first touched and fading as the load runs low, and stops when the load is gone. Blood
+/// moved is blood conserved, to the byte. Send one per tick for a contact that is moving, from where it was to where it is, as [`GoreStep`] is sent per step.
+///
+/// **What a contact carries is the carrier's** ([`Smeared`]): `carrier` names the hand, the body, the sleeve, as [`GoreStep::foot`] names a foot, and the same entity must be named for every segment of one
+/// stroke. `load_m2` is blood the contact picks up from somewhere the preset cannot see, such as a wound it is pressed against or the blood a body is losing as it is dragged, in square metres of
+/// full coverage (a millilitre laid a tenth of a millimetre thick is `0.01`); send `0` for a clean hand, which still wipes any wet blood it crosses. A tier that paints no blood smears nothing.
+///
+/// A floor or a wall dressed [`Gore::floor`] or [`Gore::wall`] is smeared, within [`SURFACE_STAND_OFF`] of the contact; a skinned body is not (a hand dragged down a character is a later item).
+#[derive(Message, Clone, Copy, Debug)]
+pub struct GoreSmear {
+    /// Whose contact it is: the hand, the body or the sleeve. The blood it carries is kept on this entity as a [`Smeared`].
+    pub carrier: Entity,
+    /// Where the contact was, world space, on the surface.
+    pub from: Vec3,
+    /// Where it is now, world space, on the surface.
+    pub to: Vec3,
+    /// Which way the surface faces, world space: a floor's is up, a wall's points into the room. The surface is looked for along it, behind each end.
+    pub normal: Vec3,
+    /// How wide the contact is, metres: a hand's breadth, a body's.
+    pub width_m: f32,
+    /// Blood the contact brings with it, square metres of full coverage, added to what it carries.
+    pub load_m2: f32,
+}
+
+impl GoreSmear {
+    /// A hand's width ([`SMEAR_WIDTH_M`]) of clean contact moving from `from` to `to` over a surface facing `normal`.
+    pub fn new(carrier: Entity, from: Vec3, to: Vec3, normal: Vec3) -> Self {
+        Self { carrier, from, to, normal, width_m: SMEAR_WIDTH_M, load_m2: 0.0 }
+    }
+    /// The same contact, `width_m` metres wide.
+    pub fn width(mut self, width_m: f32) -> Self {
+        self.width_m = width_m;
+        self
+    }
+    /// The same contact, bringing `load_m2` of blood with it: see [`GoreSmear::load_m2`].
+    pub fn loaded(mut self, load_m2: f32) -> Self {
+        self.load_m2 = load_m2;
+        self
+    }
+}
+
+/// **The blood on a smearing contact**, kept on the [`GoreSmear::carrier`] entity by the preset from its first smear: square metres of full coverage. Read it to drive a game's own look — blood drawn on a
+/// glove — and a [`GoreReset`] of the carrier or anything above it wipes it. A contact that has crossed a surface holds what it did not lay, and the next stroke starts with it.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct Smeared {
+    /// What the contact carries now, square metres of full coverage; at most [`SMEAR_LOAD_MAX_M2`].
+    pub load_m2: f32,
+    /// The stroke's seed (a place: where it began), so its streaks continue from one segment to the next.
+    seed: u32,
+    /// The tick of the stroke's last segment: a gap of more than [`SMEAR_GAP_TICKS`] ticks is a new stroke, which begins with a heavy head.
+    last: u32,
+}
+
+/// **How much blood is a full load**, square metres of full coverage: `0.016`, a hand's width and thirty centimetres at three-fifths coverage, about a millilitre and a half laid a tenth of a
+/// millimetre thick. A contact holding this lays its heaviest mark; with less it lays less, in fewer lines, and with none, nothing. This crate's own number (`docs/research/smear.md`).
+pub const SMEAR_FULL_M2: f32 = 0.016;
+
+/// **The most blood a contact carries**: `0.1` m², six and a half full loads. A body bleeding as it is dragged can be sent more than that every tick for a minute and no more is carried than this.
+pub const SMEAR_LOAD_MAX_M2: f32 = 0.1;
+
+/// **How wide a smearing contact is when the game does not say**: `0.09` m, a hand's breadth. This crate's own number.
+pub const SMEAR_WIDTH_M: f32 = 0.09;
+
+/// **How wide a streak is**: `0.007` m, a fingertip's ridge, a fibre bundle's. This crate's own number, tuned against the references of `docs/research/smear.md`.
+pub const SMEAR_GRAIN_M: f32 = 0.007;
+
+/// **How many ticks of silence end a stroke**: `2`. A contact that is not heard from for longer than this has been lifted, and its next segment touches down with a heavy head.
+pub const SMEAR_GAP_TICKS: u32 = 2;
+
 /// **Heal a character, or wipe a surface, back to how it was dressed.** `entity` is a dressed surface
 /// or any ancestor of dressed surfaces, the way [`GoreHit::entity`] is: every surface at or below it
 /// is reset. Its canvases are cleared in place — blood, peeled tissue, bruises, burns, holes in its
@@ -4118,7 +4190,7 @@ fn reset_gore(
             if let Some(untorn) = untorn {
                 entity.try_insert(Mesh3d(untorn.0.clone()));
             }
-            entity.try_remove::<(Wounds, Bruising, Laceration, Untorn, Broken, ThrowNow, CutFaceBleed, Tread)>();
+            entity.try_remove::<(Wounds, Bruising, Laceration, Untorn, Broken, ThrowNow, CutFaceBleed, Tread, Smeared)>();
         }
     }
 }
@@ -4619,6 +4691,84 @@ fn take_steps(
     }
 }
 
+/// **Draw every [`GoreSmear`]**: find the surface under each end of the contact, carry the contact's blood across it, and keep what is left. See [`GoreSmear`].
+#[allow(clippy::too_many_arguments)]
+fn take_smears(
+    mut commands: Commands,
+    mut smears: MessageReader<GoreSmear>,
+    clock: Res<GoreClock>,
+    dials: Res<GoreDials>,
+    wet_settings: Option<Res<WetSettings>>,
+    meshes: Res<Assets<Mesh>>,
+    carriers: Query<&Smeared>,
+    mut surfaces: Query<(Entity, &Gore, &Mesh3d, &GlobalTransform, &mut WetCanvas)>,
+    policy: Option<Res<GorePolicy>>,
+) {
+    let tick = clock.0;
+    let draws = policy.as_deref().is_none_or(|p| p.draws_blood() && p.blood_decals);
+    let edges = edge_settings(&dials, wet_settings.as_deref());
+    // Each contact's blood as the tick's segments change it, in the order they were sent.
+    let mut carried: Vec<(Entity, Smeared)> = Vec::new();
+    for smear in smears.read() {
+        let normal = smear.normal.normalize_or_zero();
+        if !draws || !smear.from.is_finite() || !smear.to.is_finite() || normal == Vec3::ZERO || !smear.width_m.is_finite() || smear.width_m <= 0.0 {
+            continue;
+        }
+        let prior = carried.iter().find(|(e, _)| *e == smear.carrier).map(|c| c.1).or_else(|| carriers.get(smear.carrier).ok().copied());
+        let fresh = prior.is_none_or(|p| tick.saturating_sub(p.last) > SMEAR_GAP_TICKS);
+        let held = prior.map_or(0.0, |p| p.load_m2) + if smear.load_m2.is_finite() { smear.load_m2.max(0.0) } else { 0.0 };
+        let held = held.min(SMEAR_LOAD_MAX_M2);
+        // A stroke's seed is where it began: a place, so a replay is the same, and kept so its lines go on from one segment to the next.
+        let seed = match prior {
+            Some(p) if !fresh => p.seed,
+            _ => {
+                let q = |v: f32| (v * 100.0).round() as i32 as u32;
+                q(smear.from.x).wrapping_mul(0x9E37_79B1) ^ q(smear.from.y).wrapping_mul(0x85EB_CA6B) ^ q(smear.from.z).wrapping_mul(0xC2B2_AE35)
+            }
+        };
+        // The surface under the start of the contact: the nearest a ray along `-normal` meets from just outside it, within reach.
+        let (start, end) = (smear.from + normal * SURFACE_STAND_OFF, smear.to + normal * SURFACE_STAND_OFF);
+        let mut under: Option<(Entity, Landing)> = None;
+        for (entity, gore, mesh3d, xf, _) in &surfaces {
+            if !matches!(gore.kind, GoreKind::Floor | GoreKind::Wall) {
+                continue;
+            }
+            let Some(mesh) = meshes.get(&mesh3d.0) else { continue };
+            let Some(landing) = ray_hit(mesh, xf, start, -normal) else { continue };
+            if landing.t <= 2.0 * SURFACE_STAND_OFF && under.as_ref().is_none_or(|(_, best)| landing.t < best.t) {
+                under = Some((entity, landing));
+            }
+        }
+        let mut load = held;
+        if let Some((entity, a)) = under
+            && let Ok((_, gore, mesh3d, xf, mut wet)) = surfaces.get_mut(entity)
+            && let Some(mesh) = meshes.get(&mesh3d.0)
+            && let Some(b) = ray_hit(mesh, xf, end, -normal).filter(|b| b.t <= 2.0 * SURFACE_STAND_OFF)
+        {
+            let density = gore.density();
+            // A path that jumps a seam of the atlas is not one smear: its ends are farther apart on the canvas than on the surface.
+            let world = smear.from.distance(smear.to);
+            if (b.uv - a.uv).length() / density.max(1.0e-6) <= 2.0 * world + 0.05 {
+                let texel_m = 1.0 / (wet.size() as f32 * density).max(1.0e-6);
+                let bytes = |m2: f32| -> u32 { (m2 / (texel_m * texel_m) * 255.0).round().clamp(0.0, 1.0e9) as u32 };
+                let path = Smear { from: a.uv, to: b.uv, width: smear.width_m * density, grain: SMEAR_GRAIN_M * density, seed, bead: fresh };
+                let left = wet.smear_uv(&path, bytes(held), bytes(SMEAR_FULL_M2), tick, &edges);
+                load = (left as f32 / 255.0 * texel_m * texel_m).min(SMEAR_LOAD_MAX_M2);
+            }
+        }
+        let now = Smeared { load_m2: load, seed, last: tick };
+        match carried.iter_mut().find(|(e, _)| *e == smear.carrier) {
+            Some(c) => c.1 = now,
+            None => carried.push((smear.carrier, now)),
+        }
+    }
+    for (carrier, now) in carried {
+        if let Ok(mut entity) = commands.get_entity(carrier) {
+            entity.try_insert(now);
+        }
+    }
+}
+
 /// **Pour every cut face of a broken body onto the floor beneath it**, a pulse at a time, until its
 /// perfusion runs out ([`CutFaceBleed`]). Each pulse is a stain [`CUT_FACE_POUR`] of the radius a
 /// wound of the face's area paints, cast straight down from above the face's centre as the piece is
@@ -4937,6 +5087,7 @@ mod tests {
             .add_message::<GoreHit>()
             .add_message::<GoreReset>()
             .add_message::<GoreStep>()
+            .add_message::<GoreSmear>()
             .add_message::<GoreFractured>()
             .add_message::<BoneExposed>()
             .add_message::<Wounded>()
@@ -4944,7 +5095,7 @@ mod tests {
             .init_resource::<WetSettings>()
             .init_resource::<FlaySettings>()
             .add_systems(FixedUpdate, scene_gore.before(dress))
-            .add_systems(FixedUpdate, (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, pour_cut_faces, take_steps, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
+            .add_systems(FixedUpdate, (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, pour_cut_faces, take_steps, take_smears, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
         let images = app.world_mut().resource_mut::<Assets<Image>>().reserve_handle();
         app.world_mut().resource_mut::<FleshTables>().luts = images;
         app
@@ -7000,6 +7151,46 @@ mod tests {
         assert_eq!(floor, 0.0, "world blood was off and the floor took {floor}");
         let (_, control) = run(true);
         assert!(control > 0.0, "the control put nothing on the floor, so the test proves nothing");
+    }
+
+    /// **A smear moves the carrier's blood onto the floor and keeps the rest, and a tier that draws no blood smears nothing.** A hand with `0.02` m² of blood is drawn across a floor: the blood on
+    /// the canvas and the blood left on the hand are, to a rounding, the blood it brought (`docs/research/smear.md`), the hand holds less than it had, and a second segment with no new blood goes
+    /// on from what it kept. `Stylised` paints no blood and so smears none.
+    #[test]
+    fn a_smear_moves_a_carriers_blood_onto_the_floor_and_a_tier_that_draws_none_smears_nothing() {
+        let run = |tier: Option<crate::GoreTier>| {
+            let mut app = headless();
+            if let Some(tier) = tier {
+                app.insert_resource(GorePolicy::for_tier(tier));
+            }
+            let plane = app.world_mut().resource_mut::<Assets<Mesh>>().add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)).mesh().build());
+            let floor = app.world_mut().spawn((Mesh3d(plane), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::floor().with_uv_per_metre(0.5))).id();
+            let hand = app.world_mut().spawn_empty().id();
+            app.world_mut().run_schedule(FixedUpdate);
+            app.world_mut().write_message(GoreSmear::new(hand, Vec3::new(-0.6, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0), Vec3::Y).loaded(0.02));
+            app.world_mut().run_schedule(FixedUpdate);
+            let after_one = app.world().get::<Smeared>(hand).map_or(0.0, |s| s.load_m2);
+            app.world_mut().write_message(GoreSmear::new(hand, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.6, 0.0, 0.0), Vec3::Y));
+            app.world_mut().run_schedule(FixedUpdate);
+            let after_two = app.world().get::<Smeared>(hand).map_or(0.0, |s| s.load_m2);
+            let Some(wet) = app.world().get::<WetCanvas>(floor) else { return (0.0, after_one, after_two) };
+            let size = wet.size();
+            let texel_m = 1.0 / (size as f32 * 0.5);
+            let mut bytes = 0u64;
+            for y in 0..size {
+                for x in 0..size {
+                    bytes += u64::from(wet.amount_at(x, y));
+                }
+            }
+            (bytes as f32 / 255.0 * texel_m * texel_m, after_one, after_two)
+        };
+        let (on_floor, after_one, after_two) = run(None);
+        assert!(on_floor > 0.0, "a loaded hand dragged across a floor left no blood on it");
+        assert!(after_one < 0.02 && after_one > 0.0, "the hand held {after_one} m2 after a segment: it laid nothing, or it had nothing left to carry on with");
+        assert!(after_two < after_one, "a second segment with no new blood laid none of what the hand kept: {after_one} then {after_two}");
+        assert!((on_floor + after_two - 0.02).abs() < 0.02 * 0.03, "{on_floor} m2 on the floor and {after_two} on the hand are not the 0.02 it brought");
+        let (none, _, held) = run(Some(crate::GoreTier::Stylised));
+        assert_eq!((none, held), (0.0, 0.0), "a tier that draws no blood smeared {none} m2");
     }
 
     /// How many open wounds an entity has.

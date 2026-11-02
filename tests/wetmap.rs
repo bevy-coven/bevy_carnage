@@ -18,7 +18,7 @@ use bevy::shape::Sphere;
 use bevy::math::{Vec2, Vec3};
 use bevy::mesh::{Mesh, Meshable, PrimitiveTopology};
 use bevy::transform::components::GlobalTransform;
-use bevy_carnage::wetmap::{StainShape, WetCanvas, WetSettings, WetmapPlugin};
+use bevy_carnage::wetmap::{Smear, StainShape, WetCanvas, WetSettings, WetmapPlugin};
 
 /// A round stain of a given size in metres, with no spines, so a test's expectations are about the
 /// wetmap and not about `bloodstain`'s silhouette.
@@ -843,4 +843,128 @@ fn a_cone_refuses_nonsense_and_is_clipped_at_the_edge() {
     let d = drawn(&huge, 12, 12, 40);
     let max = std::f32::consts::PI * bevy_carnage::wetmap::CONE_MAX_SEMI.powi(2);
     assert!(d.area <= 1.1 * max, "a cone of a hundred texels was drawn {} texel squares (the largest is {max})", d.area);
+}
+
+/// A smear down the middle of a canvas, left to right at `y`, `width` wide, with the grain of a finger on a 256 canvas (3 texels).
+fn stroke(y: f32, x0: f32, x1: f32, width: f32, seed: u32, bead: bool) -> Smear {
+    Smear { from: Vec2::new(x0, y), to: Vec2::new(x1, y), width, grain: 3.0 / 256.0, seed, bead }
+}
+
+/// **A smear moves blood and makes none.** Over strokes of every direction and length across a canvas that holds a pool, a half-dry pool and bare floor,
+/// `sum(amount) + carry` is the same after each stroke as before it: a byte lifted is carried and a byte deposited is spent.
+#[test]
+fn a_smear_conserves_every_byte() {
+    let s = WetSettings::default();
+    let (_images, mut canvas) = scratch(128);
+    canvas.paint_uv(Vec2::new(0.35, 0.4), &blob(0.2), 0);
+    canvas.paint_uv(Vec2::new(0.75, 0.7), &blob(0.12), 0);
+    let mut carry = 90_000u32;
+    let strokes = [
+        (0.10, 0.40, 0.90, 0.40),
+        (0.50, 0.10, 0.45, 0.85),
+        (0.90, 0.90, 0.20, 0.55),
+        (0.30, 0.70, 0.30, 0.30),
+        (0.05, 0.05, 0.95, 0.95),
+        (0.60, 0.20, 0.62, 0.21),
+        (0.80, 0.30, 0.10, 0.31),
+    ];
+    for (k, &(ax, ay, bx, by)) in strokes.iter().enumerate() {
+        let before = u64::from(coverage(&canvas)) + u64::from(carry);
+        let smear = Smear { from: Vec2::new(ax, ay), to: Vec2::new(bx, by), width: 0.07, grain: 3.0 / 128.0, seed: 5 + k as u32, bead: k % 2 == 0 };
+        carry = canvas.smear_uv(&smear, carry, 120_000, k as u32, &s);
+        let after = u64::from(coverage(&canvas)) + u64::from(carry);
+        assert_eq!(before, after, "stroke {k} made or lost {} bytes of blood", after as i64 - before as i64);
+    }
+}
+
+/// **Nothing to move, nothing moves.** A contact with no blood on a bare canvas changes nothing and returns 0; and **dry paint does not move**: a contact with no blood across a dried pool lifts none
+/// of it, so the canvas, its digest and its coverage are what they were.
+#[test]
+fn a_clean_contact_changes_nothing_and_dry_blood_is_not_lifted() {
+    let (_images, mut bare) = scratch(128);
+    let blank = bare.digest();
+    let s = WetSettings { dry_ticks: 1, ..Default::default() };
+    assert_eq!(bare.smear_uv(&stroke(0.5, 0.1, 0.9, 0.1, 3, true), 0, 6000, 0, &s), 0);
+    assert_eq!(bare.digest(), blank, "a clean contact on a bare canvas painted something");
+    assert!(!bare.is_dirty(), "and asked for an upload");
+
+    let (_images, mut crust) = scratch(128);
+    crust.paint_uv(Vec2::new(0.5, 0.5), &blob(0.2), 0);
+    for tick in 0..4u32 {
+        crust.tick(tick, Vec2::new(0.0, 1.0), &s);
+    }
+    let (settled, held) = (crust.digest(), coverage(&crust));
+    assert!(held > 0, "nothing was left to be dry");
+    assert_eq!(crust.smear_uv(&stroke(0.5, 0.1, 0.9, 0.1, 3, false), 0, 6000, 9, &s), 0);
+    assert_eq!(crust.digest(), settled, "a clean contact lifted dry blood");
+    assert_eq!(coverage(&crust), held);
+}
+
+/// **A smear is heavy at its head and fades along the path, and a contact with less blood lays a lighter mark.** A soaked contact slid across a bare canvas lays more blood in the first third of its
+/// path than the second, and the second than the third; one with a fiftieth of the blood lays a mark a fraction as heavy, and keeps what it did not lay.
+#[test]
+fn a_smear_is_heavy_at_its_head_and_fades_along_the_path() {
+    let s = WetSettings::default();
+    let thirds = |canvas: &WetCanvas, x0: u32, x1: u32| -> [u32; 3] {
+        let mut sums = [0u32; 3];
+        for y in 0..canvas.size() {
+            for x in x0..x1 {
+                sums[(((x - x0) * 3) / (x1 - x0)) as usize] += u32::from(canvas.amount_at(x, y));
+            }
+        }
+        sums
+    };
+    let (_images, mut canvas) = scratch(256);
+    let left = canvas.smear_uv(&stroke(0.5, 0.1, 0.9, 0.06, 4, true), 300_000, 400_000, 0, &s);
+    let [a, b, c] = thirds(&canvas, 26, 230);
+    assert!(a > b && b > c, "the thirds of the smear are {a}, {b}, {c}: not a fade from the head");
+    assert!(c * 10 < a * 6, "the tail ({c}) is more than 0.6 of the head ({a})");
+    assert_eq!(u64::from(coverage(&canvas)) + u64::from(left), 300_000, "the blood laid and the blood left are not the blood there was");
+
+    let window = |c: &WetCanvas, x0: u32, x1: u32| -> u32 { (x0..x1).map(|x| (0..256).map(|y| u32::from(c.amount_at(x, y))).sum::<u32>()).sum() };
+    let (_images, mut thin) = scratch(256);
+    let kept = thin.smear_uv(&stroke(0.5, 0.1, 0.9, 0.06, 4, true), 8_000, 400_000, 0, &s);
+    assert_eq!(u64::from(coverage(&thin)) + u64::from(kept), 8_000, "a thin contact made or lost blood");
+    let (head, soaked) = (window(&thin, 26, 82), window(&canvas, 26, 82));
+    assert!(head * 5 < soaked, "a contact with a fiftieth of the blood laid {head} bytes in its first 56 columns; the soaked one laid {soaked}");
+}
+
+/// **A wipe drags a pool.** A contact with no blood drawn through a pool takes some of it (grooves in the pool) and lays it down beyond: blood appears past the pool's far edge where there was none.
+#[test]
+fn a_wipe_drags_a_pool_along_its_path() {
+    let s = WetSettings::default();
+    let (_images, mut canvas) = scratch(256);
+    canvas.paint_uv(Vec2::new(0.3, 0.5), &blob(0.16), 0);
+    let beyond = |c: &WetCanvas| -> u32 { (126..200).map(|x| (0..256).map(|y| u32::from(c.amount_at(x, y))).sum::<u32>()).sum() };
+    let pool_before = coverage(&canvas);
+    assert_eq!(beyond(&canvas), 0, "the premise: no blood between x = 126 and 200");
+    let left = canvas.smear_uv(&stroke(0.5, 0.2, 0.9, 0.05, 6, false), 0, 60_000, 1, &s);
+    assert!(beyond(&canvas) > 0, "a wipe through a pool carried none of it on past the pool's far edge");
+    assert_eq!(u64::from(coverage(&canvas)) + u64::from(left), u64::from(pool_before), "a wipe made or lost blood");
+}
+
+/// **Streaks run along the motion, and a smear is reproducible.** The marks of a horizontal stroke change less from one texel to the next along it than across it, and the same stroke on two
+/// canvases leaves the same digest; another seed leaves another.
+#[test]
+fn a_smears_streaks_run_along_the_motion_and_its_digest_is_reproducible() {
+    let s = WetSettings::default();
+    let run = |seed: u32| {
+        let (_images, mut canvas) = scratch(256);
+        canvas.smear_uv(&stroke(0.5, 0.1, 0.9, 0.08, seed, true), 400_000, 400_000, 0, &s);
+        canvas
+    };
+    let (a, again, other) = (run(8), run(8), run(9));
+    assert_eq!(a.digest(), again.digest(), "one stroke, two canvases, two digests");
+    assert_ne!(a.digest(), other.digest(), "another seed laid the same marks");
+    let (mut along, mut across, mut n) = (0u64, 0u64, 0u64);
+    for y in 118..138 {
+        for x in 60..200 {
+            let here = i32::from(a.amount_at(x, y));
+            along += (here - i32::from(a.amount_at(x + 1, y))).unsigned_abs() as u64;
+            across += (here - i32::from(a.amount_at(x, y + 1))).unsigned_abs() as u64;
+            n += 1;
+        }
+    }
+    assert!(n > 0 && across > 0, "no marks to measure");
+    assert!(along * 10 < across * 6, "the marks change {along} along the motion and {across} across it: they are not lines");
 }
