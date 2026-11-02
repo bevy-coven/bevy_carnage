@@ -81,8 +81,8 @@ pub use wound::{
 /// the component is [`Bleeding`], a newtype over it — the same facade-newtype shape `bevy_stigmergy`
 /// and `bevy_light_grid` are reached through in this workspace's game.
 pub use crate::bloodstain::{
-    Appearance, BACK_SPATTER_SPEED, BLOOD_DENSITY, BLOOD_SURFACE_TENSION, Bleed, BloodSettings,
-    Droplet, FORWARD_SPATTER_SPEED, Impact, PatternClass, Pool, Stain, StainShape, WELD, WoundKind,
+    Appearance, BACK_SPATTER_SPEED, BLOOD_DENSITY, BLOOD_SURFACE_TENSION, Band, Bleed, BloodSettings,
+    Droplet, FORWARD_SPATTER_SPEED, Fluid, Impact, PatternClass, Pigment, Pool, Stain, StainShape, WELD, WoundKind,
     absorb, appearance, area_of_origin, droplet, droplet_count, droplets, flow, flows, hash_f32,
     landing, pick, pulse_period, pulse_wound, pulses_on, spread_pools, viscosity, wound_seed,
     yield_stress,

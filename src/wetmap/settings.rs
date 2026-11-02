@@ -15,7 +15,7 @@
 //! doc comment for the arithmetic.
 
 use bevy::prelude::Resource;
-use crate::bloodstain::BloodSettings;
+use crate::bloodstain::{BloodSettings, Fluid};
 
 /// **The wetmap dials.** When blood runs, how far it creeps, how much the substrate keeps, how long it
 /// takes to dry, and how many canvases may reach the GPU in one frame.
@@ -86,6 +86,14 @@ pub struct WetSettings {
     /// What an ordinary wound bleeds. A caller painting an arterial spurt sets
     /// [`crate::bloodstain::SO2_ARTERIAL`] and gets a visibly brighter red from the same model.
     pub so2: f32,
+    /// **What the fluid is**, [`Fluid::Blood`] unless a game says otherwise: the one dial that decides the colour of everything the preset draws as
+    /// blood. A canvas's film, its ageing, the flesh material's blood table (baked from this at start-up) and a spilled strand's soak all read it, so a
+    /// `Fluid::Green` game has green blood on a wall, in a cut face, on a shirt and in the guts, with the same spray, runs, pools, wounds and digests as red.
+    /// A fluid replaces the **optics and the ageing** and nothing else; [`so2`](Self::so2) means nothing to a pigment. See `docs/research/fluids.md`.
+    ///
+    /// Changed at run time it is the colour of the **next** thing drawn: a canvas re-tabulates its colours when it changes, and a stain already
+    /// dried keeps the colour it dried to until the texel is touched again. The GPU's table is baked once, at start-up.
+    pub fluid: Fluid,
     /// **Subsamples per texel axis when a stain is stamped.** `1` — one sample per texel, the
     /// shipped rasterisation to the byte.
     ///
@@ -116,6 +124,7 @@ impl Default for WetSettings {
             humidity: 0.4,
             film_depth_mm: 2.0,
             so2: crate::bloodstain::SO2_VENOUS,
+            fluid: Fluid::Blood,
             edge_samples: 1,
         }
     }

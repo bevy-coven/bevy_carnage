@@ -13,7 +13,7 @@ use bevy::mesh::{Indices, Mesh, PrimitiveTopology};
 
 use crate::viscera::frame::perpendicular_basis;
 use crate::viscera::hash::{hash_pair, hash_unit};
-use crate::viscera::look::{soak, soak_tint};
+use crate::viscera::look::{SoakTable, soak, soak_tint};
 use crate::viscera::strand::Strand;
 
 /// The fewest sides a tube can have and still enclose anything.
@@ -49,7 +49,7 @@ pub const MAX_SIDES: u32 = 32;
 /// (`floor_y + radius`, in the solver) are the same; only what is drawn is lumpy. The seam, the counts and the unit normals
 /// are as before. For the slump a strand takes where it lies on the floor, and the tint of the blood it lies in, see [`soaked_tube`].
 pub fn tube_mesh(strand: &Strand, sides: u32) -> Mesh {
-    sweep(strand, sides, None)
+    sweep(strand, sides, None, None)
 }
 
 /// **The same tube, slumped where it lies on the floor and tinted by the blood it is soaked in.**
@@ -60,9 +60,16 @@ pub fn tube_mesh(strand: &Strand, sides: u32) -> Mesh {
 /// carries `ATTRIBUTE_COLOR`: [`soak`] says how soaked each node is and [`soak_tint`] what that multiplies the material's texture by.
 ///
 /// Everything else, including the vertex count and the indices, is [`tube_mesh`]'s. **Cosmetic**: the strand's nodes, its digest and
-/// every canvas are untouched, and a `NaN` `floor_y` slumps nothing and soaks only by the wound and the base.
+/// every canvas are untouched, and a `NaN` `floor_y` slumps nothing and soaks only by the wound and the base. In blood; for another fluid
+/// see [`soaked_tube_in`].
 pub fn soaked_tube(strand: &Strand, sides: u32, floor_y: f32) -> Mesh {
-    sweep(strand, sides, Some(floor_y))
+    sweep(strand, sides, Some(floor_y), None)
+}
+
+/// **[`soaked_tube`] in the fluid of `table`** ([`SoakTable::new`]): the same mesh, the same slump, tinted by what a film of that fluid does to the
+/// texture. With the table of [`crate::bloodstain::Fluid::Blood`] it is [`soaked_tube`] to the bit.
+pub fn soaked_tube_in(strand: &Strand, sides: u32, floor_y: f32, table: &SoakTable) -> Mesh {
+    sweep(strand, sides, Some(floor_y), Some(table))
 }
 
 /// **How strongly the two sines that lump a strand's radius swing it**, as a fraction of the radius: 22 % on a period of
@@ -100,8 +107,8 @@ pub(crate) fn contact(height_in_radii: f32) -> f32 {
     1.0 - t * t * (3.0 - 2.0 * t)
 }
 
-/// The sweep both public builders share: `floor_y` is `Some` for the slumped, tinted tube.
-fn sweep(strand: &Strand, sides: u32, floor_y: Option<f32>) -> Mesh {
+/// The sweep the public builders share: `floor_y` is `Some` for the slumped, tinted tube, and `table` the fluid's tints (blood's when `None`).
+fn sweep(strand: &Strand, sides: u32, floor_y: Option<f32>, table: Option<&SoakTable>) -> Mesh {
     let sides = sides.clamp(MIN_SIDES, MAX_SIDES) as usize;
     let ring = sides + 1; // the seam vertex is duplicated so UVs do not wrap
     let nodes = strand.nodes();
@@ -222,7 +229,11 @@ fn sweep(strand: &Strand, sides: u32, floor_y: Option<f32>) -> Mesh {
     let mut mesh = finish(positions, normals, uvs, indices);
     if let Some(floor) = floor_y {
         // One tint per ring, the end caps the tint of the ring they close: the layout is `node_count` rings, then the two fans.
-        let tints: Vec<[f32; 4]> = soak(strand, floor).into_iter().map(soak_tint).collect();
+        let tint = |s: f32| match table {
+            Some(t) => t.tint(s),
+            None => soak_tint(s),
+        };
+        let tints: Vec<[f32; 4]> = soak(strand, floor).into_iter().map(tint).collect();
         let tint_at = |i: usize| tints.get(i).copied().unwrap_or([1.0; 4]);
         let mut colours: Vec<[f32; 4]> = Vec::with_capacity(vertex_count);
         for i in 0..node_count {

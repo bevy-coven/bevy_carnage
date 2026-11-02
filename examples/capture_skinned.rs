@@ -124,8 +124,10 @@ fn main() {
         if let Some(floor_canvas) = common::arg("--floor").and_then(|n| n.parse::<u32>().ok()).or(flag("--smear").then_some(512)) {
             app.insert_resource(GoreDials { floor_canvas, ..default() });
         }
-        if let Some(dry_ticks) = common::arg("--dry").and_then(|n| n.parse::<u32>().ok()) {
-            app.insert_resource(WetSettings { dry_ticks, ..default() });
+        // **The fluid the blood is** (`--fluid`), and how long it takes to dry (`--dry`): both are the wetmap's own dials.
+        let (dry_ticks, fluid) = (common::arg("--dry").and_then(|n| n.parse::<u32>().ok()), common::fluid());
+        if dry_ticks.is_some() || fluid != bevy_carnage::Fluid::Blood {
+            app.insert_resource(WetSettings { dry_ticks: dry_ticks.unwrap_or(WetSettings::default().dry_ticks), fluid, ..default() });
         }
         app.add_plugins(GorePlugin)
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / (60.0 * slow as f64))))

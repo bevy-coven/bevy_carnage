@@ -8,6 +8,7 @@ pub mod bruise;
 pub mod burn;
 pub mod droplet;
 pub mod dry;
+pub mod fluid;
 pub mod origin;
 pub mod patterns;
 pub mod pool;
@@ -26,6 +27,7 @@ pub use droplet::{
     droplet, droplet_count, droplets, landing, wound_seed,
 };
 pub use dry::{Appearance, appearance, appearance_of, appearance_with_fresh};
+pub use fluid::{Band, Fluid, Pigment};
 pub use origin::area_of_origin;
 pub use patterns::{
     PatternClass, arterial_arc, burst_spatter, cast_off, drip_trail, expirated, impact_spatter, transfer,

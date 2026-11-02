@@ -60,7 +60,7 @@ use bevy::transform::helper::TransformHelper;
 use crate::cross_section::{CrossSectionPlugin, CrossSectionSettings, Layers, Region};
 use crate::flaymap::{BoneExposed, FlayCanvas, FlaySettings, FlaymapPlugin, Layer};
 use crate::laceration::{Gape, Laceration, LacerationBed, LacerationClock, LacerationPlugin, Tension};
-use crate::viscera::{GUT_ROUGHNESS, Mesentery, Strand, ViscSettings, VisceraPlugin, VisceraSystems, gut_image, organ_image, organ_mesh, soaked_tube, spill};
+use crate::viscera::{GUT_ROUGHNESS, Mesentery, SoakTable, Strand, ViscSettings, VisceraPlugin, VisceraSystems, gut_image, organ_image, organ_mesh, soaked_tube_in, spill};
 use crate::wetmap::{Print, Smear, StainShape, WetCanvas, WetSettings, WetmapPlugin};
 use crate::bloodstain::{BloodSettings, Wound as BloodWound, WoundKind, hash_f32, wound_seed};
 
@@ -4161,9 +4161,10 @@ fn take_hits(
                     material
                 }
             };
+            let soak_table = SoakTable::new(&edges.fluid);
             for strand in strands {
                 let anchors = (0..strand.nodes().len() as u32).step_by(4).map(|i| (i, at_world)).collect();
-                let tube = meshes.add(soaked_tube(&strand, 8, visc.floor_y));
+                let tube = meshes.add(soaked_tube_in(&strand, 8, visc.floor_y, &soak_table));
                 commands.spawn((
                     Mesh3d(tube),
                     MeshMaterial3d(gut_material.clone()),
@@ -5655,13 +5656,19 @@ fn fly(dials: Res<GoreDials>, time: Res<Time<Fixed>>, mut pieces: Query<(&mut Fl
     }
 }
 
-/// Rebuild each gut's tube from its strand after the solver moved it: where it is, how it lies on the floor and how soaked it is.
-fn retube(mut meshes: ResMut<Assets<Mesh>>, visc: Option<Res<ViscSettings>>, guts: Query<(&Mesh3d, &Strand), With<Gut>>) {
+/// Rebuild each gut's tube from its strand after the solver moved it: where it is, how it lies on the floor and how soaked it is, in
+/// [`WetSettings::fluid`] (the tint table is rebuilt only when the fluid changes).
+fn retube(mut meshes: ResMut<Assets<Mesh>>, visc: Option<Res<ViscSettings>>, wet: Option<Res<WetSettings>>, mut table: Local<Option<(u64, SoakTable)>>, guts: Query<(&Mesh3d, &Strand), With<Gut>>) {
     // Without the solver's settings nothing has moved a strand, and there is no floor to lie on.
     let Some(visc) = visc else { return };
+    let fluid = wet.as_deref().map(|w| w.fluid).unwrap_or_default();
+    if table.as_ref().is_none_or(|(key, _)| *key != fluid.key()) {
+        *table = Some((fluid.key(), SoakTable::new(&fluid)));
+    }
+    let Some((_, table)) = table.as_ref() else { return };
     for (mesh, strand) in &guts {
         if let Some(mut m) = meshes.get_mut(&mesh.0) {
-            let fresh = soaked_tube(strand, 8, visc.floor_y);
+            let fresh = soaked_tube_in(strand, 8, visc.floor_y, table);
             if let Some(VertexAttributeValues::Float32x3(pos)) = fresh.attribute(Mesh::ATTRIBUTE_POSITION) {
                 m.insert_attribute(Mesh::ATTRIBUTE_POSITION, pos.clone());
             }
@@ -7831,6 +7838,53 @@ mod tests {
         }
         let w = app.world();
         (w.get::<Spurts>(body).map(|s| s.0.len()), w.get::<WetCanvas>(wall).map_or(0.0, |c| c.wetted_area()), w.get::<WetCanvas>(wall).map_or(0, |c| c.digest()))
+    }
+
+    /// **A fluid is the colour of everything the preset draws as blood, and the simulation under it is the same.** One body and a wall, one arterial hit, a hundred ticks, under blood
+    /// and under green: every canvas has the digest it has under blood (where the blood went is not a colour), and blood draws red on them while green draws green and no red. The cut
+    /// faces' and the cloth's colour is the flesh tables' (`flesh::tests`), the strands' the soak table's (`viscera::look::tests`); the recorders show them together.
+    #[test]
+    fn a_green_fluid_stains_green_and_changes_nothing_else() {
+        let run = |fluid: crate::Fluid| {
+            let mut app = headless();
+            app.insert_resource(WetSettings { fluid, ..WetSettings::default() });
+            let world = app.world_mut();
+            let (body, panel) = {
+                let mut meshes = world.resource_mut::<Assets<Mesh>>();
+                (meshes.add(Cuboid::new(0.6, 0.6, 0.2).mesh().build()), meshes.add(Plane3d::new(Vec3::NEG_Z, Vec2::splat(3.0)).mesh().build()))
+            };
+            let body = world.spawn((Mesh3d(body), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::skin(Region::Torso))).id();
+            let at_wall = Transform::from_xyz(0.0, 0.0, 1.2);
+            world.spawn((Mesh3d(panel), at_wall, GlobalTransform::from(at_wall), Gore::wall()));
+            app.world_mut().run_schedule(FixedUpdate);
+            app.world_mut().write_message(GoreHit::impact(body, Vec3::new(0.05, 0.02, 2.0), Vec3::NEG_Z, 0.03, 5.0).arterial());
+            for _ in 0..100 {
+                app.world_mut().run_schedule(FixedUpdate);
+            }
+            let (mut digests, mut red, mut green) = (Vec::new(), 0usize, 0usize);
+            app.world_mut().resource_scope(|world, mut images: Mut<Assets<Image>>| {
+                let mut canvases = world.query::<&mut WetCanvas>();
+                for mut c in canvases.iter_mut(world) {
+                    digests.push(c.digest());
+                    c.flush(&mut images);
+                    let Some(image) = images.get(&c.albedo()) else { continue };
+                    for px in image.data.iter().flatten().copied().collect::<Vec<u8>>().chunks_exact(4) {
+                        let (r, g, b) = (px[0] as i32, px[1] as i32, px[2] as i32);
+                        red += (r > g + 40 && r > b + 40) as usize;
+                        green += (g > r + 40 && g > b + 40) as usize;
+                    }
+                }
+            });
+            digests.sort_unstable();
+            (digests, red, green)
+        };
+        let (blood, blood_red, blood_green) = run(crate::Fluid::Blood);
+        let (green, green_red, green_green) = run(crate::Fluid::Green);
+        assert!(blood_red > 100, "the blood run drew {blood_red} red texels");
+        assert_eq!(blood_green, 0, "blood drew {blood_green} green texels");
+        assert!(green_green > 100 && green_green * 10 > blood_red * 9, "the green run drew {green_green} green texels against blood's {blood_red} red");
+        assert_eq!(green_red, 0, "the green run drew {green_red} red texels");
+        assert_eq!(green, blood, "the fluid moved where the blood went: {green:?} against {blood:?}");
     }
 
     /// **An arterial wound throws an arc a heartbeat at the wall in front of it, and a venous one does not.** The same hit at the same body, a wall `1.2` m from it, a hundred ticks (two

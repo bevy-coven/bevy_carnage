@@ -21,7 +21,8 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use std::sync::LazyLock;
 
-use crate::bloodstain::spectral::{self, Film};
+use crate::bloodstain::fluid::Fluid;
+use crate::bloodstain::spectral::Film;
 use crate::viscera::hash::{hash_pair, hash_unit};
 use crate::viscera::strand::Strand;
 use crate::viscera::tube::contact;
@@ -108,37 +109,60 @@ pub fn soak(strand: &Strand, floor_y: f32) -> Vec<f32> {
     out
 }
 
-/// **What a node soaked `soak` multiplies the material's texture by**, linear RGBA, alpha `1`.
-///
-/// The colour of a venous film of `SOAK_FILM_MM * soak^3` over a mid-grey substrate, `bloodstain::spectral`'s Kubelka–Munk over Bosschaart's tables,
-/// divided by the substrate alone and per channel: what a vertex colour must multiply a texture by to be that film over it. No blood colour is
-/// authored here. A table of [`SOAK_STEPS`] entries, built once; a `soak` between two is interpolated, outside `[0, 1]` clamped, and `NaN` is `0`.
+/// **What a node soaked `soak` multiplies the material's texture by**, linear RGBA, alpha `1`, **in blood**: [`SoakTable::new`] of [`Fluid::Blood`],
+/// built once. See [`SoakTable`] for any other fluid.
 pub fn soak_tint(soak: f32) -> [f32; 4] {
-    let table = &*TINT_TABLE;
-    let at = if soak.is_finite() { soak.clamp(0.0, 1.0) } else { 0.0 } * (SOAK_STEPS - 1) as f32;
-    let (lo, frac) = (at.floor() as usize, at.fract());
-    let hi = (lo + 1).min(SOAK_STEPS - 1);
-    let pick = |k: usize| table.get(k).copied().unwrap_or([1.0; 3]);
-    let (a, b) = (pick(lo), pick(hi));
-    [a[0] + (b[0] - a[0]) * frac, a[1] + (b[1] - a[1]) * frac, a[2] + (b[2] - a[2]) * frac, 1.0]
+    BLOOD_SOAK.tint(soak)
 }
 
-/// The tint of each of [`SOAK_STEPS`] soaks, from bare to fully soaked: a venous film's linear colour over the grey substrate, over the substrate's.
-static TINT_TABLE: LazyLock<[[f32; 3]; SOAK_STEPS]> = LazyLock::new(|| {
-    let base = spectral::linear_srgb(&Film::venous(0.0));
-    let mut t = [[1.0_f32; 3]; SOAK_STEPS];
-    for (k, entry) in t.iter_mut().enumerate() {
-        let x = k as f32 / (SOAK_STEPS - 1) as f32;
-        let film = spectral::linear_srgb(&Film::venous(SOAK_FILM_MM * x * x * x));
-        for c in 0..3 {
-            let (f, b) = (film.get(c).copied().unwrap_or(0.0), base.get(c).copied().unwrap_or(1.0));
-            if let Some(e) = entry.get_mut(c) {
-                *e = if b > 1.0e-6 { (f / b).clamp(0.0, 1.0) } else { 1.0 };
+/// **The tint of every soak of one fluid**: [`SOAK_STEPS`] entries, from a bare node to a fully soaked one, each the linear colour of a film of
+/// `SOAK_FILM_MM * soak^3` of the fluid over a mid-grey substrate divided by the substrate alone and per channel: what a vertex colour must multiply a
+/// texture by to be that film over it. No colour is authored here.
+///
+/// **Blood only darkens and tints, so its entries are held to `1`; a pigment may brighten what it soaks** (milk over a dark gut, a green over a green
+/// channel the pink texture lacks) and its entries are held to `2.5`. Built once per fluid by whoever draws the strands (the preset keeps one for
+/// [`crate::wetmap::WetSettings::fluid`]); sixteen films of 81 wavelengths each.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SoakTable {
+    table: [[f32; 3]; SOAK_STEPS],
+}
+
+/// How far a pigment's soak may lift a channel of the texture it soaks: milk over a dark pink is a brightening of about two.
+const PIGMENT_TINT_MAX: f32 = 2.5;
+
+impl SoakTable {
+    /// The table of `fluid`. For [`Fluid::Blood`] it is the one the crate has always drawn, to the bit.
+    pub fn new(fluid: &Fluid) -> SoakTable {
+        let hi = if fluid.pigment().is_some() { PIGMENT_TINT_MAX } else { 1.0 };
+        let base = fluid.linear_srgb(&Film::venous(0.0));
+        let mut t = [[1.0_f32; 3]; SOAK_STEPS];
+        for (k, entry) in t.iter_mut().enumerate() {
+            let x = k as f32 / (SOAK_STEPS - 1) as f32;
+            let film = fluid.linear_srgb(&Film::venous(SOAK_FILM_MM * x * x * x));
+            for c in 0..3 {
+                let (f, b) = (film.get(c).copied().unwrap_or(0.0), base.get(c).copied().unwrap_or(1.0));
+                if let Some(e) = entry.get_mut(c) {
+                    *e = if b > 1.0e-6 { (f / b).clamp(0.0, hi) } else { 1.0 };
+                }
             }
         }
+        SoakTable { table: t }
     }
-    t
-});
+
+    /// What a node soaked `soak` multiplies the material's texture by, linear RGBA, alpha `1`. A `soak` between two entries is interpolated, outside
+    /// `[0, 1]` clamped, and `NaN` is `0`.
+    pub fn tint(&self, soak: f32) -> [f32; 4] {
+        let at = if soak.is_finite() { soak.clamp(0.0, 1.0) } else { 0.0 } * (SOAK_STEPS - 1) as f32;
+        let (lo, frac) = (at.floor() as usize, at.fract());
+        let hi = (lo + 1).min(SOAK_STEPS - 1);
+        let pick = |k: usize| self.table.get(k).copied().unwrap_or([1.0; 3]);
+        let (a, b) = (pick(lo), pick(hi));
+        [a[0] + (b[0] - a[0]) * frac, a[1] + (b[1] - a[1]) * frac, a[2] + (b[2] - a[2]) * frac, 1.0]
+    }
+}
+
+/// Blood's soak table, built once.
+static BLOOD_SOAK: LazyLock<SoakTable> = LazyLock::new(|| SoakTable::new(&Fluid::Blood));
 
 /// **The texture a spilled strand wears**: `64 × 384` `Rgba8UnormSrgb`, repeating round the wall,
 /// for the tube's `UV_0`. Hand it to a material's base colour with a white factor.
@@ -273,6 +297,28 @@ mod tests {
         assert_eq!(soak_tint(f32::NAN), soak_tint(0.0), "a node with no soak is bare, not a guess");
         assert_eq!(soak_tint(7.0), soak_tint(1.0));
         assert_eq!(soak_tint(-1.0), soak_tint(0.0));
+    }
+
+    /// **Blood's table is the one the crate has always drawn, and a pigment tints in its own colour.** `SoakTable::new(Blood)` answers `soak_tint` at every
+    /// soak to the bit; a green soak passes green and little else and a milk soak lightens what it soaks (the one place a tint exceeds `1`).
+    #[test]
+    fn a_soak_table_is_a_fluids_tint() {
+        let blood = SoakTable::new(&Fluid::Blood);
+        for k in 0..=100 {
+            let s = k as f32 / 100.0;
+            assert_eq!(blood.tint(s).map(f32::to_bits), soak_tint(s).map(f32::to_bits), "blood's table moved at soak {s}");
+        }
+        assert_eq!(SoakTable::new(&Fluid::Green).tint(0.0), [1.0, 1.0, 1.0, 1.0], "a bare node must multiply the texture by nothing in any fluid");
+        let green = SoakTable::new(&Fluid::Green).tint(1.0);
+        assert!(green[1] > green[0] && green[1] > green[2] * 3.0, "a soaked green node passes green and little else: {green:?}");
+        let milk = SoakTable::new(&Fluid::Milk).tint(1.0);
+        assert!(milk.iter().take(3).all(|c| *c > 1.2 && *c <= PIGMENT_TINT_MAX), "a milk-soaked node does not lighten the texture: {milk:?}");
+        for fluid in [Fluid::Ichor, Fluid::Green, Fluid::Blue, Fluid::Milk] {
+            let t = SoakTable::new(&fluid);
+            assert_eq!(t.tint(f32::NAN), t.tint(0.0));
+            assert_eq!(t.tint(7.0), t.tint(1.0));
+            assert!(t.tint(1.0).iter().all(|c| c.is_finite() && *c >= 0.0 && *c <= PIGMENT_TINT_MAX));
+        }
     }
 
     /// **The soak's patches are a smooth function of where along the bowel they are.** A step between neighbouring nodes larger than a fifth of the
