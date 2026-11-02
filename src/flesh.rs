@@ -101,6 +101,14 @@
 //! raw and moist from the first moment. Bare, the graze was pale pink mottled with the fat's cream,
 //! and round every crater it read as a pale halo.
 //!
+//! **A cut face is a wet surface, not a plane** (0.8.13). A cap with a film is lifted by a slow undulation, a
+//! value noise 16 mm across and 4 mm high over its planar `UV_0`, and its clear coat's normal by three times
+//! the slope the tissue's takes (`CAP_BUMP_MM`, `CAP_RELIEF_MM`, `COAT_BUMP`, `CAP_COAT` in the shader), so that a
+//! face shades unevenly and catches glints along its folds. Before, a cap was a flat polygon of one tone and
+//! one highlight or none, the preset's "flat red sail". No colour changes, and nothing is sampled: eight
+//! value-noise evaluations a fragment, on a cut face only. A crater is not lifted by it: where it holds blood
+//! the film's own relief does. `docs/research/cut-face-relief.md`.
+//!
 //! **A crater is lit through its mouth** (0.5.52). In [`FleshMode::Canvas`], a texel below the skin
 //! looks out over the flaymap's own depth in eight directions, to 1, 3, 7 and 15 texels, for the
 //! highest wall it sees each way, and every light term on it — diffuse, coat, subsurface — is
@@ -235,8 +243,10 @@ pub struct FleshParams {
     /// `x` the thickest film of blood exposed tissue wears, mm: a cut face in [`FleshMode::Cap`], and
     /// a crater's walls where the skin is peeled in [`FleshMode::Canvas`]; `0` (as
     /// [`FleshParams::for_layers`] ships) draws the tissue bare. The film is `x` from half the layer
-    /// span below the skin down, and a quarter of it at the skin, so the rim's fat shows through. See
-    /// [`FleshParams::with_cut_film`]. `y` the layer span, mm — the depth a flaymap's `R` channel reads
+    /// span below the skin down, and a quarter of it at the skin, so the rim's fat shows through. **A cap
+    /// with a film is also a wet surface** (since 0.8.13): its normal and its coat's undulate, so it
+    /// catches highlights where a flat face has one tone. See [`FleshParams::with_cut_film`]. `y` the
+    /// layer span, mm — the depth a flaymap's `R` channel reads
     /// `1` at — which a crater's walls are measured in when the shader works out how much light
     /// reaches its floor. `z` and `w` are unused.
     pub cut: Vec4,

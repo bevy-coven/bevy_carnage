@@ -440,6 +440,30 @@ fn lifted_normal(N: vec3<f32>, P: vec3<f32>, dh: vec2<f32>) -> vec3<f32> {
     return N * FILM_MAX_TILT_COS + side * sqrt(1.0 - FILM_MAX_TILT_COS * FILM_MAX_TILT_COS);
 }
 
+// **How a cut face undulates**: a value noise in two octaves over the face, `CAP_BUMP_MM` (16 mm) across,
+// lifting the surface by up to `CAP_RELIEF_MM` (4 mm). Muscle seen cut is a wet, bellied surface whose
+// highlights break up along its folds (the *Hellraiser* reference is all highlights); a flat face has
+// one. 16 mm is a belly's size at the strip's scale, a little over it, so the glints are the size of the
+// tissue's own structure; the tilt is capped at `FILM_MAX_TILT_COS` as a film's is. Swept on the preset's
+// pieces: 2 mm over 14 was a faint mottle, 3 over 10 a creased membrane, 3 over 7 crumpled foil, and
+// 4 over 16 broad wet folds, the one kept. This crate's own numbers.
+const CAP_BUMP_MM: f32 = 16.0;
+const CAP_RELIEF_MM: f32 = 4.0;
+// **How much more clear coat a cut face wears than a crater's wall does**: `CAP_COAT` 1.8. The face is
+// the one surface that is nothing but wet tissue, and the coat is what the relief breaks into glints.
+// At 1 the glints were faint, at 2.5 they glittered (`docs/research/cut-face-relief.md`).
+const CAP_COAT: f32 = 1.8;
+// **How much more the liquid's surface undulates than the tissue under it**: `COAT_BUMP` 3, a factor on
+// the slope the clear coat's normal takes (still capped at `FILM_MAX_TILT_COS`). At the tissue's own
+// slope (1) the relief moved the diffuse shading and caught no highlight whatever the coat's strength
+// (1, 2 and 3 times were drawn alike): a mirror needs a normal that sweeps through the light, and a
+// liquid's surface, lying on the tissue's folds, tilts further than they do. This crate's own number.
+const COAT_BUMP: f32 = 3.0;
+
+fn cap_height(q: vec2<f32>) -> f32 {
+    return 0.65 * patch_noise(q) + 0.35 * patch_noise(q * 2.7 + vec2<f32>(17.3, 5.1));
+}
+
 // **How many directions and how far a crater's floor looks for its walls.** Eight directions, each
 // out to 1, 3, 7 and 15 texels: on the mannequin's 256-texel skins, 3.6 mm a texel, that is 54 mm,
 // past the rim of a 30 mm wound.
@@ -641,8 +665,26 @@ fn fragment(
         let tissue = pbr_input.material.base_color.rgb;
         pbr_input.material.base_color = vec4<f32>(mix(tissue, blood_over(tissue, film_mm, 0.0), exposed), pbr_input.material.base_color.a);
         pbr_input.material.perceptual_roughness = mix(pbr_input.material.perceptual_roughness, 0.45, shine);
-        cut_coat = flesh.wet.x * shine;
+        cut_coat = flesh.wet.x * shine * select(1.0, CAP_COAT, mode == MODE_CAP);
     }
+@if(!PREPASS_PIPELINE) {
+    // ---- A cut face is a wet surface, not a plane: lift it by a slow undulation (`CAP_RELIEF_MM`). ----
+    // A flat face lit by a few directional lights is one tone and one highlight or none, the "flat red
+    // sail" of every piece the preset has broken. The height is a value noise over the face's planar
+    // coordinate (`UV_0`, mesh units), `CAP_BUMP_MM` across; its slope is taken by central differences
+    // in the noise's own lattice and carried to the screen by the UV's derivatives, as the wet map's is.
+    if mode == MODE_CAP && flesh.cut.x > 0.0 {
+        let q = in.uv * (flesh.sss.y / CAP_BUMP_MM);
+        let e = 0.25;
+        let slope = vec2<f32>(
+            cap_height(q + vec2<f32>(e, 0.0)) - cap_height(q - vec2<f32>(e, 0.0)),
+            cap_height(q + vec2<f32>(0.0, e)) - cap_height(q - vec2<f32>(0.0, e)),
+        ) * (0.5 / e * CAP_RELIEF_MM / CAP_BUMP_MM);
+        let dh = vec2<f32>(dot(slope, dpdx(in.uv)), dot(slope, dpdy(in.uv)));
+        pbr_input.N = lifted_normal(pbr_input.N, pbr_input.world_position.xyz, dh);
+        pbr_input.clearcoat_N = lifted_normal(pbr_input.clearcoat_N, pbr_input.world_position.xyz, dh * COAT_BUMP);
+    }
+}
     let layer = layer_of(depth_frac);
 
     // ---- Blood: composite the film over whatever is under it, on the GPU. -------------------
