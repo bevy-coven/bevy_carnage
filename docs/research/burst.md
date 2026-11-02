@@ -59,8 +59,8 @@ not do and the first thing a forensic analyst looks for (a void in a spatter mar
 1. **`bloodstain::patterns::burst_spatter(at, count, salt, settings) -> Vec<Droplet>`**, a pure function. Directions uniform on the sphere (`z = 1 - 2u`, azimuth `2 pi v`); the size fraction `t = u^BURST_SIZE_BIAS`
    (this crate's own, 2.0: more small drops than large, which is the "fine mist with larger drops among it" of the sources), diameter `lerp(min, max, t)` and speed `lerp(forward, back, t) x spatter_speed_scale`:
    **the same law as `droplet()`**, asserted by a test over the pair. Seeded from the place (`site_seed(at, Impact)`) and `salt`; no clock.
-2. **`GoreBurst`** (`#[non_exhaustive]`, a `Message`): `GoreBurst::new(at)` with `.radius_m(m)` (the source's radius; droplets leave at `at + dir x radius`, default 0.12) and `.droplets(n)` (default 320, under
-   `max_droplets_per_wound`). A game that wants a body to come apart sends it **with** the `GoreHit` that breaks the body: the hit is the wound and the break, the burst is the air round them.
+2. **`GoreBurst`** (`#[non_exhaustive]`, a `Message`): `GoreBurst::new(at)` with `.with_radius(m)` (the source's radius; droplets leave at `at + dir x radius`, default 0.12) and `.with_droplets(n)` (default 960, capped at
+   twice `max_droplets_per_wound`). A game that wants a body to come apart sends it **with** the `GoreHit` that breaks the body: the hit is the wound and the break, the burst is the air round them.
 3. **`throw_burst`**, in `take_hits` after the hits of the tick: each droplet flies `p0 + v t - g t^2 / 2` in chords of `HOSE_CHORD_M` (0.2 m) until `fall_time` to the lowest floor or `HOSE_MAX_FLIGHT_S`, cast
    at **every dressed surface** through the mesh index (`nearest_landing`; a skinned body is posed once a batch, as a hit's spray poses it), and the nearest landing within the chord wins. **A back face within
    `2 x radius` of the source does not catch** (a droplet leaving the head it burst out of does not stain its own inside); a cloth's hole lets it through. The landing is stained by `hard_stain` from the speed and
@@ -71,7 +71,7 @@ not do and the first thing a forensic analyst looks for (a void in a spatter mar
 
 | name | value | status |
 |---|---|---|
-| `BURST_DROPLETS` (default count) | 320 | this crate's own: 62 % of `max_droplets_per_wound`, the leaf's budget, so a burst is one large wound's worth and not two |
+| `BURST_DROPLETS` (default count) | 960 (planned 320, then 480: see `## Outcome`) | this crate's own: nine tenths of `BURST_BUDGET` (2) x `max_droplets_per_wound`, the leaf's budget, so a burst is two wounds' worth |
 | `BURST_SIZE_BIAS` | 2.0 | this crate's own: mean size fraction 1/3, mean diameter 2.5 mm against `droplet()`'s 3.4 mm |
 | `BURST_RADIUS_M` (default) | 0.12 m | this crate's own: a head's radius |
 | shell (`2 x radius`) | back faces within it do not catch | this crate's own |
@@ -126,3 +126,50 @@ heads, the red vector heads) and were not used.
   effect. None is in the corpus.
 - **To obtain:** a source on explosive cranial injuries (DiMaio and DiMaio, *Gunshot Wounds*, a book the crate already cites for exits) and any measurement of the droplet size distribution of a burst rather than a
   bullet.
+
+## Outcome
+
+Shipped in 0.8.12. **What was built** is the plan's three parts, plus one the plan did not have (landings are deferred by their flight time) and two numbers that moved.
+
+**Rounds (four).**
+
+1. Cast at once, drawn at the generator's own size (0.8-6 mm), a wall 1.2 m behind the head: 190 of 480 droplets landed on the 3 m slab, a sparse scatter of specks, dust at the camera's 5 mm a pixel. Not the effect.
+2. `BURST_DROP_SCALE` 3.0 (the hose's reason: gouts, not a bullet's mist, a cloth's blob unscaled), the wall 0.45 m behind the head and a left wall and ceiling (`spawn_corner`): a head burst reads. But drawing 190
+   stains on the tick they were thrown cost 9.4 ms (about 50 us a stain, up to 350 us on a skin), a frame the player would see.
+3. **Deferral**: each landing queued on its surface (`InFlight`) and drawn on `tick + ceil(t x hz)`, the fine fast drops first and the large slow ones up to three quarters of a second later, at most `BURST_LANDINGS_PER_TICK` (24)
+   a surface a tick. The budget is per surface and not global so that no query order can change a result. Worst tick 1.7 ms (480 droplets).
+4. Density (the *Maniac* car interior is drenched; round 3's 480 droplets were a sparse spray beside it): `BURST_BUDGET` 2, the default 960 (`BURST_DROPLETS`), 630-740 stains landing over 44 ticks (0.2-2.5 ms a tick, 14-22 ms in all).
+
+**Critique, written before the verdict** (a side-by-side of the *Scanners* stills over 0.8.11's frame and this release's, same shot, frame 359, made under `/tmp` and not kept: the stills are copyrighted).
+
+- What is right: a dense core of stains round the head on the wall behind it, thinning to fine specks at about a metre and a half, the right size and shape for the head; a clean void where the torso stood
+  between the burst and the wall (the shoulders and neck stained instead); the corner, the ceiling and the sheet beside it take their share; large stains fell short and low, fine ones went far and high; and the cloud
+  arrives over three quarters of a second (the ceiling and the fast fine drops first), where the 0.8.11 frame has the head and nothing else.
+- What is not: **it is the residue of a cloud and not the cloud**: *Scanners*' frame is airborne, orange and bright, three head-widths of ligaments and chunks; here nothing hangs in the air, and there are no strings. The
+  stains are the canvases' dark crimson, a mean sRGB of `(116, 49, 50)` over the red pixels of frame 359's wall, body and sheet (a mask of `r > 90, r > g + 45, r > b + 35`), against `(158, 59, 36)` over the *Scanners*
+  still's. **Coverage:** 8.7 % of that crop is stained (0.14 % with `--no-cloud`), against 20 % of the *Scanners* still's frame; *Maniac*'s dark stains missed the mask, so **it is not measured**, and by eye it is drenched where
+  this is a spray. `.with_droplets` to the cap gets nearer, and the game's dials move it. Most stains are round gouts, because a droplet arriving near the normal leaves a round mark, and few are elongated; **I did not
+  measure that** (target 4's second half). The ceiling reads dark in the demo, which has no light facing down [INFERENCE: not tested with one].
+
+**Verdict: GREAT for the scope claimed**: the room round a burst body is stained, by the one size-speed law the crate already has, with the body shadowing what is behind it, arriving over time at a bounded cost a tick.
+It is **not** claimed to be the film's airborne cloud: that is a particle effect and `vfx` does not build on Bevy 0.20, and the chunks are the break's.
+
+**Numbers against the targets.**
+
+| target | measured |
+|---|---|
+| 1 pure function | directions: each octant within 30 % of the mean and the mean vector under 0.1 (`a_burst_goes_every_way_at_once`); every droplet on `droplet()`'s line and a smaller mean diameter (`a_burst_flies_on_the_spatter_law_with_more_fine_drops`); same bits, another salt another cloud, count 0 and a NaN place empty (`a_burst_is_a_place_and_a_salt`) |
+| 2 convergence | **replaced.** At the shipped `spatter_speed_scale` (0.25) a droplet leaves at 2-10 m/s, so over the metre to a wall it falls from 9 cm to more than a metre (`0.5 x 18 x t^2`, `t` = 0.1 to 0.5 s): the cloud's centre of mass on a wall is more than 10 cm lower under gravity 18 than under none (`a_burst_falls_as_it_flies`). The stains do not centre on the burst's projection, and the test is that they fall, which the straight-line reading would deny |
+| 3 shadow | the wall behind a body 1.2 m across took **0.050** of what an open wall took (target under 0.25, the test's bound; the box took 0.056 m2); a sphere the burst starts inside takes nothing and lets at least 4/5 of the cloud through (that test's bound: `a_burst_leaves_the_body_it_burst_from_by_its_inside`) |
+| 4 spectrum | 177 stains on a wall 1 m from the burst, 2 to 29 texels across (a texel is 5.9 mm there; median 5, p10 2, p90 16), drawn at 3 times the generator's 0.8-6 mm. **Elongation: not measured** |
+| 5 reproducible | `capture_skinned --burst` `a3d602d1a8574a36` (flay `d2c76ae8b606a8a1`, dermis `10bd4f5f69331f9d`), `--burst --break` `d57e6842ae3de1af`, `--burst --no-cloud` `9bb7d6b61b621f75`, each twice equal; all 15 other recorder variants equal to 0.8.11's, twice each; `bench_carnage` digest `0x4366a8b64352c85a` unchanged, 0.09258 to 0.09314 ms a frame (+0.6 %, medians of three, load about 4-5), p99 2.645 to 2.674 ms |
+| 6 cost | the planned "320 droplets under 3 ms once" was wrong in kind: the cast tick is 0.5-0.8 ms for 960 (a test room), and the painting is spread: 0.2-2.5 ms a tick over 44 ticks in `--burst`. A tick with no burst and nothing in the air pays the reader |
+
+**Five mutations were each caught** and restored: `BURST_SHELL` 0 (the inside test), a skin that lets the burst through (the shadow test), gravity 0 in the throw (the fall test), `BURST_SIZE_BIAS` 1.0 (the fine-drops test),
+and a hemisphere in place of a sphere (the isotropy test).
+
+**Deviations from the plan.** Default count 320 became 960 and the cap went from `max_droplets_per_wound` to twice it (`BURST_BUDGET`); the landings are deferred (`InFlight`, `land_bursts`); the builders are `with_radius`
+and `with_droplets`; the drop scale is 3.0; the demo is a corner (a wall 0.45 m behind the head, a left wall, a ceiling) because a wall 1.2 m off gave round 1's sparse scatter.
+
+**Found, not fixed:** the preset's cut-film hides the muscle strip (iteration 17's finding, still the item above a burst in value); a burst does not curve; a cloud in the air; the droplets' colour is a scene dial the
+canvas does not carry (no fluid id).

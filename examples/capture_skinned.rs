@@ -34,6 +34,9 @@
 //! `--hose` stands the body left of a wall and turns it, and takes one arterial hit (`GoreHit::arterial`) at frame 20 to the back of the raised forearm, facing the wall (`docs/research/hose.md`): every heartbeat
 //! the wound throws a bolus of large droplets that fly the parabola and land on the wall and the floor, each stain with a run below it and a stipple of fine drops beside it, the arc swept across the wall as the body
 //! turns and shortening as the pressure falls. `--vein` is the same hit, venous: what 0.8.9 and earlier threw for an arterial one too. It prints its own digest.
+//! `--burst` puts the body in a corner (a wall 0.45 m behind it, a wall at its left and a ceiling: `--wall-z Z` moves the first) with a camera that looks head to knees, and takes one heavy shot to the middle of
+//! the head at frame 60 with a `GoreBurst` from its centre sent on the same frame (`docs/research/burst.md`): the cloud of stains lands over the next three quarters of a second. `--break` breaks the body with it
+//! (the head leaves as the cloud lands) and `--no-cloud` sends the shot and not the burst, what 0.8.11 threw for it. It prints its own digest.
 //!
 //! Writes `frame0000.png …` and prints one digest line; two runs must print the same line. `digest=`
 //! folds the wetmaps and the holed cloth as the clip ends; `flay=` and `dermis=` fold the craters and
@@ -60,7 +63,7 @@ use std::time::Duration;
 use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use bevy_carnage::preset::{ClothHoles, Gore, GoreClock, GoreDials, GorePlugin, GoreReset, GoreSmear, GoreStep, HitKind, Sole};
+use bevy_carnage::preset::{ClothHoles, Gore, GoreBurst, GoreClock, GoreDials, GorePlugin, GoreReset, GoreSmear, GoreStep, HitKind, Sole};
 use bevy_carnage::wetmap::{StainShape, WetCanvas, WetSettings};
 
 mod common;
@@ -85,12 +88,15 @@ fn main() {
     let smear = flag("--smear");
     let guard = flag("--guard");
     let hose = flag("--hose");
+    let burst = flag("--burst");
     // A stroll is seen from above and to the side, the whole path in frame and the prints facing up at
     // it; a guard from in front and to the left, close on the chest and the forearm across it.
     let at = point("--at").unwrap_or(if stroll {
         Vec3::new(0.05, 0.5, 0.05)
     } else if smear {
         Vec3::new(0.25, 0.75, -1.0)
+    } else if burst {
+        Vec3::new(0.0, 1.45, -0.4)
     } else if hose {
         Vec3::new(0.0, 1.05, -0.6)
     } else if guard {
@@ -102,6 +108,7 @@ fn main() {
         Some(eye) => Transform::from_translation(eye).looking_at(at, Vec3::Y),
         None if stroll => Transform::from_xyz(-2.9, 2.75, 0.15).looking_at(at, Vec3::Y),
         None if smear => Transform::from_xyz(-0.9, 1.9, 1.5).looking_at(at, Vec3::Y),
+        None if burst => Transform::from_xyz(1.0, 1.6, 2.5).looking_at(at, Vec3::Y),
         None if hose => Transform::from_xyz(0.5, 1.6, 3.0).looking_at(at, Vec3::Y),
         None if guard => Transform::from_xyz(-0.5, 1.46, 1.5).looking_at(at, Vec3::Y),
         None => mannequin::view(),
@@ -190,8 +197,14 @@ fn main() {
                 smear_script(world, frame, &contacts);
             }
             let vein = flag("--vein");
+            // `--no-cloud` sends the shot and not the burst: what 0.8.11 and earlier did for the same scene.
+            let burst_at = if burst && frame == 60 && !flag("--no-cloud") { aim.get(world).ok().and_then(|aim| aim.on_bone(Bone::Head, -0.16)) } else { None };
             let hit = aim.get(world).ok().and_then(|aim| match frame {
                 _ if quiet || stroll || smear => None,
+                // **The burst**: a heavy shot to the middle of the head, which opens it (and, with `--break`, breaks the body), and the cloud of droplets
+                // the head throws in every direction as it goes, a `GoreBurst` sent on the same frame.
+                60 if burst => aim.shot(Bone::Head, -0.16, 0.07, if breaking { 60.0 } else { 45.0 }),
+                _ if burst => None,
                 // **The hose**: one arterial hit to the back of the raised forearm, which is waving, so what the
                 // wound throws sweeps the wall behind it as the arm swings.
                 20 if hose => aim.shot_from_behind(Bone::ArmLowL, 0.13, 0.025, 7.0).map(|h| if vein { h } else { h.arterial() }),
@@ -211,6 +224,9 @@ fn main() {
             if let Some(hit) = hit {
                 let hit = if through && matches!(hit.kind, HitKind::Impact { .. }) { hit.through() } else { hit };
                 world.write_message(hit);
+            }
+            if let Some(at) = burst_at {
+                world.write_message(GoreBurst::new(at));
             }
             if reset_at == Some(frame) {
                 let mut surfaces = world.query_filtered::<Entity, Or<(With<Mannequin>, With<Gore>)>>();
@@ -326,7 +342,12 @@ fn setup(
     } else {
         preset_scene::spawn_set(&mut commands, &mut meshes, &mut materials);
     }
-    if flag("--through") || flag("--guard") || flag("--hose") {
-        preset_scene::spawn_wall(&mut commands, &mut meshes, &mut materials);
+    // `--wall-z` stands the wall nearer the body (or further): a burst is a different pattern a hand's breadth from a wall than a metre from it, and `--burst` stands it at `-0.45`, close behind the head.
+    let z = common::arg("--wall-z").and_then(|z| z.parse::<f32>().ok()).unwrap_or(if flag("--burst") { -0.45 } else { -1.2 });
+    if flag("--through") || flag("--guard") || flag("--hose") || flag("--burst") {
+        preset_scene::spawn_wall_at(&mut commands, &mut meshes, &mut materials, z);
+    }
+    if flag("--burst") {
+        preset_scene::spawn_corner(&mut commands, &mut meshes, &mut materials, z);
     }
 }

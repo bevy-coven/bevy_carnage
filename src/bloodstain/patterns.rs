@@ -28,7 +28,7 @@
 use core::f32::consts::PI;
 
 use crate::bloodstain::bleed::{self, Bleed};
-use crate::bloodstain::droplet::{Droplet, droplets};
+use crate::bloodstain::droplet::{BACK_SPATTER_SPEED, Droplet, FORWARD_SPATTER_SPEED, droplets};
 use crate::bloodstain::settings::BloodSettings;
 use crate::bloodstain::stain::{Stain, stain_radius};
 use crate::bloodstain::{V3, WELD, Wound, hash_f32, m, plane_basis, rheo, to_radians, vec};
@@ -194,6 +194,48 @@ pub fn arterial_arc(
             dir,
             speed: ARTERIAL_SPEED * pressure * along * s.spatter_speed_scale,
             diameter: ARTERIAL_DROPLET_M,
+        });
+    }
+    out
+}
+
+/// **How many wounds' worth of droplets a burst may throw**: `2`. The leaf's `max_droplets_per_wound` bounds what one wound's cone throws (a particle effect's capacity, in the family's other consumers); a body
+/// coming apart is the one event that opens more than one wound's worth at once. A canvas has no such capacity: what bounds a burst's cost here is [`BURST_LANDINGS_PER_TICK`](crate::preset::BURST_LANDINGS_PER_TICK).
+/// **This crate's own number**.
+pub const BURST_BUDGET: u32 = 2;
+
+/// **How strongly a burst favours small droplets**: the size fraction of a droplet is `u^BURST_SIZE_BIAS` for a hash `u` in `[0, 1)`, where [`droplet`](crate::bloodstain::droplet::droplet)'s is `u`. At `2.0`
+/// the mean fraction is a third, so the mean diameter is 2.5 mm against the cone's 3.4 mm at the shipped limits: more fine drops, fewer large. The forensic sources are agreed that "forward spatter is a
+/// fine mist and back spatter is larger and fewer drops" and a burst throws both; this is the proportion. **This crate's own number** (`docs/research/burst.md`).
+pub const BURST_SIZE_BIAS: f32 = 2.0;
+
+/// **A burst: blood thrown in every direction at once**, from a place, by a body that has come apart.
+///
+/// `count` droplets (at most [`BURST_BUDGET`] times [`BloodSettings::max_droplets_per_wound`](crate::bloodstain::settings::BloodSettings): a burst is two wounds' worth, where a cone is one), each leaving along a direction
+/// drawn **uniformly on the sphere**, not in the cone [`impact_spatter`] aims along a wound's normal. Every droplet obeys the same law `droplet()` does, the percolation inversion of Comiskey, Yarin &
+/// Attinger (2018, `doi:10.1103/PhysRevFluids.3.063901`): its size fraction `t` sets its diameter, `lerp(droplet_size_min, droplet_size_max, t)`, and its speed, `lerp(FORWARD_SPATTER_SPEED,
+/// BACK_SPATTER_SPEED, t) x spatter_speed_scale`, so the fine drops leave fast and the few large ones leave slow. The size fractions are `u^BURST_SIZE_BIAS`, so the burst has more fine drops than the cone.
+///
+/// **Seeded from where it is**, quantised on [`WELD`], and from `salt`, which a caller that bursts twice in one place gives another number: never from a clock, an entity or an accumulator. A droplet is
+/// a function of `(at, salt, its ordinal)` and can be recomputed alone. A place that is not finite, or a `count` of zero, throws nothing.
+pub fn burst_spatter(at: V3, count: u32, salt: u32, s: &BloodSettings) -> Vec<Droplet> {
+    if count == 0 || !at.iter().all(|c| c.is_finite()) {
+        return Vec::new();
+    }
+    let n = count.min(s.max_droplets_per_wound.saturating_mul(BURST_BUDGET));
+    let seed = site_seed(at, PatternClass::Impact) ^ salt.wrapping_mul(0x27D4_EB2F) ^ 0xB0A5_7ED1;
+    let mut out = Vec::with_capacity(n as usize);
+    for i in 0..n {
+        let key = seed ^ i.wrapping_mul(0x9E37_79B9);
+        let t = m::powf(hash_f32(key), BURST_SIZE_BIAS).clamp(0.0, 1.0);
+        let z = 1.0 - 2.0 * hash_f32(key ^ 0x68E3_1DA4);
+        let phi = 2.0 * PI * hash_f32(key ^ 0xC2B2_AE35);
+        let ring = m::sqrt((1.0 - z * z).max(0.0));
+        let dir = vec::normalize_or_zero([ring * m::cos(phi), z, ring * m::sin(phi)]);
+        out.push(Droplet {
+            dir,
+            speed: (FORWARD_SPATTER_SPEED + (BACK_SPATTER_SPEED - FORWARD_SPATTER_SPEED) * t) * s.spatter_speed_scale,
+            diameter: s.droplet_size_min + (s.droplet_size_max - s.droplet_size_min) * t,
         });
     }
     out
@@ -449,6 +491,62 @@ pub fn transfer(
 mod tests {
     use super::*;
     use crate::bloodstain::WoundKind;
+
+    /// **A burst has no preferred direction.** 512 droplets, each direction a unit vector: the mean vector is under a tenth of a droplet, and each of the eight octants holds within 40 % of its eighth.
+    /// A cone, a hemisphere or an arc fails the first; a clump at a pole fails the second.
+    #[test]
+    fn a_burst_goes_every_way_at_once() {
+        let s = BloodSettings::default();
+        let cloud = burst_spatter([0.0, 1.6, 0.0], 512, 0, &s);
+        assert_eq!(cloud.len(), 512);
+        let sum = cloud.iter().fold([0.0f32; 3], |a, d| vec::add(a, d.dir));
+        assert!(vec::length(sum) < 51.2, "the droplets lean one way: the mean direction sums to {sum:?}");
+        let mut octants = [0u32; 8];
+        for d in &cloud {
+            assert!((vec::length(d.dir) - 1.0).abs() < 1.0e-4, "a direction that is not a unit vector: {:?}", d.dir);
+            let k = usize::from(d.dir[0] > 0.0) | usize::from(d.dir[1] > 0.0) << 1 | usize::from(d.dir[2] > 0.0) << 2;
+            octants[k] += 1;
+        }
+        for (k, n) in octants.iter().enumerate() {
+            assert!((38..=90).contains(n), "octant {k} holds {n} of 512 droplets, an eighth is 64");
+        }
+    }
+
+    /// **The same law as the cone's, and a different proportion.** Every burst droplet lies on the line `droplet()`'s lie on, size against speed (the percolation inversion: the large ones leave slow), and
+    /// the burst's mean diameter is more than a tenth under the cone's, since it throws more fine drops.
+    #[test]
+    fn a_burst_flies_on_the_spatter_law_with_more_fine_drops() {
+        let s = BloodSettings::default();
+        let line = |d: &Droplet| {
+            let t = (d.diameter - s.droplet_size_min) / (s.droplet_size_max - s.droplet_size_min);
+            (FORWARD_SPATTER_SPEED + (BACK_SPATTER_SPEED - FORWARD_SPATTER_SPEED) * t) * s.spatter_speed_scale
+        };
+        let cloud = burst_spatter([0.3, 1.5, -0.2], 400, 7, &s);
+        let w = Wound { at: [0.3, 1.5, -0.2], normal: vec::X, area: 400.0 / s.droplets_per_m2, severity: 1.0, kind: crate::bloodstain::WoundKind::Severance };
+        let cone = droplets(&w, &s);
+        assert!(cone.len() >= 380, "the comparison cone has {} droplets", cone.len());
+        for d in cloud.iter().chain(cone.iter()) {
+            assert!((d.speed - line(d)).abs() <= 1.0e-3 * line(d).abs().max(1.0), "a droplet off the size-speed line: {d:?} wants {}", line(d));
+        }
+        let mean = |ds: &[Droplet]| ds.iter().map(|d| d.diameter).sum::<f32>() / ds.len() as f32;
+        assert!(mean(&cloud) < 0.9 * mean(&cone), "burst mean diameter {} against the cone's {}", mean(&cloud), mean(&cone));
+        let (small, large) = (cloud.iter().filter(|d| d.diameter < 0.002).count(), cloud.iter().filter(|d| d.diameter > 0.004).count());
+        assert!(small > 2 * large, "{small} fine droplets against {large} large");
+    }
+
+    /// **A burst is a function of its place and its salt**, and refuses what it cannot throw: the same place and salt give the same bits, another salt another cloud, a place a tenth of a weld away the
+    /// same one, a count of zero or a place that is not finite nothing, and a count past the budget the budget.
+    #[test]
+    fn a_burst_is_a_place_and_a_salt() {
+        let s = BloodSettings::default();
+        let a = burst_spatter([0.1, 1.6, 0.0], 64, 3, &s);
+        assert_eq!(a, burst_spatter([0.1, 1.6, 0.0], 64, 3, &s));
+        assert_eq!(a, burst_spatter([0.1 + 0.1 * WELD, 1.6, 0.0], 64, 3, &s), "a float ulp of difference must not move a burst");
+        assert_ne!(a, burst_spatter([0.1, 1.6, 0.0], 64, 4, &s), "a second burst in one place must be another cloud");
+        assert!(burst_spatter([0.1, 1.6, 0.0], 0, 3, &s).is_empty());
+        assert!(burst_spatter([f32::NAN, 1.6, 0.0], 64, 3, &s).is_empty());
+        assert_eq!(burst_spatter([0.0; 3], 100_000, 0, &s).len(), (s.max_droplets_per_wound * BURST_BUDGET) as usize);
+    }
 
     fn wound() -> Wound {
         Wound {
