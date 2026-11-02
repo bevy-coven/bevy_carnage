@@ -801,6 +801,15 @@ impl Aim<'_, '_> {
         Some((MUZZLE, (target - MUZZLE).normalize_or_zero(), self.root.iter().next()?))
     }
 
+    /// **A shot at `along` metres down `bone` from a metre behind it**, along `+Z`: the wound it opens faces `-Z`, the way
+    /// the wall behind the body does, so what it throws lands on that wall. The ray starts a metre behind where the joint is
+    /// posed now, as a rifle behind the body would.
+    pub fn shot_from_behind(&self, bone: Bone, along: f32, radius_m: f32, depth_mm: f32) -> Option<GoreHit> {
+        let target = self.on_bone(bone, along)?;
+        let from = target + Vec3::new(0.0, 0.0, -1.0);
+        Some(GoreHit::impact(self.root.iter().next()?, from, Vec3::Z, radius_m, depth_mm))
+    }
+
     /// A shot at a joint of the body, `radius_m` wide and `depth_mm` deep.
     pub fn shot(&self, bone: Bone, along: f32, radius_m: f32, depth_mm: f32) -> Option<GoreHit> {
         self.ray(bone, along).map(|(from, dir, entity)| GoreHit::impact(entity, from, dir, radius_m, depth_mm))
