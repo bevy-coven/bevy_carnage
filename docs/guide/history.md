@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.8.10` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.8.11` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.8.11` changed: a cut muscle reads as meat
+
+- **The muscle band of the cross-section strip is a cherry red with pale tissue through it, at the three scales a cut muscle has.** It was a 0.3 mm film of venous blood over mid-grey, a purplish burgundy (L\* 29, below every value the beef literature reports) with a hairline white net and nothing larger than 3 mm, so a cut face read as mud or leather. Now the lean is a 0.05 mm film over a pale substrate, with sheets of epimysium between bellies 12 mm across (curved, swelling and thinning, each belly its own tone), wandering lines of perimysium between bundles (broken up, tapering) and the fascicle net inside. Measured against windows set from measured beef and a photographed shank: mean L\* 43.4, 10.6 % pale texels, a 6 mm block spread of 3.6 L\* (0.42 before). It shows in a plain atlas material, a laceration's bed and the flesh material's unfilmed `Cap` mode, and **not in the preset's own cut faces and craters**, which wear a 1 mm film of blood over it (`CUT_FACE_FILM_MM`): a film per tissue is a shader change and is the next step. No public name changes; the strips' golden digest moves on purpose; every recorder's digest is `0.8.10`'s. `docs/research/cut-face.md`, [`media/cutface.png`](../media/cutface.png).
 
 ### What `0.8.10` changed: an arterial wound throws an arc a heartbeat
 
