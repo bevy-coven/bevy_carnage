@@ -48,7 +48,20 @@ The dial lives where the colour is made: **`WetSettings::fluid`** (the canvases'
 
 ## Parameters
 
-Filled in with the tuned values at the end of the iteration (every constant says "this crate's own", with the reference it was matched to).
+Every number is **this crate's own**, tuned by looking at the colour of a film over a pale and a dark substrate across thickness (a throwaway swatch test, deleted) against the reference set, on the band positions the sources give. `μa` in mm⁻¹, `μs'` in mm⁻¹, wavelengths in nm.
+
+| fluid | absorption | `μs'` | `dried` (R, G, B) | `dries` | what it was tuned to |
+|---|---|---|---|---|---|
+| `Ichor` | continuum `25 (λ/500)^-2.6` (Jacques's exponent is 3.48; 2.6 greys the black, so the thick film is a near-neutral black and the thin one amber-brown), floor 0.02 | 1.0 | 0.9, 0.86, 0.8 | 0.3 | thick `(31, 24, 16)`, L\* 9; a 0.02 mm film over a mid-grey ground `(128, 98, 56)`; stays glossy |
+| `Green` | Soret 380 (σ 35, 60), 435 (σ 30, 10), Q 700 (σ 35, 40), floor 0.02 | 3.0 | 0.38, 0.42, 0.22 | 0.9 | hue of the *Re-Animator* reagent: 85.8° against the vial's 85.6° (lit `(100, 150, 34)` against `(151, 231, 21)`, which glows) |
+| `Blue` | 585 (σ 30, 14), 486 (σ 25, 1), 645 (σ 40, 14), floor 0.03 | 3.0 | 0.45, 0.5, 0.55 | 0.9 | a saturated cerulean, table `(0, 86, 186)`; the first guess (575, 40, 14 and 640, 50, 12) was an indigo `(51, 44, 177)` because the wide 575 band took the green |
+| `Milk` | floor 0.004, 450 (σ 30, 0.02) | 6.0 | 0.92, 0.8, 0.52 | 1.0 | Stocker's absorption and a 3 % fat's reduced scattering of 6 mm⁻¹; thick `(243, 242, 238)`, L\* 96, chroma under 0.03; a cream crust when dry |
+
+`PIGMENT_KNOT_AGE` 0.35 (blood's methaemoglobin stop, so the flesh material's two-stop table is the CPU's walk exactly) and `PIGMENT_KNOT_SHARE` 0.6 (most of a fluid's change in colour is early, as oxidation is). `PIGMENT_TINT_MAX` 2.5: how far a pigment may lift a channel of the texture it soaks (blood's entries stay held to 1). The first dried multipliers of green (0.6, 0.62, 0.4) and blue (0.75, 0.72, 0.62) dulled a pool by 30 % and read as fresh in `--through --dry 120`; the ones above read as dried.
+
+## Outcome
+
+Built as designed in one pass and judged **GREAT for the scope claimed** (the critique is in the loop log): `Fluid` through the canvases, the flesh tables and the strands, with every digest equal under every fluid. The first two tunings of ichor (too brown and too light: thick `(85, 67, 47)` at a continuum of 12 and a scattering of 3) and of blue (an indigo) are the only rounds that failed, and each took one retune against the swatches.
 
 ## Validation targets
 

@@ -6,6 +6,19 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-02
+
+### Added
+
+- **Blood that is not red** (iteration 20, AG-160, `docs/research/fluids.md`). The preset drew blood or, at `GoreTier::Stylised`, nothing, and a game that needs its blood not red (a rating board's "animated blood", a robot's oil, an alien, *Evil Dead II*'s goo) had to lose the blood or fork the crate. `bloodstain::Fluid` (also `bevy_carnage::Fluid`) is **what the blood is**: `Blood` (the default, the Bosschaart table and the haemoglobin age walk, to the bit what it has always been), `Ichor` (black oil: melanin's power law, thin amber-brown, thick black, stays glossy), `Green` (biliverdin), `Blue` (oxyhaemocyanin), `Milk` (scattering and almost no absorption, which whitens what it lies on), and `Custom(Pigment)`: a `Pigment` is a flat absorption, a power-law continuum, up to three Gaussian `Band`s, a flat reduced scattering, and how it dries (`dried`, a per-channel multiplier, and `dries`, how far it sets). A fluid is a different `μa(λ)` and `μs'` in the **same Kubelka-Munk film model** (`Fluid::srgb`, `linear_srgb`, `reflectance`, `lightness`, `key`), never a swatch. `dry::appearance_in(&Fluid, age, hz, area, &BloodSettings, fresh)` is `appearance_with_fresh` for blood and the pigment's own walk (monotone, bounded, no serum halo, bending at blood's knot) for any other fluid. Every number a named pigment carries is this crate's own, and says so.
+- **`WetSettings::fluid`** is the one dial. A canvas's film, its runs, pools and ageing (`WetCanvas` re-tabulates its colours when it changes), the flesh material's blood table (`flesh::luts(&Fluid)`, baked from it on `Startup`, so a cut face's film, a cloth's soak and a crater's floor follow), and a spilled strand's soak (`viscera::SoakTable::new(&Fluid)`, `soaked_tube_in`, rebuilt by the preset's `retube` when the fluid changes) all read it. **A fluid is a colour and nothing else**: every recorder's digest is 0.8.13's and equal under every fluid (`capture_skinned` `5f8eb5573aea933f`, `--hose` `0c903766bf51f0f2`, `--break` `f89e1d5e3bcfc119`, `--shirt` `579e84b9d3ccfe51`), a canvas stamped under two fluids has one `digest()`, and `bench_carnage` reads 0.09467 ms a frame and 2.714 ms p99 against 0.09496 and 2.727. No shader changes: the flesh material reads the same texture, with other bytes in it, so the WebGL2 budget is untouched.
+- `capture_skinned --fluid blood|ichor|green|blue|milk` and `capture_preset --fluid`; `docs/media/fluids.gif` and `fluids.png`; `docs/DEMOS.md` and `docs/preset.md` ("Blood that is not red"). Fifteen tests: the film's hues and directions (green is green, thin ichor is brown, an absorber darkens and a scatterer whitens), the ageing, the canvas, the tables, the soak, the preset end to end, and blood's bit-for-bit equality with the model it was.
+
+### Changed
+
+- **Breaking** (a MINOR release, as the crate is below 1.0): `WetSettings` has a new public field, `fluid`; `flesh::blood_lut`, `aged_blood_lut` and `luts` take a `&Fluid` (`&Fluid::Blood` is what they were); `flesh::lut_digest` and `aged_lut_digest` are blood's and their goldens stand. `viscera::soak_tint` and `soaked_tube` remain, in blood.
+- Install lines read `bevy_carnage = "0.9"`.
+
 ## [0.8.13] - 2026-11-02
 
 ### Changed

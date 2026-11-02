@@ -68,7 +68,7 @@ if let Some(first) = strands.first() {
 
 **Strands do not collide with each other, or with anything but the floor.** Self-collision on a coiling rope is the expensive half of this problem and it needs a broadphase the caller almost certainly already owns.
 
-**The solver knows nothing about blood.** A rope solver has no business importing a rheology crate: nothing in `solver`, `strand` or `spill` does. Only the cosmetic `look` module reads the colour of a blood film from `bloodstain::spectral`, for `soak_tint`.
+**The solver knows nothing about blood.** A rope solver has no business importing a rheology crate: nothing in `solver`, `strand` or `spill` does. Only the cosmetic `look` module reads the colour of a blood film from `bloodstain::spectral`, for `soak_tint` (and, in any other `bloodstain::Fluid`, for `SoakTable::new(&fluid)`, which the preset builds from `WetSettings::fluid`).
 
 ## Papers
 
@@ -87,7 +87,7 @@ if let Some(first) = strands.first() {
 
 **Resource** — `ViscSettings` (`substeps`, `iterations`, `gravity`, `damping`, `compliance_stretch`, `compliance_bend`, `floor_y`, `max_strands`).
 
-**Functions** — `step`, `spill`, `tube_mesh`, `soaked_tube`, `soak`, `soak_tint`, `gut_image`, `organ_mesh`, `organ_image`. All of them are plain functions over plain data and none of them needs an `App`. `spill` lays each strand draped and meandering rather than straight: it leaves the wound along its heading, turns toward the floor within about a quarter of its length, and hangs in a slow S, because a strand laid straight read as a rigid rod until gravity sagged it.
+**Functions** — `step`, `spill`, `tube_mesh`, `soaked_tube`, `soaked_tube_in`, `soak`, `soak_tint`, `gut_image`, `organ_mesh`, `organ_image`; and `SoakTable`, the tint of every soak of one fluid (`SoakTable::new(&Fluid)`, `.tint(soak)`; `soak_tint` and `soaked_tube` are its blood). All of them are plain functions over plain data and none of them needs an `App`. `spill` lays each strand draped and meandering rather than straight: it leaves the wound along its heading, turns toward the floor within about a quarter of its length, and hangs in a slow S, because a strand laid straight read as a rigid rod until gravity sagged it.
 
 **Constants** — `FIXED_HZ`, `FIXED_DT`, `MAX_NODES`, `MAX_SEGMENTS`, `MAX_ANCHORS`, `MIN_REST_LEN`, `MIN_SIDES`, `MAX_SIDES`, `SPILL_SEGMENTS`, `SPILL_REST_LEN`, `SPILL_RADIUS`, `SPILL_CONE`, `STRAND_TEAR_STRAIN`, `DEFAULT_TEAR_STRAIN`, `COMPLIANCE_MESENTERY`, `GUT_ROUGHNESS`, `LUMP_MAJOR`, `LUMP_MAJOR_NODES`, `LUMP_MINOR`, `LUMP_MINOR_NODES`, `SLUMP_FADE`, `SLUMP_SQUASH`, `SOAK_BASE`, `SOAK_PATCH`, `SOAK_PATCH_M`, `WOUND_REACH_M`, `SOAK_FILM_MM`, `SOAK_STEPS`, `ORGAN_HALF_EXTENTS`, `ORGAN_TAPER`, `ORGAN_LUMP`, `ORGAN_FLAT`, and one `DEFAULT_*` per `ViscSettings` field.
 
