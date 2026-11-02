@@ -31,6 +31,9 @@
 //! `--smear` takes no hits and no body: a wall and a floor, a pool painted on the floor, and four contacts sent as `GoreSmear`s (`docs/research/smear.md`): at frame 30 a body, a third of a
 //! metre wide and bleeding as it goes, is dragged out of the pool for a metre and a half; at 40 a hand soaked in blood is slid down the wall; at 130 a less soaked one, at a slant; at 200 a clean hand
 //! is wiped sideways across the first one's streaks. The floor is dressed at 512 a side. It prints its own digest.
+//! `--hose` stands the body left of a wall and turns it, and takes one arterial hit (`GoreHit::arterial`) at frame 20 to the back of the raised forearm, facing the wall (`docs/research/hose.md`): every heartbeat
+//! the wound throws a bolus of large droplets that fly the parabola and land on the wall and the floor, each stain with a run below it and a stipple of fine drops beside it, the arc swept across the wall as the body
+//! turns and shortening as the pressure falls. `--vein` is the same hit, venous: what 0.8.9 and earlier threw for an arterial one too. It prints its own digest.
 //!
 //! Writes `frame0000.png …` and prints one digest line; two runs must print the same line. `digest=`
 //! folds the wetmaps and the holed cloth as the clip ends; `flay=` and `dermis=` fold the craters and
@@ -186,11 +189,12 @@ fn main() {
             if smear {
                 smear_script(world, frame, &contacts);
             }
+            let vein = flag("--vein");
             let hit = aim.get(world).ok().and_then(|aim| match frame {
                 _ if quiet || stroll || smear => None,
                 // **The hose**: one arterial hit to the back of the raised forearm, which is waving, so what the
                 // wound throws sweeps the wall behind it as the arm swings.
-                20 if hose => aim.shot_from_behind(Bone::ArmLowL, 0.13, 0.025, 7.0).map(|h| h.arterial()),
+                20 if hose => aim.shot_from_behind(Bone::ArmLowL, 0.13, 0.025, 7.0).map(|h| if vein { h } else { h.arterial() }),
                 _ if hose => None,
                 40 if guard => aim.shot(Bone::ArmLowR, 0.16, 0.014, 7.0),
                 _ if guard => None,

@@ -48,16 +48,18 @@ at the place the particle died; its size, its direction and its run are the arti
 
 ## Model adopted
 
-1. **The pulse is the crate's own.** A wound spurts on `bloodstain::bleed::pulses_on` (an integer modulo of the age, a phase per wound from its seed, 72 bpm at 60 Hz: one beat every 50 ticks) while
-   `rheo::flows` says the blood still moves, and with the pressure `1 - age / pressure_decay_ticks` that `arterial_arc` already computes. No new stopping rule; no new dial.
+1. **The pulse is the crate's own.** A wound spurts on `bloodstain::bleed::pulses_on` (an integer modulo of the age, a phase per wound from its seed, `spurt_bpm` 96 at 60 Hz: one beat every 38 ticks) while
+   `rheo::flows` says the blood still moves (full for `spurt_ticks` 210, tapering to nothing at `clot_ticks` 360: six seconds, nine or ten beats), and with the pressure `1 - age / pressure_decay_ticks` (600) that `arterial_arc` already computes. No new stopping rule; no new dial.
 2. **The droplets are `arterial_arc`'s**: `BloodSettings::arc_stains` (7) of them at `ARTERIAL_DROPLET_M`, spaced and jittered across `ARTERIAL_ARC_DEG` (22 degrees either way) in the plane of the wound's normal and
    the axis nearest up, at `ARTERIAL_SPEED x pressure x along`. The preset launches them at `spatter_speed_scale` 1.0, as `throw_spray` launches the ones a wall or a body catches: the 0.25 that stands in for air drag
    on a 40 m/s bullet spatter would make an 8 m/s jet a two-metre-an-second drip.
-3. **The flight is ballistic**, `x(t) = p0 + v t + g t² / 2` at `BloodSettings::gravity`, because a jet at 8 m/s falls 0.2 m in the first metre (`throw_spray` casts straight "since a droplet at 8 to 40 m/s falls under a
-   centimetre in the metre it travels", which is true there and false here). It is walked as a polyline of chords no longer than `HOSE_CHORD_M`; a chord is cast at the walls and floors the box of which it crosses, through
-   the mesh index, and the first landing wins. A droplet that reaches the floor's plane with nothing in the way lands by the closed form (`crate::bloodstain::landing`), as a hit's floor spray does.
+3. **The flight is ballistic**, `x(t) = p0 + v t - g t² / 2` at `BloodSettings::gravity`, because a jet at 8 m/s falls 0.2 m in the first metre (`throw_spray` casts straight "since a droplet at 8 to 40 m/s falls under a
+   centimetre in the metre it travels", which is true there and false here). It is walked as a polyline of chords no longer than `HOSE_CHORD_M` down to the lowest floor's plane; a chord is cast at the walls whose box it crosses, through
+   the mesh index `take_hits` keeps (now a resource both systems share), and the first landing wins. A droplet that reaches a floor's plane with nothing in the way lands where that parabola crosses it, and the floor's own cast down finds the texel.
 4. **The stain is `hard_stain`'s**, drawn by `paint_drop` at the surface's resolution, from the droplet **as it arrives** (its speed and direction at the landing time, not at the launch), so a drop that has fallen a
-   metre strikes a wall steeper and faster than it left and an arc's far stains are drawn out downward. The wetmap does the rest: a wall's large stain runs.
+   metre strikes a wall steeper and faster than it left. **A large stain on a wall is given its run**: a stamp `HOSE_RUN_WIDTH_M` wide and `HOSE_RUN_STAINS` stain-lengths long (a half to one and a half of that by the droplet's seed),
+   drawn down from the stain's lower edge, because the wetmap's drip pass sheds a texel's excess one texel a tick and a byte of coverage cannot hold the volume a long run is fed from; the bleed's wells are drawn the same way. **Beside each
+   large droplet fall `HOSE_SATELLITES` fine ones**, 0.12 to 0.30 of its diameter, within a few degrees of its direction: "it exits as a column of blood and separates into drops".
 5. **The wound's place and axis follow the body.** The place is the anchor the wound already keeps (`WoundSite::skin`, or `at_local` on a rigid mesh). **The axis is the anchor triangle's winding normal as the pose draws it
    now**, signed to agree with the wound's normal at the hit, so a waving forearm sweeps the arc across the wall and a turned head turns the jet. The wound remembers the triangle and the sign in a new component,
    `Spurts`, beside `Wounds`, because `WoundSite` is a public struct whose literal a field would break.
@@ -67,8 +69,9 @@ at the place the particle died; its size, its direction and its run are the arti
 ## Parameters
 
 Unchanged: everything `arterial_arc` and `BloodSettings` carry. New, each **this crate's own and tuned against the references**: `HOSE_CHORD_M` 0.2 m (a chord is shorter than the thinnest wall the broad phase
-boxes, and a droplet crosses a metre in five), `HOSE_MAX_CHORDS` 24 (a flight past 4.8 m of arc is not walked), and a droplet scale for the stain's size if the first renders show it (the references' stains are
-large, several centimetres, and a 5 mm droplet at 8 m/s stains less than that: [INFERENCE] about 2 cm): decided from the render and recorded here. No `GoreDials` or `BloodSettings` field is added.
+boxes, and a droplet crosses a metre in five), `HOSE_MAX_CHORDS` 24 (a flight past 4.8 m of arc is not walked), `HOSE_MAX_FLIGHT_S` 1.5, **`HOSE_DROP_SCALE` 3.5** (the stain is drawn for a droplet 3.5 times the diameter
+`arterial_arc` throws: at 1.0 the first render was a column of 12 mm dots, polka dots, against stains the size of a palm in F2 and F3; 3.5 is 17 mm, and the stains several centimetres across [INFERENCE: read off the wall's width in pixels]), `HOSE_RUN_STAINS` 3, `HOSE_RUN_MAX_M` 0.5, `HOSE_RUN_WIDTH_M` 0.006 (`docs/research/rivulets.md`),
+`HOSE_SATELLITES` 3 and `HOSE_SATELLITE_CONE` 0.1. No `GoreDials`, `BloodSettings` or `WoundSite` field is added.
 
 ## Validation targets
 
@@ -77,7 +80,7 @@ large, several centimetres, and a 5 mm droplet at 8 m/s stains less than that: [
 - **One arc a beat, and the pressure falls**: no droplet lands on a tick the heart does not beat on; the reach of the beats falls over `pressure_decay_ticks`; after the clot nothing is thrown.
 - **A vein does not spurt**, a tier that draws no blood throws nothing, `GoreReset` of the body ends it.
 - **Reproducible**: two runs of `--hose` print one digest; **every existing digest equals 0.8.9's** (nothing else uses `.arterial()` but `carnage_web`); `bench_carnage` within 5 %.
-- **Cost**: a pulse tick of one arterial wound against a room of floor and three walls, median and p99, in tens of microseconds, and nothing on a tick that is not a beat.
+- **Cost**: a beat tick of one arterial wound against a room of a floor and three walls, against a tick that is not a beat: about a tenth of a millisecond more, and nothing on a tick that is not a beat (the system does not run: it is `run_if(any_with_component::<Spurts>)`).
 - **The render, against the references**: seven or more stains a beat on the wall, elongated along the way they travelled (length over width at least 1.5), with runs below them that are near vertical (six of the eight
   largest connected structures of F2 lie 76 to 108 degrees from the horizontal, measured by principal axis on a reddish mask; the other two are merged chains), stains of 2 to 8 cm, and a pattern that is a curve and
   not a line: successive beats at different heights or places as the arm swings and the pressure falls.
@@ -110,6 +113,41 @@ Stills and photographs, copyrighted by their publishers, kept under `/tmp/c16/re
 - **No new `GoreDials`, `BloodSettings` or `WoundSite` field**: the wound's spurt state is a new component, `Spurts`, so the change is additive.
 - **`GoreHit::arterial()` now does what its name says**, which moves nothing that does not use it; `carnage_web` is the one example that does, and has no digest.
 - **A cut face does not spurt.** The preset throws every piece of a broken body, and a piece with no heart behind it has no pressure: the body side of a stump spurts, and there is no body side yet.
+- **A droplet is drawn 3.5 times the diameter `arterial_arc` gives it** (`HOSE_DROP_SCALE`): the generator's `ARTERIAL_DROPLET_M` is 5 mm "large and discrete", and at that size a stain is a 12 mm dot where the references' are the size of a palm ([INFERENCE] a large
+  artery's bolus of ten millilitres a beat, split seven ways, is drops of a centimetre and a half). The generator is untouched and its goldens with it; the scale is the preset's.
+- **A run is drawn, not simulated** (above): the canvas has no volume to run on.
+- **The wound's pressure is the crate's `1 - age / pressure_decay_ticks`**, and the wound clots at `clot_ticks` (six seconds), so the last beat is at 0.4 of the pressure and the hose is about nine beats long.
+
+## Outcome
+
+Six render rounds of `capture_skinned --hose` (the victim stands left of a wall, turns about her axis, and takes one arterial hit at frame 20 to the back of the waving forearm), each changing one thing.
+R1: the droplets as `arterial_arc` makes them, a column of 12 mm dots down the wall beside the arm. R2: 3.5 times the size: a column of blobs that merged into a curtain, and the same column every beat ([INFERENCE] because the arm waves
+in a plane the wound's normal lies in, so its axis did not move and the jet always pointed at the wall's middle). R3: the body turns, and each beat's fan lands in its own column across the wall (a trace of where each beat landed showed it: tick
+61 at `u` 0.50, 99 at 0.49, 137 at 0.56, 175 at 0.79, and from tick 213 the jet pointing along the wall and out over the floor's edge). R4: a run under each stain; the camera moved to see them. R5: three fine drops beside
+each large one, the victim moved left so the wall to her right is open, and the set's sheet removed. R6 is the clip and the comparison below. A trace line printed from `spurt` was removed before the commit.
+
+**Measures**, `smear_stat`'s mask (reddish pixels) and principal axis, on the wall region of frames 250 and 340, against F2 and F3 by the same script: the largest connected structures lie at **88, 89, 90, 93 degrees (frame 250) and 90, 91, 92
+(frame 340) from the horizontal**, length over width 7.8, 4.2, 8.7, 3.7 and 8.5, 3.0, 3.2; F3's at 80, 83, 94 (9.0, 3.3, 2.1), F2's at 77, 77, 83, 97, 105, 108. Ours are within 3 degrees of vertical, the references' within 10 (F3) and 18 (F2). Mean mask colour sRGB `(123, 60, 60)`
+against F3's `(141, 71, 42)` and F2's `(141, 94, 80)`: the same red to green ratio as F3 (2.05 against 1.99), darker (luma 79 against 89 and 106), and F3's is more orange (blue 42 against ours 60); the references are photographs of stains of unstated age
+under a flash, and the crate's colour is the spectral model's (`bloodstain::spectral`) at its age: not tuned here.
+
+**Critique, against F2, F3 and M2.** Against F3 (BLOODY2): the thick streak that narrows into a run that ends in a bead, the near-vertical runs, and the stipple of small drops beside the streaks are there, and a close-up of the middle column
+(`docs/media/hose.png`, frame 340) reads as that image's right-hand streaks. Against F2 (the training photograph): **missed, the arcs**: F2's stains lie along curves across the wall, dozens of them, close, and ours are separate columns a beat
+apart because each beat's droplets leave on one tick and the fan is vertical (`arterial_arc`'s arc plane); a body that turns fast enough sweeps a curve, and the mannequin's turn is slow. Against M2 (Sweeney Todd): the throat's
+jet is visible in the air as a line of drops and the crate draws only where it lands. **Missed, the gloss**: the stains are a flat maroon on a matte wall, as the stains of the crate's other demos are under their flat ambient and two suns. **Missed, the density**:
+nine beats of seven stains are sparse next to F2; a game that wants more raises `BloodSettings::arc_stains`. A stain's edge is soft and lobed where F2's are scalloped smooth.
+
+**Cost**, on a throwaway test (removed): one wound beating in a room of a 6 m floor and three walls, 400 ticks of the whole schedule: a beat tick **215 / 212 / 251 microseconds** median against **109 / 106 / 142** for a tick that is not a beat (p99 beat 269 / 245 / 367, quiet 127 / 129 / 374; three runs, load 5 to 9): about
+0.1 ms a beat, on the 28 shots (7 large and 21 fine) each walking up to 24 chords against three walls. `bench_carnage` (no wound in it spurts; the plugin now runs one more system, behind a condition that is false, and `take_hits` reads the mesh index as a resource and not a local): before, six runs at
+load 3: `carnage_frame_ms` median 0.09360, `carnage_p99_ms` 2.672; after, at rest (load 5.2 to 5.6): 0.09437 and 2.676 (**+0.8 %, +0.1 %**). Four runs straight after a recorder sweep (load 6.5) read 0.0978 to 0.0990 and 2.80 to 2.91; the
+same binary a minute later read 0.0930 to 0.0963. Digest `0x4366a8b64352c85a` unchanged.
+
+**Reproducibility.** Every existing digest equals 0.8.9's in two runs (preset, every skinned variant, entrails, flesh, and `capture_gore`'s four); `--hose` prints `digest=0c903766bf51f0f2` twice, `--hose --vein` (the same hit, venous: the 0.8.9 behaviour) `38099dce0d339ebc`.
+
+**Mutations the tests caught:** no gravity in the flight (`a_jet_lands_where_its_parabola_does_and_not_where_a_straight_line_would`); the axis kept as the wound opened (`a_jet_follows_the_body_as_it_turns`).
+
+**Verdict: GREAT** for the mechanism and the stain vocabulary: an arterial wound throws a ballistic arc a heartbeat, at the walls and the floor, from where it is and the way it faces now, with its stains' runs and stipple, ending at the clot, for no
+cost on a tick without a beat. **NOT YET**, and named for the next pass that touches it: the curve of F2 (a jet that sweeps within a beat), the gloss on a wet wall (`flesh.wesl`, a WebGL2 re-check), and a jet that meets a body or a cloth.
 
 ## Pending index
 

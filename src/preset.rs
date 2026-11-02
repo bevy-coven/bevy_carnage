@@ -20,7 +20,8 @@
 //! 2. **Throws blood** — the wound's `crate::bloodstain::stain::stains` in closed form, painted onto every
 //!    [`Gore::floor`] they land on, and a stain at the wound on the body's own wetmap.
 //! 3. **Opens a bleed** — `crate::bloodstain::bleed`, pulsing more blood onto the wetmap each systole until
-//!    the clot, which the wetmap then runs under gravity and dries.
+//!    the clot, which the wetmap then runs under gravity and dries. **An arterial wound** ([`GoreHit::arterial`])
+//!    also throws an arc of large droplets at the walls and floors on every beat, as a hose does ([`Spurts`]).
 //! 4. **A slash gapes** — [`GoreHit::slash`] lays a `laceration` along the cut instead of a
 //!    crater, and its bed is banded by `cross_section`.
 //! 5. **Guts spill** — a torso hit that reached muscle spawns `viscera` strands tethered to the
@@ -2515,7 +2516,7 @@ pub struct GoreHit {
     pub radius_m: f32,
     /// Which injury.
     pub kind: HitKind,
-    /// The blood's saturation: arterial for a breached vessel, venous otherwise.
+    /// The blood's saturation: arterial for a breached vessel, venous otherwise. A wound at or above `SO2_ARTERIAL` also throws an arc a heartbeat: see [`Spurts`].
     pub so2: f32,
     /// **Whether the projectile leaves the body** — see [`GoreHit::through`]. Only an impact reads it.
     pub through: bool,
@@ -2554,7 +2555,7 @@ impl GoreHit {
         self.dir = -outward;
         self
     }
-    /// The same hit, bleeding arterial blood.
+    /// The same hit, bleeding arterial blood: the wound throws an arc of large droplets at the walls and floors on every beat, the pressure falling until the clot ([`Spurts`], `docs/preset.md#arterial-wounds`).
     pub fn arterial(mut self) -> Self {
         self.so2 = crate::bloodstain::spectral::SO2_ARTERIAL;
         self
