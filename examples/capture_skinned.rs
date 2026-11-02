@@ -28,6 +28,9 @@
 //! every `N` frames — which is how the spray a hit throws, gone from a body-sized view within two
 //! frames at full speed, is seen leaving it. It prints its own digest: the same ticks fall on other
 //! frames.
+//! `--smear` takes no hits and no body: a wall and a floor, a pool painted on the floor, and four contacts sent as `GoreSmear`s (`docs/research/smear.md`): at frame 30 a body, a third of a
+//! metre wide and bleeding as it goes, is dragged out of the pool for a metre and a half; at 40 a hand soaked in blood is slid down the wall; at 130 a less soaked one, at a slant; at 200 a clean hand
+//! is wiped sideways across the first one's streaks. The floor is dressed at 512 a side. It prints its own digest.
 //!
 //! Writes `frame0000.png …` and prints one digest line; two runs must print the same line. `digest=`
 //! folds the wetmaps and the holed cloth as the clip ends; `flay=` and `dermis=` fold the craters and
@@ -54,7 +57,7 @@ use std::time::Duration;
 use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use bevy_carnage::preset::{ClothHoles, Gore, GoreClock, GoreDials, GorePlugin, GoreReset, GoreStep, HitKind, Sole};
+use bevy_carnage::preset::{ClothHoles, Gore, GoreClock, GoreDials, GorePlugin, GoreReset, GoreSmear, GoreStep, HitKind, Sole};
 use bevy_carnage::wetmap::{StainShape, WetCanvas, WetSettings};
 
 mod common;
@@ -76,11 +79,14 @@ fn main() {
             .and_then(|v| (v.len() == 3).then(|| Vec3::new(v[0], v[1], v[2])))
     };
     let stroll = flag("--stroll");
+    let smear = flag("--smear");
     let guard = flag("--guard");
     // A stroll is seen from above and to the side, the whole path in frame and the prints facing up at
     // it; a guard from in front and to the left, close on the chest and the forearm across it.
     let at = point("--at").unwrap_or(if stroll {
         Vec3::new(0.05, 0.5, 0.05)
+    } else if smear {
+        Vec3::new(0.25, 0.75, -1.0)
     } else if guard {
         Vec3::new(-0.03, 1.24, 0.06)
     } else {
@@ -89,6 +95,7 @@ fn main() {
     let camera = match point("--eye") {
         Some(eye) => Transform::from_translation(eye).looking_at(at, Vec3::Y),
         None if stroll => Transform::from_xyz(-2.9, 2.75, 0.15).looking_at(at, Vec3::Y),
+        None if smear => Transform::from_xyz(-0.9, 1.9, 1.5).looking_at(at, Vec3::Y),
         None if guard => Transform::from_xyz(-0.5, 1.46, 1.5).looking_at(at, Vec3::Y),
         None => mannequin::view(),
     };
@@ -100,7 +107,7 @@ fn main() {
         // burst of blood in the air; the digest cannot see it.
         #[cfg(feature = "vfx")]
         app.add_plugins(bevy_carnage::CarnageVfxPlugin);
-        if let Some(floor_canvas) = common::arg("--floor").and_then(|n| n.parse::<u32>().ok()) {
+        if let Some(floor_canvas) = common::arg("--floor").and_then(|n| n.parse::<u32>().ok()).or(flag("--smear").then_some(512)) {
             app.insert_resource(GoreDials { floor_canvas, ..default() });
         }
         if let Some(dry_ticks) = common::arg("--dry").and_then(|n| n.parse::<u32>().ok()) {
@@ -138,9 +145,11 @@ fn main() {
     let blows = flag("--blows");
     let reset_at = common::arg("--reset-at").and_then(|n| n.parse::<u32>().ok());
     let mut aim = bevy::ecs::system::SystemState::<mannequin::Aim>::new(rec.world());
-    if stroll {
+    if stroll || smear {
         spill(rec.world());
     }
+    // The contacts of `--smear`: a body, a soaked hand, a less soaked one, a clean one.
+    let contacts: Vec<Entity> = (0..4).map(|_| rec.world().spawn_empty().id()).collect();
     // The last step a `GoreStep` was sent for.
     let mut planted: Option<i64> = None;
     let mut skin = digest::SkinTrace::default();
@@ -159,8 +168,11 @@ fn main() {
                     }
                 }
             }
+            if smear {
+                smear_script(world, frame, &contacts);
+            }
             let hit = aim.get(world).ok().and_then(|aim| match frame {
-                _ if quiet || stroll => None,
+                _ if quiet || stroll || smear => None,
                 40 if guard => aim.shot(Bone::ArmLowR, 0.16, 0.014, 7.0),
                 _ if guard => None,
                 60 if blows => aim.blow(Bone::LegLowL, 0.32, 0.04),
@@ -226,6 +238,27 @@ fn spill(world: &mut World) {
     }
 }
 
+/// **The contacts of `--smear`**, one `GoreSmear` a tick for each stroke that is under way: `(carrier, first frame, last frame, from, to, the surface's normal, width, load at the first frame, load
+/// every frame)`, loads in square metres of full coverage. A body bleeding as it is dragged brings blood on every tick; a hand brings what it was dipped in once.
+fn smear_script(world: &mut World, frame: u32, contacts: &[Entity]) {
+    let strokes = [
+        (0, 30, 124, Vec3::new(-0.10, 0.0, -0.86), Vec3::new(1.30, 0.0, -0.86), Vec3::Y, 0.34, 0.0, 0.0004),
+        (1, 40, 90, Vec3::new(-0.70, 1.55, -1.2), Vec3::new(-0.70, 0.95, -1.2), Vec3::Z, 0.09, 0.014, 0.0),
+        (2, 130, 175, Vec3::new(0.0, 1.5, -1.2), Vec3::new(0.15, 0.8, -1.2), Vec3::Z, 0.09, 0.008, 0.0),
+        (3, 200, 240, Vec3::new(-1.0, 1.2, -1.2), Vec3::new(-0.3, 1.2, -1.2), Vec3::Z, 0.09, 0.0, 0.0),
+    ];
+    for (who, first, last, from, to, normal, width, first_load, load) in strokes {
+        if frame < first || frame >= last {
+            continue;
+        }
+        let span = (last - first) as f32;
+        let at = |f: u32| from + (to - from) * ((f - first) as f32 / span);
+        let Some(carrier) = contacts.get(who) else { continue };
+        let brought = load + if frame == first { first_load } else { 0.0 };
+        world.write_message(GoreSmear::new(*carrier, at(frame), at(frame + 1), normal).width(width).loaded(brought));
+    }
+}
+
 /// Whether a bare flag was given.
 fn flag(name: &str) -> bool {
     std::env::args().any(|a| a == name)
@@ -238,6 +271,12 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
     mut bindposes: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
+    if flag("--smear") {
+        // A wall and a floor, and nothing else in the frame: the contacts are the subject.
+        preset_scene::spawn_set(&mut commands, &mut meshes, &mut materials);
+        preset_scene::spawn_wall(&mut commands, &mut meshes, &mut materials);
+        return;
+    }
     let root = mannequin::spawn(&mut commands, &mut meshes, &mut materials, &mut images, &mut bindposes, shirted());
     if breaking() {
         commands.entity(root).insert(mannequin::breakable());

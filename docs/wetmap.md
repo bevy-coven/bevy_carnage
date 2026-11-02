@@ -94,9 +94,11 @@ fn on_hit(
 | Constant | `MAX_DETAIL`, `DETAIL_EDGE` | The finest `new_detailed` draws (4), and where it draws a stain's edge (4 % of full coverage). |
 | Type | `Print` | A sole's outline on a canvas, for `lift_uv` and `print_uv`: length, width, heading, tread seed. |
 | Constant | `PRINT_CORE` | The share of full coverage a sole's print holds where it inks (0.6). |
+| Type | `Smear` | A contact's path on a canvas, for `smear_uv`: from, to, width, streak grain, seed, whether it is the stroke's first segment. |
+| Constant | `SMEAR_LIFT`, `SMEAR_PEAK`, `SMEAR_BEAD_GRAINS` | The share of wet blood a smearing contact takes up (0.35), the heaviest mark's share of full coverage (0.85), and how far into a stroke its lines touch down (3 grains). |
 | Re-export | `StainShape`, `bevy_carnage::bloodstain` | The silhouette `paint_*` takes, and the blood model it comes from. |
 
-`WetCanvas`: `new`, `new_detailed`, `albedo`, `roughness`, `paint_uv`, `paint_uv_with`, `paint_world`, `paint_world_with`, `wick_uv`, `lift_uv`, `print_uv`, `tick`, `flush`, `clear`, `digest`, `wetted_area`, plus the read-only `size`, `detail`, `amount_at`, `age_at`, `is_dirty`, `dirty_since`, `is_still`, `heap_bytes`, `image_bytes`. `clear` (0.5.48) wipes every drop of blood off in place, for a respawned or pooled surface: the digest is a fresh canvas's again and the images re-upload on the next flush.
+`WetCanvas`: `new`, `new_detailed`, `albedo`, `roughness`, `paint_uv`, `paint_uv_with`, `paint_world`, `paint_world_with`, `wick_uv`, `lift_uv`, `print_uv`, `smear_uv`, `tick`, `flush`, `clear`, `digest`, `wetted_area`, plus the read-only `size`, `detail`, `amount_at`, `age_at`, `is_dirty`, `dirty_since`, `is_still`, `heap_bytes`, `image_bytes`. `clear` (0.5.48) wipes every drop of blood off in place, for a respawned or pooled surface: the digest is a fresh canvas's again and the images re-upload on the next flush.
 
 ## The metallic-roughness image carries data, not just gloss
 
@@ -146,6 +148,22 @@ and a forefoot widest at the ball, sized in UV units as a `StainShape` is.
 
 Call `lift_uv` first for a step, or a sole picks its own print back up. The preset's `GoreStep` is
 this, on whichever floor is under the foot; see [`preset.md`](preset.md#footprints).
+
+## A contact drawn along a path: `smear_uv` and `Smear`
+
+One call for a hand slid down a wall, a body dragged out of a pool, a sleeve wiped through a splash (0.8.9, `docs/research/smear.md`): `smear_uv(&Smear, carry, full, tick, settings) -> carry`. A `Smear` is a
+contact `width` wide (UV units) moving from `from` to `to`, with a streak `grain`, a `seed`, and whether it is the stroke's first segment (`bead`). `carry` is the blood the contact holds, in bytes of coverage
+(the same unit as `amount`), `full` the carry of a full load, and the return value is what it holds afterwards.
+
+- **It lifts first.** At each texel under the swept rectangle it takes `SMEAR_LIFT` (35 %) of the wet blood. Dry blood is neither taken nor re-aged: dry paint does not move.
+- **Then it lays what it carries.** It raises a texel toward a target that falls with the carry (`SMEAR_PEAK`, 85 % of full coverage, at a full load), in streaks parallel to the motion, and never above the target
+  or beyond what the carry holds. Lines drop out as the load falls, so the tail breaks into voids. A texel it raises is fresh blood, age 0. On a stroke's first segment (`bead`) each line touches down at its own
+  distance from the start, up to `SMEAR_BEAD_GRAINS` grains, so the head is ragged.
+- **Blood is moved and none is made**: `sum(amount) + carry` is the same before and after a call, to the byte. The texels are visited once, in one canonical order (along the path, then across, then index), so the
+  result depends on nothing but the arguments. The streak noise is in canvas coordinates along the stroke's own axes, so straight segments of one stroke continue each other's lines.
+- A path under a quarter of a texel changes nothing, and a clean contact (carry 0) on a canvas with no wet blood changes nothing and returns 0.
+
+The preset's `GoreSmear` is this, on whichever floor or wall is under the contact; see [`preset.md`](preset.md#smears).
 
 ## Two things the caller owns, and one convention
 

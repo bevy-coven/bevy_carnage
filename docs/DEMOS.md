@@ -651,6 +651,18 @@ The crater was a smooth bowl: a falloff over the whole radius whose rim had no s
 
 Not done, named: the nodules are red (the blood film hides the cream tint the tissue would show: the crater's red minus green is 80 where the references' is 86 to 109), there is no big dark pit and no thick rolled lip, the 95th percentile of luminance is 105 against 134 to 165 (those highlights are `flesh.wesl`'s, and a change there needs a WebGL2 re-check this disk could not hold), and there are no ribs and no flaps (an opened chest needs the canvas to know which way is up).
 
+### `capture_skinned --smear` — a hand, a body and a sleeve drawn through blood
+
+![A wall and a floor with a pool of blood on the floor: a body is dragged out of the pool and leaves a fan of fine parallel streaks, a soaked hand slid down the wall leaves a heavy head that parts into lines, a lighter hand a ragged head and a tail of dots, and a clean hand wiped sideways carries a little of the first hand's blood across](media/smear.gif)
+
+Nothing drew a smear: a sole walking through a pool prints soles, and a hand, a sleeve or a body dragged through blood left only the blood that was already there. `GoreSmear` (`docs/research/smear.md`) is a contact moved from one point of a floor or wall to another: `WetCanvas::smear_uv` **lifts the wet blood under the contact** (35 % of it; dry blood does not move), **carries it, and lays it along the path** in streaks parallel to the motion, heavy where the contact touched down and broken into lines and then dots as the load runs low, and **every byte lifted is a byte carried and every byte laid is a byte spent** (a test over random strokes holds the sum to the byte). The carrier's blood is kept on it as `Smeared`, in square metres of film, so a hand that crosses from a wall to a floor takes the same blood with it. The clip: at frame 30 a body a third of a metre wide, bleeding as it goes, is dragged a metre and a half out of the pool; at 40 a hand soaked in blood is slid down the wall; at 130 a lighter one, at a slant; at 200 a clean hand is wiped across the first one's streaks and carries a little of it on.
+
+![Four frames of the clip above, and three crops enlarged: the soaked hand's mark, the lighter hand's, and the trail out of the pool](media/smear.png)
+
+Measured as the references are (`docs/research/smear.md`, `## Outcome`): the marks' gradient coherence is 0.57, 0.46 and 0.51 (the references' 0.56 to 0.61, the target at least 0.45), the streaks run along the axis (alignment 1.00), the hands' last third carries 0.54 and 0.57 of the first's (the target at most 0.6) and the dragged body's 0.76, because that body bleeds every tick and does not run dry. A tick's segment costs 1 to 41 microseconds on a 512 canvas (a hand's, a body's, a long single stroke). `bench_carnage` moves from 0.0931 to 0.0954 ms a frame with nothing smearing (the plugin runs one more system), digest unchanged.
+
+Not done, named: the soaked hand's head is a solid slab where the references show lines (the film is opaque from about a third of full coverage; a line shows only where the amount falls below that), a smear does not sag or run, a skinned body is not smeared (a hand dragged down a character is a later item), and there is no handprint (a palm and five fingers are a `Print`, an item of their own).
+
 ## `tiers` — the player's violence setting
 
 ![The same scripted scene three times side by side: at the stylised tier a yellow spark marks each shot and nothing bleeds; at the blood tier the wounds bleed and pool on the floor and the body stays standing; at blood and gore the body comes apart and the guts spill](tiers.gif)

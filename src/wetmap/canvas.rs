@@ -893,6 +893,112 @@ impl WetCanvas {
         }
     }
 
+    /// **A contact drawn across the canvas, moving blood**: a hand slid down a wall, a body dragged out of a pool, a sleeve wiped through a splash. `smear` is the path and the contact's width;
+    /// `carry` is the blood the contact holds as it starts, **in the canvas's own bytes** (the sum of the `amount`s it would lay if it laid it all, `255` a texel of full coverage), and
+    /// `full` how much of it counts as a full load (what a freshly soaked contact holds); the return is what it holds when it has crossed. `s` is [`WetSettings`], for the drying span.
+    ///
+    /// **Two mechanisms, SWGSTAIN's** (*Recommended Terminology*, 2009): a *wipe*, "an object moving through a preexisting wet bloodstain", and a *swipe*, "the transfer of blood from a
+    /// blood-bearing surface onto another surface". Every texel under the swept rectangle is visited **once, in one order** (along the path, then across it, then by index), and at each:
+    ///
+    /// 1. **it lifts** [`SMEAR_LIFT`] of the wet blood there, into the carry; dry blood is not lifted, because dry paint does not move;
+    /// 2. **it deposits**: the texel is raised, never lowered, to a target coverage set by the load (`sqrt(carry / full)`), a **streak field** (a value noise `grain` across and twenty grains along,
+    ///    so the lines run along the motion) and a feathered edge, with what the carry holds and no more. A texel it raises is fresh blood, age 0. As the load falls, fewer streaks ink and the
+    ///    rest are voids ("an absence of blood in an otherwise continuous bloodstain"), so the tail is feathered; `smear.bead` inks the first [`SMEAR_BEAD_GRAINS`] grains whatever the streaks, the heavy head
+    ///    of a stroke.
+    ///
+    /// **Mass is conserved to the byte**: the sum of every texel's `amount` plus the carry is the same before and after, because a byte lifted is a byte carried and a byte deposited is a byte spent. A
+    /// contact with no blood and nothing wet under it changes nothing and returns `0`. A path shorter than a quarter of a texel is not a smear and changes nothing. The streak noise is in canvas
+    /// coordinates along the stroke's own axes, so successive segments of one straight drag continue each other's lines. Every number is this crate's own (`docs/research/smear.md`).
+    pub fn smear_uv(&mut self, smear: &Smear, carry: u32, full: u32, tick: u32, s: &WetSettings) -> u32 {
+        let sane = |v: f32| v.is_finite() && v > 0.0;
+        if !smear.from.is_finite() || !smear.to.is_finite() || !sane(smear.width) {
+            return carry;
+        }
+        let (edge, n) = (self.size as f32, self.size as i64);
+        let at = |uv: Vec2| Vec2::new(uv.x.clamp(0.0, 1.0), uv.y.clamp(0.0, 1.0)) * edge;
+        let (p0, p1) = (at(smear.from), at(smear.to));
+        let path = p1 - p0;
+        let len = path.length();
+        if len < 0.25 {
+            return carry;
+        }
+        let (dir, perp) = (path / len, Vec2::new(-path.y, path.x) / len);
+        let half = (0.5 * smear.width / UV_SPAN_M * edge).clamp(0.5, 0.5 * edge);
+        let grain = if sane(smear.grain) { (smear.grain / UV_SPAN_M * edge).max(0.5) } else { 3.0 };
+        // The texels under the rectangle, by their centres, in the canonical order: how far along, then across, then index. Integer keys, so no tie is decided by a float.
+        let corners = [p0 + perp * half, p0 - perp * half, p1 + perp * half, p1 - perp * half];
+        let lo = corners.iter().fold(Vec2::splat(f32::MAX), |m, c| m.min(*c));
+        let hi = corners.iter().fold(Vec2::splat(f32::MIN), |m, c| m.max(*c));
+        let (x0, y0) = ((lo.x.floor() as i64).max(0), (lo.y.floor() as i64).max(0));
+        let (x1, y1) = ((hi.x.ceil() as i64).min(n - 1), (hi.y.ceil() as i64).min(n - 1));
+        let mut order: Vec<(i32, i32, u32)> = Vec::new();
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                let q = Vec2::new(x as f32 + 0.5, y as f32 + 0.5) - p0;
+                let (a, c) = (q.dot(dir), q.dot(perp));
+                if a < 0.0 || a >= len || c.abs() > half {
+                    continue;
+                }
+                order.push(((a * 8.0).round() as i32, (c * 8.0).round() as i32, (y * n + x) as u32));
+            }
+        }
+        order.sort_unstable();
+        let span = s.dry_span();
+        let (mut carry, mut touched) = (carry, false);
+        for (a8, c8, index) in order {
+            let (a, c) = (a8 as f32 / 8.0, c8 as f32 / 8.0);
+            let reach = (c.abs() / half).min(1.0);
+            let feather = 1.0 - smoothstep01((reach - (1.0 - SMEAR_FEATHER)) / SMEAR_FEATHER);
+            let Some(cell) = self.wet.get_mut(index as usize) else { continue };
+            // 1. Lift: a wet texel gives up a share of its blood to the contact.
+            if cell.0 > 0 && is_wet(cell.1, span) {
+                let take = byte(f32::from(cell.0) * SMEAR_LIFT * feather);
+                if take > 0 {
+                    cell.0 -= take;
+                    carry += u32::from(take);
+                    if cell.0 == 0 {
+                        cell.1 = 0;
+                    }
+                    touched = true;
+                }
+            }
+            // 2. Deposit: raise the texel toward the target with what the carry holds.
+            if carry == 0 {
+                continue;
+            }
+            let frac = if full == 0 { 0.0 } else { (carry as f32 / full as f32).clamp(0.0, 1.0).sqrt() };
+            let (x, y) = (i64::from(index) % n, i64::from(index) / n);
+            let p = p0 + dir * a + perp * c;
+            let streak = streaks(p.dot(perp) / grain, p.dot(dir) / (SMEAR_STREAK_GRAINS * grain), smear.seed);
+            let pressed = frac * frac * (1.0 - 0.4 * smoothstep01((reach - 0.5) / 0.5));
+            let mut ink = smoothstep01((pressed - streak) * 6.0 + 0.5);
+            if smear.bead {
+                // Each line of the contact touched down at its own distance from the start, up to the bead's length: a ragged leading edge and a head that is a few lines longer than the rest.
+                let lane = (p.dot(perp) / grain).floor() as i32 as u32;
+                let lead = a / grain - crate::bloodstain::hash_f32(lane.wrapping_mul(0x9E37_79B9) ^ smear.seed ^ 0xB5A1_D00D) * SMEAR_BEAD_GRAINS;
+                ink = ink.max(frac * (1.0 - smoothstep01(lead / SMEAR_BEAD_GRAINS))) * smoothstep01(lead + 0.5);
+            }
+            let target = byte(SMEAR_PEAK * frac * ink * feather * 255.0);
+            if target > cell.0 {
+                let give = u32::from(target - cell.0).min(carry);
+                if give > 0 {
+                    cell.0 += give as u8;
+                    cell.1 = 0;
+                    carry -= give;
+                    touched = true;
+                    mark(&mut self.live, self.size, x, y);
+                }
+            }
+        }
+        if touched {
+            self.quiet = None;
+            if self.dirty_since.is_none() {
+                self.dirty_since = Some(tick);
+            }
+        }
+        carry
+    }
+
     /// The one stamp. `span` subsamples per texel axis; `1` is the shipped rasterisation to the byte.
     ///
     /// The mask is rasterised at `span` times the canvas resolution and box-filtered down, so a texel
@@ -1937,6 +2043,59 @@ impl Print {
 /// sole carried, wiped off, never a pool, so it is lighter than the blood it walked out of. This
 /// crate's own number.
 pub const PRINT_CORE: f32 = 0.6;
+
+/// **A contact drawn across a canvas**, for [`WetCanvas::smear_uv`]: a hand, a sleeve, a body dragged from `from` to `to`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Smear {
+    /// Where the contact's centre starts, UV units.
+    pub from: Vec2,
+    /// Where it ends, UV units. A path under a quarter of a texel is not a smear.
+    pub to: Vec2,
+    /// How wide the contact is, UV units: a hand's breadth, a body's.
+    pub width: f32,
+    /// How wide a streak is, UV units: a finger's, a fibre's, a bristle's. A value that is not positive reads as three texels.
+    pub grain: f32,
+    /// Which streaks: any number, the same for one stroke so its lines continue from one segment to the next.
+    pub seed: u32,
+    /// Whether this segment begins a stroke: the contact has just touched down, and its first [`SMEAR_BEAD_GRAINS`] grains ink whatever the streaks, the heavy head of a swipe.
+    pub bead: bool,
+}
+
+/// **The share of the wet blood under a smearing contact that it takes up**: `0.35`. A wipe through a pool leaves grooves the pool's own spread fills, and the blood it took is laid down the path.
+/// This crate's own number: nothing published measures what a hand lifts.
+pub const SMEAR_LIFT: f32 = 0.35;
+
+/// **The share of full coverage a smear's heaviest mark holds**: `0.85`. A smear is film, not a pool. This crate's own number, tuned against the references of `docs/research/smear.md`.
+pub const SMEAR_PEAK: f32 = 0.85;
+
+/// **How long a streak is, in grains**: `20`, so a finger's line runs a hand's length. Tuned against the references (`docs/research/smear.md`).
+const SMEAR_STREAK_GRAINS: f32 = 20.0;
+
+/// **How many grains of a stroke's start ink whatever the streaks**: `3`, the head of a swipe's finger-line. Tuned against the references (`docs/research/smear.md`).
+pub const SMEAR_BEAD_GRAINS: f32 = 3.0;
+
+/// **How much of the contact's width, at each side, is a feathered edge**: `0.15`. Tuned.
+const SMEAR_FEATHER: f32 = 0.15;
+
+/// **Streaks**, in `[0, 1]`, low first: a value noise whose cells are `1` across and `1` along in the units the caller passes (the caller divides across by a grain and along by twenty), each lattice
+/// corner from [`crate::bloodstain::hash_f32`] of its cell and `seed`, with a finer octave across at a third of the weight, so a line has a finer line beside it.
+fn streaks(across: f32, along: f32, seed: u32) -> f32 {
+    let octave = |scale: f32, salt: u32| -> f32 {
+        let (u, v) = (across * scale, along);
+        let (gu, gv) = (u.floor(), v.floor());
+        let (fu, fv) = (u - gu, v - gv);
+        let corner = |i: f32, j: f32| {
+            let key = (i as i32 as u32).wrapping_mul(0x9E37_79B9) ^ (j as i32 as u32).wrapping_mul(0x85EB_CA6B) ^ seed.wrapping_add(salt);
+            crate::bloodstain::hash_f32(key)
+        };
+        let (su, sv) = (fu * fu * (3.0 - 2.0 * fu), fv * fv * (3.0 - 2.0 * fv));
+        let top = corner(gu, gv) + (corner(gu + 1.0, gv) - corner(gu, gv)) * su;
+        let bottom = corner(gu, gv + 1.0) + (corner(gu + 1.0, gv + 1.0) - corner(gu, gv + 1.0)) * su;
+        top + (bottom - top) * sv
+    };
+    // Two octaves of value noise bunch round a half; spread over 0.2 to 0.8 so the share of a contact inking follows its load.
+    smoothstep01(((2.0 * octave(1.0, 0x7C3A_91E5) + octave(2.7, 0x1D6B_A2F3)) / 3.0 - 0.2) / 0.6)
+}
 
 /// **Visit every texel `print`'s outline centred at `uv` covers** on a `size`² canvas, with how far
 /// out in the outline it lies ([`Print::reach`]) and where in the sole's frame: `along` toward the toe

@@ -6,6 +6,20 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+### Added
+
+- **Smears: a hand, a body or a sleeve drawn through blood** (iteration 15, AG-154, `docs/research/smear.md`). Nothing drew a smear: a sole walking through a pool printed soles, and a hand slid down a wall or a
+  body dragged out of a pool left only the blood that was already there. Now: **`WetCanvas::smear_uv(&Smear, carry, full, tick, settings) -> carry`** (`wetmap`) lifts `SMEAR_LIFT` (35 %) of the wet blood under a
+  contact (dry blood does not move), carries it, and lays it along the path in streaks parallel to the motion, heavy where the stroke touched down (each line at its own distance, a ragged head) and broken into
+  lines and dots as the load runs low, **conserving every byte** (`sum(amount) + carry` before and after, a test over random strokes); **`GoreSmear`** (`preset`: `carrier`, `from`, `to`, `normal`, `width_m`,
+  `load_m2`, builders `new`, `width`, `loaded`) draws one on whichever `Gore::floor` or `Gore::wall` is under the contact, and the carrier keeps what it holds as **`Smeared`** in square metres of film, so a hand
+  crossing from a wall to a floor takes the same blood; a tier that draws no blood smears nothing; `GoreReset` wipes a `Smeared`; new public `Smear`, `SMEAR_LIFT`, `SMEAR_PEAK`, `SMEAR_BEAD_GRAINS`,
+  `SMEAR_FULL_M2`, `SMEAR_LOAD_MAX_M2`, `SMEAR_WIDTH_M`, `SMEAR_GRAIN_M`, `SMEAR_GAP_TICKS`. Measured as the references are (`smear_stat`, `capture_skinned --smear`, frame 245): gradient coherence 0.57, 0.46 and
+  0.51 against the references' 0.56 to 0.61, streaks along the axis (alignment 1.00), the hands' last third 0.54 and 0.57 of the first (target at most 0.6), the dragged body's 0.76 (it bleeds as it goes).
+  **Every existing digest is 0.8.8's** (`capture_preset`, every `capture_skinned` variant, `capture_entrails`, `capture_flesh`, `bench_carnage` `0x4366a8b64352c85a`), twice each; `--smear` prints its own,
+  `b3f7357ae81ff12c`, twice. A segment costs 1 to 41 microseconds on a 512 canvas; `bench_carnage` with nothing smearing 0.0931 to 0.0954 ms a frame (the plugin runs one more system). Not done, named: a soaked
+  hand's head is a slab where the references show lines (the film is opaque from about a third of full coverage), a smear does not sag, a skinned body is not smeared, no handprint. Additive API: a patch.
+
 ## [0.8.8] - 2026-11-01
 
 ### Changed
