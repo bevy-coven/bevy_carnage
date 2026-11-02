@@ -119,7 +119,40 @@ Five, each baked, rendered on three beds (the strip tube, the heap of pieces, a 
 on big it ran the whole check in 72 s. It sends no input, so `CLICKS` is ignored there. (2) `capture_preset --eye x,y,z --at x,y,z`, so a cut face is seen at the pieces' own scale. (3)
 `capture_flesh --film`, the limb strip under the preset's film of blood: the test bed for any change to the film (the 0.8.12 recorder showed the strip bare and so could not).
 
-**Parked.** `loop/iter-19-film`: the shader, with its constants documented. To adopt it, `git checkout loop/iter-19-film -- src/flesh.wesl` and take hypothesis 1 first.
+**Parked.** Two branches, neither merged, neither deleted. `loop/iter-19-film`: the static per-tissue film (the shader only). `loop/iter-19-drain` (`2959bbe`): the second attempt below, the shader,
+`FleshParams::with_drained`, the preset's registry and system, their tests and the recorders' flags. To adopt either, `git checkout <branch> -- <paths>`; start from the hypotheses at the end of the second attempt.
+
+## The second attempt: a cut face drains (hypothesis 1, built)
+
+**The mechanism, built and tested** (`loop/iter-19-drain`). `FleshParams::cut.z`, the share a face has drained, `0` as shipped, `with_drained(share)`; the shader's exposed-tissue block draws the old film at
+`0` (byte for byte, the same arithmetic) and the per-tissue film at `1`, blended **by the log of the film's thickness** (a linear blend spent the last third of a drain doing all its work: a film of 0.4 mm
+hides what lies under it about as much as one of 1 mm). The schedule, `preset::cut_face_drained(age, blood)`: `0` until `clot_ticks` (the time `CutFaceBleed` pours until), a smooth rise to `1` over as long
+again, written to the pieces' shared cap material in sixteen steps (`CUT_FACE_DRAIN_STEPS`) by `drain_cut_faces`, from a `CutFaces` registry the break fills; two tests (the schedule's shape; two bodies broken
+at different ticks, one cap material each, drained at different times, the registry empty when done). **Cost** none measured on a tick without a break (a resource and a system that does not run while the
+registry is empty); sixteen material writes a body over twelve seconds. `capture_preset --frames N --stride K`, `capture_flesh --drained S`.
+
+**The sixth to tenth looks of the film, all of the drained state** (the fresh state is 0.8.12's, and was never touched), rendered on the heap (`capture_preset --eye 0.30,0.42,0.62 --at 0.0,0.10,0.0 --frames 900
+--stride 30`, frame 870) and the strip bed (`capture_flesh --film --drained 1`):
+
+| drained state | fat / lean film, mm | what it looked like |
+|---|---|---|
+| thin, tissue shows | 0.012 / 0.12 | the strip bed reads best of all (lean red with fibres, cream fat, pale skin) and the heap's fat faces are **cheese** |
+| thin, redder fat | 0.022 / 0.12, 0.035 / 0.14 | **salmon**, then **coral** |
+| clotted: the dried-blood table at 0.4 of its age | 0.016 / 0.12 | **brick**: flat, the aged table hides the tissue |
+| clotted at 0.12 and 0.2 | 0.016-0.03 / 0.12 | **terracotta** |
+| bloody but textured | 0.10 / 0.25 | crimson with the tissue's tone in it: **the best, and a modest change**: the flat wine plates of 0.8.12 become a mottled red |
+
+**Critique (against the reference set), written before the verdict.** The mechanism does what it was built to: a face just broken is what it was, and then the film thins on the clock. What it thins *to* is the
+trouble. Every state thin enough to show the strip reads as **food** beside references 1 and 4 (the cheese, the salmon, the terracotta), because the strip's tissue tones were tuned to retail beef and fat under a studio
+light (`cut-face.md`), where the horror references are **dark, wet and bloody** with their tissue in relief and highlights. The state that keeps the blood (the last row) is not food and is a modest change on
+flat plates at a camera that shows a piece a few tens of pixels across. The change is real, small and not worth a mechanism, a resource and a uniform on its own.
+
+**Verdict: NOT YET**, and the fifth failed round of the second design; stopped by the rule, reverted on `main` and parked, with these as the next hypotheses:
+
+1. **Wetness is relief and specular, not colour.** Reference 1 reads as meat because it is lit wet: a bump from the strip's own structure (its fibres and septa as a height) would break a face's mirror into
+   glints with no change of colour. That is the version of the cap with a normal map, one more sample in `flesh.wesl`, and it would work at the fresh state too.
+2. **Clotted blood in the hollows and tissue on the ridges**, not a film of one thickness over a plane: a height (the same bump) and a film that pools in its low places.
+3. The strip's scale (hypothesis 3 above).
 
 ## Pending index
 
