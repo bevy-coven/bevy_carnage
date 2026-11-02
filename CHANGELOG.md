@@ -6,6 +6,8 @@ described in the comment block at the top of `Cargo.toml`; they and every entry 
 
 ## [Unreleased]
 
+## [0.8.9] - 2026-11-01
+
 ### Added
 
 - **Smears: a hand, a body or a sleeve drawn through blood** (iteration 15, AG-154, `docs/research/smear.md`). Nothing drew a smear: a sole walking through a pool printed soles, and a hand slid down a wall or a
