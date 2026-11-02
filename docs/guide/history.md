@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.8.11` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.8.12` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.8.12` changed: a body that bursts stains the room
+
+- **`GoreBurst` throws a body's blood in every direction at once.** A wound's spray is a cone about its normal, so a shot that opened a head to the front stained what was in front of it and nothing round it. Send a `GoreBurst` with the hit that breaks the body and 960 droplets (uniform on the sphere, on the size-speed law a cone's droplets obey, with more fine ones) fly the parabola to the first wall, floor, ceiling, cloth or part of the body they cross, the body shadowing what is behind it (0.050 of an open wall's blood reached the wall behind a 1.2 m body). The stains arrive when their flight ends, up to three quarters of a second later, at most 24 a surface a tick, so a burst is 0.5 to 0.8 ms on the tick it is sent and 0.2 to 2.5 ms a tick after, not the 9 ms it costs drawn at once. It is the residue of a cloud and not the cloud: nothing hangs in the air and there are no strings. Nothing existing moves: every recorder's digest is 0.8.11's and `bench_carnage` reads 0.09314 ms a frame against 0.09258 (+0.6 %). `docs/preset.md` ("Bursts"), `docs/research/burst.md`, `docs/DEMOS.md` and `docs/media/burst.gif`.
 
 ### What `0.8.11` changed: a cut muscle reads as meat
 
