@@ -85,6 +85,22 @@ pub fn arg(flag: &str) -> Option<String> {
     None
 }
 
+/// **`--fluid blood|ichor|green|blue|milk`**: what the recorder's blood is. Absent, blood. An unknown name exits with a message rather than
+/// drawing red under the wrong label.
+pub fn fluid() -> bevy_carnage::Fluid {
+    match arg("--fluid").as_deref() {
+        None | Some("blood") => bevy_carnage::Fluid::Blood,
+        Some("ichor") | Some("black") => bevy_carnage::Fluid::Ichor,
+        Some("green") => bevy_carnage::Fluid::Green,
+        Some("blue") => bevy_carnage::Fluid::Blue,
+        Some("milk") | Some("white") => bevy_carnage::Fluid::Milk,
+        Some(other) => {
+            eprintln!("capture: unknown fluid {other:?}; use blood, ichor (black), green, blue or milk (white)");
+            std::process::exit(2)
+        }
+    }
+}
+
 /// **The exposure the shared scene is lit for**: EV100 11.2, a stop and a half under Bevy's default.
 ///
 /// Bevy multiplies by `2^-ev100 / 1.2` and lights a matte surface by `albedo · lux · cos / π`, so at

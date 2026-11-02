@@ -49,6 +49,7 @@ rasterise(&shape, 64, &mut mask);            // one byte of coverage per texel
 | `stain` | Placement (frozen) and **morphology**: aspect from the impact angle, spine count from Knock & Davison, satellites past Mundo's splash threshold, rasterised to a coverage mask |
 | `patterns` | The six SWGSTAIN / ASB TR-033 classes as six *mechanisms*: impact, arterial arc, cast-off, expirated, drip trail, transfer — the last three spending a conserved blood budget |
 | `dry` | The coagulation timeline: oxyHb → metHb → hemichrome, gloss collapsing, a rim-first drying front, a serum halo above 50 % RH, and a late craquelure |
+| `fluid` | What the blood is: `Blood`, four named pigments (black oil, green, blue, white) and `Custom(Pigment)`, each a different `μa(λ)` and `μs'` in the same Kubelka–Munk film model, with its own ageing (`dry::appearance_in`). Blood is the model above to the bit |
 | `pool` | Stains merging into slicks that spread. Frozen by a golden |
 | `bleed` | The integer-tick pulse train and the perfusion envelope |
 | `bag` | Variety selection with a guaranteed minimum gap, and no mutable cursor |

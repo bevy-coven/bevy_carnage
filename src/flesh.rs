@@ -174,8 +174,9 @@ use bevy::shader::ShaderRef;
 use crate::cross_section::{Layer, Layers};
 use crate::flaymap::FlayCanvas;
 use crate::bloodstain::BloodSettings;
-use crate::bloodstain::dry::{DRY_REF_AREA_M2, appearance_with_fresh, dry_ticks};
-use crate::bloodstain::spectral::{Film, SO2_ARTERIAL, SO2_VENOUS, TABLE, srgb};
+use crate::bloodstain::dry::{DRY_REF_AREA_M2, appearance_in, dry_ticks};
+use crate::bloodstain::fluid::Fluid;
+use crate::bloodstain::spectral::{Film, SO2_ARTERIAL, SO2_VENOUS, TABLE};
 
 /// **The material a canvas or a cap wears.** `StandardMaterial` underneath, [`FleshExtension`] on top.
 pub type FleshMaterial = ExtendedMaterial<StandardMaterial, FleshExtension>;
@@ -436,9 +437,9 @@ impl Plugin for FleshPlugin {
     }
 }
 
-/// Bake both tables into `Assets<Image>`. `Option`, because a headless app without `ImagePlugin`
-/// still builds and should get an empty resource rather than a panic.
-fn bake_tables(mut tables: ResMut<FleshTables>, images: Option<ResMut<Assets<Image>>>) {
+/// Bake both tables into `Assets<Image>`, the blood table in [`WetSettings::fluid`](crate::wetmap::WetSettings::fluid) (blood if the app has no
+/// `WetSettings`). `Option`, because a headless app without `ImagePlugin` still builds and should get an empty resource rather than a panic.
+fn bake_tables(mut tables: ResMut<FleshTables>, images: Option<ResMut<Assets<Image>>>, wet: Option<Res<crate::wetmap::WetSettings>>) {
     let Some(mut images) = images else {
         warn!("bevy_carnage::flesh: no Assets<Image>; the flesh tables are not baked");
         return;
@@ -446,7 +447,7 @@ fn bake_tables(mut tables: ResMut<FleshTables>, images: Option<ResMut<Assets<Ima
     let mut image = Image::new(
         Extent3d { width: LUTS_WIDTH, height: LUTS_HEIGHT, depth_or_array_layers: 1 },
         TextureDimension::D2,
-        luts(),
+        luts(&wet.map(|w| w.fluid).unwrap_or_default()),
         TextureFormat::Rgba8Unorm,
         RenderAssetUsages::RENDER_WORLD,
     );
@@ -608,12 +609,15 @@ pub fn sss_lut() -> Vec<u8> {
 /// **The blood table's bytes**, [`BLOOD_COLS`] × 4, RGBA8 sRGB. Rows: arterial over black, arterial
 /// over white, venous over black, venous over white. Column `c` is a film `c/255 ·`
 /// [`BLOOD_LUT_MAX_MM`] thick. Alpha is 255.
-pub fn blood_lut() -> Vec<u8> {
+///
+/// **Of `fluid`**: [`Fluid::Blood`] is the Bosschaart table at the two saturations, as it has always been; any other fluid has no
+/// saturation, so its arterial and venous rows are the same and the shader's mix between them changes nothing.
+pub fn blood_lut(fluid: &Fluid) -> Vec<u8> {
     let mut out = Vec::with_capacity(BLOOD_COLS as usize * 4 * 4);
     for (so2, substrate) in [(SO2_ARTERIAL, 0.0), (SO2_ARTERIAL, 1.0), (SO2_VENOUS, 0.0), (SO2_VENOUS, 1.0)] {
         for col in 0..BLOOD_COLS {
             let thickness_mm = col as f32 / (BLOOD_COLS - 1) as f32 * BLOOD_LUT_MAX_MM;
-            let c = srgb(&Film { thickness_mm, so2, substrate });
+            let c = fluid.srgb(&Film { thickness_mm, so2, substrate });
             out.extend_from_slice(&[byte(c[0]), byte(c[1]), byte(c[2]), 255]);
         }
     }
@@ -631,12 +635,13 @@ pub const AGE_KNOT: f32 = 0.35;
 
 /// **The blood table aged to the two stops of the colour walk**, [`BLOOD_COLS`] × [`AGED_ROWS`], RGBA8 sRGB. Rows 0 to 3 are
 /// [`blood_lut`]'s four rows at the methaemoglobin stop ([`AGE_KNOT`] of the drying), rows 4 to 7 at the end of it (hemichrome):
-/// each byte is `crate::bloodstain::dry::appearance_with_fresh` asked, at that age, for the film that row and column of
+/// each byte is `crate::bloodstain::dry::appearance_in` asked, at that age, for the film that row and column of
 /// [`blood_lut`] hold, so the walk is the CPU's own and its red scaling (a thin film stays lighter than a thick one, and
 /// dried blood is brown at every thickness) is the film's own. The shader interpolates between the fresh row, these, by the
-/// age the wet map's wetness byte gives, in encoded sRGB, as `appearance_with_fresh` does between its stops. Alpha is 255.
-pub fn aged_blood_lut() -> Vec<u8> {
-    let fresh = blood_lut();
+/// age the wet map's wetness byte gives, in encoded sRGB, as `appearance_in` does between its stops. Alpha is 255. A pigment's
+/// walk bends at the same knot ([`crate::bloodstain::dry::PIGMENT_KNOT_AGE`]), so two stops are exactly its walk too.
+pub fn aged_blood_lut(fluid: &Fluid) -> Vec<u8> {
+    let fresh = blood_lut(fluid);
     let blood = BloodSettings::default();
     let span = dry_ticks(DRY_REF_AREA_M2, 60);
     let knot = libm::roundf(AGE_KNOT * span as f32) as u32;
@@ -644,7 +649,7 @@ pub fn aged_blood_lut() -> Vec<u8> {
     for age in [knot, span] {
         for px in fresh.chunks_exact(4) {
             let film = [px[0], px[1], px[2]].map(|b| b as f32 / 255.0);
-            let aged = appearance_with_fresh(age, 60, DRY_REF_AREA_M2, &blood, film).srgb;
+            let aged = appearance_in(fluid, age, 60, DRY_REF_AREA_M2, &blood, film).srgb;
             out.extend_from_slice(&[byte(aged[0]), byte(aged[1]), byte(aged[2]), 255]);
         }
     }
@@ -663,8 +668,8 @@ pub const LUTS_HEIGHT: u32 = SSS_ROWS * Layer::ALL.len() as u32 + 4 + AGED_ROWS;
 /// [`AGED_ROWS`]. The image is `Rgba8Unorm`, so the blood rows, which are sRGB-encoded, are decoded in the shader, and
 /// the shader holds each lookup to its own table's texel centres, so neither filters into the other
 /// or into the padding.
-pub fn luts() -> Vec<u8> {
-    let (sss, blood, aged) = (sss_lut(), blood_lut(), aged_blood_lut());
+pub fn luts(fluid: &Fluid) -> Vec<u8> {
+    let (sss, blood, aged) = (sss_lut(), blood_lut(fluid), aged_blood_lut(fluid));
     let row = LUTS_WIDTH as usize * 4;
     let mut out = vec![0; row * LUTS_HEIGHT as usize];
     for (y, src) in sss.chunks(SSS_COLS as usize * 4).enumerate() {
@@ -686,7 +691,7 @@ pub fn luts() -> Vec<u8> {
 /// FNV-1a over both tables' bytes — the golden `the_flesh_tables_are_frozen` locks.
 pub fn lut_digest() -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    for b in sss_lut().iter().chain(blood_lut().iter()) {
+    for b in sss_lut().iter().chain(blood_lut(&Fluid::Blood).iter()) {
         h ^= *b as u64;
         h = h.wrapping_mul(0x0000_0100_0000_01b3);
     }
@@ -697,7 +702,7 @@ pub fn lut_digest() -> u64 {
 /// [`lut_digest`] on purpose: the subsurface and blood tables' golden is as it was before blood aged.
 pub fn aged_lut_digest() -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    for b in aged_blood_lut() {
+    for b in aged_blood_lut(&Fluid::Blood) {
         h ^= b as u64;
         h = h.wrapping_mul(0x0000_0100_0000_01b3);
     }
@@ -762,7 +767,7 @@ mod tests {
     /// The blood table darkens with depth and arterial is redder than venous at equal depth.
     #[test]
     fn the_blood_table_darkens_with_depth_and_arterial_is_redder() {
-        let lut = blood_lut();
+        let lut = blood_lut(&Fluid::Blood);
         let row = |r: usize, c: usize| &lut[(r * BLOOD_COLS as usize + c) * 4..][..3];
         // Linear luminance from the decoded bytes. The *encoded* channels are not individually
         // monotone — a thin film is out of the sRGB gamut and its green clamps to zero before the
@@ -798,7 +803,7 @@ mod tests {
     /// shifted by one row or column would shade every surface with its neighbour's values.
     #[test]
     fn the_packed_image_holds_both_tables_where_the_shader_reads_them() {
-        let (packed, sss, blood, aged) = (luts(), sss_lut(), blood_lut(), aged_blood_lut());
+        let (packed, sss, blood, aged) = (luts(&Fluid::Blood), sss_lut(), blood_lut(&Fluid::Blood), aged_blood_lut(&Fluid::Blood));
         let row = LUTS_WIDTH as usize * 4;
         let sss_row = SSS_COLS as usize * 4;
         let sss_rows = SSS_ROWS as usize * Layer::ALL.len();
@@ -819,7 +824,7 @@ mod tests {
     /// (fresh, methaemoglobin, hemichrome), and a thin film dries lighter than a thick one, which is the walk's own red scaling.
     #[test]
     fn the_aged_blood_table_is_the_cpus_walk_and_only_darkens() {
-        let (fresh, aged) = (blood_lut(), aged_blood_lut());
+        let (fresh, aged) = (blood_lut(&Fluid::Blood), aged_blood_lut(&Fluid::Blood));
         assert_eq!(aged.len(), (BLOOD_COLS * AGED_ROWS * 4) as usize);
         let px = |t: &[u8], row: usize, col: usize| -> [u8; 3] {
             let i = (row * BLOOD_COLS as usize + col) * 4;
@@ -844,5 +849,36 @@ mod tests {
     #[test]
     fn the_aged_blood_table_is_frozen() {
         assert_eq!(aged_lut_digest(), 5_508_892_977_834_009_270);
+    }
+
+    /// **A fluid's tables are its colour, and only its colour.** The packed image keeps its layout under any fluid (the shader's offsets do not move), a
+    /// pigment has no arterial and venous rows to tell apart, a thick film over white is the fluid's hue, and what it ages to is never lighter than
+    /// what it was: the shader's interpolation between the rows is the CPU's walk.
+    #[test]
+    fn a_fluids_tables_are_its_colour_and_keep_the_layout() {
+        let blood_image = luts(&Fluid::Blood);
+        for fluid in [Fluid::Ichor, Fluid::Green, Fluid::Blue, Fluid::Milk] {
+            let (fresh, aged, packed) = (blood_lut(&fluid), aged_blood_lut(&fluid), luts(&fluid));
+            assert_eq!(packed.len(), blood_image.len(), "{fluid:?} changed the packed image's size");
+            let (sss_end, row) = (SSS_ROWS as usize * Layer::ALL.len() * LUTS_WIDTH as usize * 4, BLOOD_COLS as usize * 4);
+            assert_eq!(packed[..sss_end], blood_image[..sss_end], "{fluid:?} moved the subsurface table");
+            assert_eq!(fresh[..row * 2], fresh[row * 2..row * 4], "{fluid:?} has an arterial row that is not its venous one");
+            let px = |t: &[u8], r: usize, c: usize| -> [u8; 3] { [t[(r * BLOOD_COLS as usize + c) * 4], t[(r * BLOOD_COLS as usize + c) * 4 + 1], t[(r * BLOOD_COLS as usize + c) * 4 + 2]] };
+            let thick = px(&fresh, 3, BLOOD_COLS as usize - 1);
+            match fluid {
+                Fluid::Green => assert!(thick[1] > thick[0] + 40 && thick[1] > thick[2] + 100, "green's table is not green: {thick:?}"),
+                Fluid::Blue => assert!(thick[2] > thick[0] + 100 && thick[2] > thick[1] + 50, "blue's table is not blue: {thick:?}"),
+                Fluid::Ichor => assert!(thick.iter().all(|c| *c < 80), "ichor's table is not dark: {thick:?}"),
+                _ => assert!(thick.iter().all(|c| *c > 200), "milk's table is not white: {thick:?}"),
+            }
+            for r in 0..4 {
+                for c in 0..BLOOD_COLS as usize {
+                    let (f, knot, end) = (px(&fresh, r, c), px(&aged, r, c), px(&aged, 4 + r, c));
+                    for k in 0..3 {
+                        assert!(knot[k] <= f[k] && end[k] <= knot[k], "{fluid:?} row {r}, column {c}, channel {k} brightened with age: {f:?}, {knot:?}, {end:?}");
+                    }
+                }
+            }
+        }
     }
 }

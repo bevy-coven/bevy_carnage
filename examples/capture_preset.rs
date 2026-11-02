@@ -26,7 +26,7 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use bevy_carnage::preset::{GoreClock, GorePlugin};
 use bevy_carnage::{GorePolicy, GoreTier};
-use bevy_carnage::wetmap::WetCanvas;
+use bevy_carnage::wetmap::{WetCanvas, WetSettings};
 
 mod common;
 use common::digest;
@@ -75,6 +75,12 @@ fn main() {
         // announces, in the substitute palette at a tier that draws no blood. The digest cannot see it.
         #[cfg(feature = "vfx")]
         app.add_plugins(bevy_carnage::CarnageVfxPlugin);
+        // **`--fluid`**: what the blood is. Before the plugin, which `init_resource`s the shipped dials and so leaves this alone. A fluid is a colour and
+        // nothing else: the digest is blood's.
+        let fluid = common::fluid();
+        if fluid != bevy_carnage::Fluid::Blood {
+            app.insert_resource(WetSettings { fluid, ..default() });
+        }
         app.add_plugins(GorePlugin)
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / 60.0)))
             .insert_resource(Time::<Fixed>::from_hz(60.0))

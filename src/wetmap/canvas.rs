@@ -11,7 +11,7 @@ use bevy::mesh::Mesh;
 use bevy::prelude::Component;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::transform::components::GlobalTransform;
-use crate::bloodstain::dry::{DRY_REF_AREA_M2, DRY_REF_TICKS, appearance_with_fresh};
+use crate::bloodstain::dry::{DRY_REF_AREA_M2, DRY_REF_TICKS, appearance_in};
 use crate::bloodstain::spectral::Film;
 use crate::bloodstain::stain::{StainShape, rasterise};
 
@@ -176,11 +176,11 @@ pub struct WetCanvas {
     /// tick per canvas, on a dry canvas, was the difference between "a wetmap costs nothing when
     /// nothing is wet" being true and false.
     film_lut: [[f32; 3]; FILM_LEVELS],
-    film_key: Option<(u32, u32, u32)>,
+    film_key: Option<(u32, u32, u32, u64)>,
     /// What a `(level, age)` pair shades to, kept between ticks: see `shade`. Empty until the canvas first shades blood.
     shaded: Vec<Shaded>,
     /// What `shaded` was computed from; it is dropped when this changes.
-    shaded_for: Option<(u32, u32, u32, u32, u32)>,
+    shaded_for: Option<(u32, u32, u32, u64, u32, u32)>,
     /// What the substrate has taken of a texel's blood by each age, a byte an age, kept between ticks: see `advance`.
     absorbed: Vec<u8>,
     /// The span and absorbency `absorbed` was computed for; it is dropped when either changes.
@@ -1677,11 +1677,11 @@ impl WetCanvas {
         // pointless: sixteen depth levels are indistinguishable from 255 at blood's own contrast.
         // The substrate the film lies on is this canvas's base albedo, as a grey.
         let substrate = luminance(base);
-        let key = (s.film_depth_mm.to_bits(), s.so2.to_bits(), substrate.to_bits());
+        let key = (s.film_depth_mm.to_bits(), s.so2.to_bits(), substrate.to_bits(), s.fluid.key());
         if self.film_key != Some(key) {
             self.film_lut = core::array::from_fn(|i| {
                 let thickness_mm = s.film_depth_mm.max(0.0) * (i as f32 + 0.5) / FILM_LEVELS as f32;
-                crate::bloodstain::spectral::srgb(&Film { thickness_mm, so2: s.so2, substrate })
+                s.fluid.srgb(&Film { thickness_mm, so2: s.so2, substrate })
             });
             self.film_key = Some(key);
         }
@@ -1694,7 +1694,7 @@ impl WetCanvas {
         // time at 190 ns a blood texel) when only the last pair is remembered. Direct-mapped and exact, not
         // quantised: a slot either holds this pair or is recomputed, so a collision costs a recompute and
         // never a byte. Kept between ticks and dropped when anything it was computed from changes.
-        let for_key = (key.0, key.1, key.2, span, blood.humidity.to_bits());
+        let for_key = (key.0, key.1, key.2, key.3, span, blood.humidity.to_bits());
         if self.shaded_for != Some(for_key) || self.shaded.len() != SHADE_SLOTS {
             self.shaded.clear();
             self.shaded.resize(SHADE_SLOTS, Shaded::EMPTY);
@@ -1734,7 +1734,7 @@ impl WetCanvas {
                                     // inputs are passed. Feeding the raw age with an unrelated area would leave two
                                     // dials deciding one curve.
                                     let scaled = ((age as u64 * DRY_REF_TICKS as u64) / span as u64) as u32;
-                                    let ap = appearance_with_fresh(scaled, 60, DRY_REF_AREA_M2, &blood, fresh[level]);
+                                    let ap = appearance_in(&s.fluid, scaled, 60, DRY_REF_AREA_M2, &blood, fresh[level]);
                                     let made = Shaded { key: want, rgb: [enc(ap.srgb[0]), enc(ap.srgb[1]), enc(ap.srgb[2])], rough: enc(ap.roughness) };
                                     if let Some(entry) = self.shaded.get_mut(slot) {
                                         *entry = made;
@@ -2272,6 +2272,7 @@ fn upload(images: &mut Assets<Image>, handle: &Handle<Image>, px: &[u8]) -> bool
 mod tests {
     use super::*;
     use bevy::mesh::PrimitiveTopology;
+    use crate::bloodstain::dry::appearance_with_fresh;
 
     fn canvas(size: u32) -> (Assets<Image>, WetCanvas) {
         let mut images = Assets::<Image>::default();
@@ -2335,6 +2336,31 @@ mod tests {
             arterial_red_share > venous_red_share,
             "arterial {art:?} was not redder than venous {pool:?}"
         );
+    }
+
+    /// **A fluid is a colour and nothing else.** The same coverage and ages shade to a green pool and a red one: the buffer the digest folds is
+    /// untouched by shading under either, the green pool is green and the red is red, and putting the fluid back puts back the bytes of the red
+    /// one (the cache of colours is keyed on the fluid, so a stale table cannot answer for the new one).
+    #[test]
+    fn a_fluid_changes_the_colour_and_not_the_canvas() {
+        let (_images, mut c) = canvas(4);
+        c.wet[0] = (1, 0);
+        c.wet[3] = (255, 0);
+        c.wet[2] = (255, 1500);
+        let blood = WetSettings::default();
+        c.shade(&whole(&c), 0, &blood);
+        let (red_pool, red_dried, digest) = (c.albedo_px[12..15].to_vec(), c.albedo_px[8..11].to_vec(), c.digest());
+        let green = WetSettings { fluid: crate::bloodstain::Fluid::Green, ..WetSettings::default() };
+        c.shade(&whole(&c), 0, &green);
+        let (green_pool, green_dried) = (c.albedo_px[12..15].to_vec(), c.albedo_px[8..11].to_vec());
+        assert_eq!(c.digest(), digest, "shading in another fluid moved the canvas the digest folds");
+        assert!(red_pool[0] > red_pool[1] && red_pool[0] > red_pool[2], "the blood pool is not red: {red_pool:?}");
+        assert!(green_pool[1] > green_pool[0] + 40 && green_pool[1] > green_pool[2] + 100, "the green pool is not green: {green_pool:?}");
+        assert_ne!(green_dried, red_dried, "a dried texel did not change colour with the fluid");
+        assert!(green_dried[1] > green_dried[0] && green_dried[1] > green_dried[2], "the dried green is not green: {green_dried:?}");
+        assert!(green_dried[1] < green_pool[1], "dried green {green_dried:?} is no duller than fresh {green_pool:?}");
+        c.shade(&whole(&c), 0, &blood);
+        assert_eq!((c.albedo_px[12..15].to_vec(), c.albedo_px[8..11].to_vec()), (red_pool, red_dried), "blood did not come back to the bytes it had");
     }
 
     #[test]

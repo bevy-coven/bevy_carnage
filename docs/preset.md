@@ -537,6 +537,30 @@ Yarin & Attinger's size-speed law (fine drops fast, large ones slow; more fine o
 
 `capture_skinned --burst` is the demo (`docs/DEMOS.md`); `--burst --break` breaks the body with it, and `--burst --no-cloud` is the same shot as 0.8.11 threw it.
 
+## Blood that is not red
+
+*(0.9.0, `docs/research/fluids.md`.)* A game that needs its blood **not red**: a rating board's "animated blood" (the ESRB descriptor is *"discolored and/or unrealistic depictions of blood"*), a robot's oil, an alien, a zombie, *Evil Dead II*'s goo. Set the one dial before the plugin (the flesh table is baked from it on `Startup`):
+
+```rust,ignore
+use bevy_carnage::{Fluid, wetmap::WetSettings};
+
+app.insert_resource(WetSettings { fluid: Fluid::Green, ..default() });
+app.add_plugins(GorePlugin);
+```
+
+`Fluid::Blood` (the default), `Ichor` (black oil), `Green`, `Blue`, `Milk` (white) or `Custom(Pigment)`. In RON a named fluid is its name (`fluid: Green`).
+
+![Six panels in two rows of three, one scene played five times: a standing mannequin with its raised left forearm, right thigh and chest shot and slashed, the runs and the pools at its feet the same shapes in each; the panels are labelled blood (dark red), ichor (black), green, blue and milk (white), and the sixth is a legend naming the dial and the digest all five share](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/media/fluids.gif)
+
+- **Everything the preset draws as blood wears it**: a canvas's film, its runs and its pools, a wall's spray and stipple, a cloth's soak, a cut face's film and a crater's floor (the flesh material's blood table is baked from the dial), and the guts' soak (`viscera::SoakTable`, which the preset rebuilds when the dial changes).
+- **It is the film model, not a swatch.** `bloodstain::spectral`'s Kubelka-Munk film over the surface, with a pigment's `μa(λ)` and `μs'` where blood's table was: a thin film is tinted and lets the surface through, a pool is deep and opaque. `Pigment` is a flat absorption, a power-law continuum (melanin's), three Gaussian bands and a flat reduced scattering, plus how it dries. Ichor is melanin (thin amber-brown, thick black), green biliverdin, blue oxyhaemocyanin, milk scattering with almost no absorption (it **whitens** what it lies on where an absorber darkens it). Every number of a named pigment is this crate's own, with its sources in the note.
+- **Ageing is the fluid's own**: a pigment keeps its hue and loses its freshness by a per-channel multiplier (`Pigment::dried`), as far as `Pigment::dries` says (`0` is an oil that stays glossy for ever, `1` blood's pace), and has no serum halo. The walk bends at the same knot as blood's (`PIGMENT_KNOT_AGE`), so the flesh material's two-stop table is exactly the CPU's walk. Blood's walk is untouched.
+- **A fluid is a colour and nothing else.** Where droplets land, how a run runs, when a wound clots and every digest are the same under every fluid (`capture_skinned` prints `5f8eb5573aea933f` under all five, `--hose` `0c903766bf51f0f2`), a canvas stamped under two fluids has one `digest()`, and `WetSettings::fluid` changed at run time recolours **the next thing drawn** (a dried stain keeps the colour it dried to; the flesh table is baked once, at start-up).
+- **Not a tier.** `GoreTier::Stylised` still draws nothing; a game that wants a non-red substitute chooses a fluid and a tier that draws blood from its own rating setting. The two are independent on purpose.
+- **Not done**: a **per-body fluid** (the flesh table is one image: a human and an alien in one scene), the **organs, the strands' bare ends, the bruise and the tissue under a cut face** (human tissue, not blood), a **glow** (the *Re-Animator* reagent is an emitter: the hue is matched, the light is not) and the `vfx` particles' colour constants.
+
+`capture_skinned --fluid blood|ichor|green|blue|milk` and `capture_preset --fluid` are the demos (`docs/DEMOS.md`).
+
 ## Healing, respawning and pooling
 
 A character that respawns, a pooled enemy coming back, a round that restarts: send

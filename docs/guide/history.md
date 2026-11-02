@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.8.13` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.9.0` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.9.0` changed: blood that is not red
+
+- **`WetSettings::fluid` chooses what the preset's blood is.** `Blood` (the default, to the bit what it has always been), `Ichor` (black oil), `Green`, `Blue`, `Milk` (white), or a `Custom(Pigment)` of a game's own absorption bands. A fluid is a different absorption and scattering in the **same Kubelka-Munk film model** the crate draws blood with, never a swatch, so a thin film is tinted and lets the surface through, a pool is deep and opaque, milk **whitens** what it lies on where an absorber darkens it, and a pigment dries to a crust of its own colour (`dried`, `dries`). Every surface that draws blood wears it: a canvas's film, runs and pools, a wall's spray, a cloth's soak, a cut face's film, a crater's floor (the flesh material's blood table is baked from the dial on `Startup`) and the guts' soak (`viscera::SoakTable`). **A fluid is a colour and nothing else**: every recorder's digest is 0.8.13's and the same under every fluid, and `bench_carnage` reads 0.09467 ms a frame against 0.09496. Breaking, so a MINOR: `WetSettings` has a new field and `flesh::{blood_lut, aged_blood_lut, luts}` take a `&Fluid`. The item before it, a film of blood per tissue, was parked twice in 0.8.13; this one came from the owner's list (the *Evil Dead II* goo, Ash's milk, the *Re-Animator* reagent, and the rating boards' "animated blood") and the German builds that recoloured blood to black "oil". `docs/research/fluids.md`, `docs/preset.md` ("Blood that is not red"), `docs/DEMOS.md` and `docs/media/fluids.gif`.
 
 ### What `0.8.13` changed: a cut face is a wet surface
 

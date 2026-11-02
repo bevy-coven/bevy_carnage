@@ -26,6 +26,7 @@
 //! metallic-roughness map rather than tinting an albedo darker.
 
 use crate::bloodstain::settings::BloodSettings;
+use crate::bloodstain::fluid::Fluid;
 use crate::bloodstain::spectral::Film;
 use crate::bloodstain::{m, vec};
 
@@ -133,6 +134,46 @@ pub fn appearance(age_ticks: u32, hz: u32, area_m2: f32, s: &BloodSettings) -> A
 /// dried grey-teal. Dried blood is brown at every thickness; a scale keeps it so.
 pub fn appearance_of(age_ticks: u32, hz: u32, area_m2: f32, s: &BloodSettings, film: &Film) -> Appearance {
     appearance_with_fresh(age_ticks, hz, area_m2, s, crate::bloodstain::spectral::srgb(film))
+}
+
+/// How much of the way to its dried colour a pigment has gone by the knot of the walk ([`PIGMENT_KNOT_AGE`] of the drying): most of a fluid's
+/// change in colour is early, as blood's oxidation is. **This crate's own**, tuned against `docs/research/fluids.md`.
+pub const PIGMENT_KNOT_SHARE: f32 = 0.6;
+
+/// The age, as a share of the drying, at which the walk bends. The same `0.35` blood's methaemoglobin stop is at, so a table baked at the two
+/// stops of blood's walk (`crate::flesh::AGE_KNOT`) is exactly the walk of a pigment too.
+pub const PIGMENT_KNOT_AGE: f32 = 0.35;
+
+/// **The appearance at `age_ticks` of a film of `fluid` whose fresh colour is `fresh`** (encoded sRGB).
+///
+/// For [`Fluid::Blood`] this **is** [`appearance_with_fresh`], the function itself, so blood is what it has always been to the bit. A
+/// [`Pigment`](crate::bloodstain::Pigment) keeps its hue and loses its freshness: each channel of `fresh` is scaled toward the fluid's
+/// `dried` multiplier along two straight segments (to [`PIGMENT_KNOT_SHARE`] of the way by [`PIGMENT_KNOT_AGE`] of the drying, to all of it
+/// by the end), **times the fluid's `dries`**, so a thin film stays lighter than a thick one, nothing oscillates, and a fluid that never sets
+/// (`dries` of `0`) never changes. Its gloss falls with the rim front as blood's does, by the same share. There is **no serum halo**: that is
+/// blood's red cells separating from plasma, and `halo` is zero in any air. Cracks come late as blood's do, scaled by `dries`.
+///
+/// The walk is **this crate's own**: no paper says how glow-stick fluid, condensed milk or an invented ichor dries.
+pub fn appearance_in(fluid: &Fluid, age_ticks: u32, hz: u32, area_m2: f32, s: &BloodSettings, fresh: [f32; 3]) -> Appearance {
+    let Some(pigment) = fluid.pigment() else { return appearance_with_fresh(age_ticks, hz, area_m2, s, fresh) };
+    let span = dry_ticks(area_m2, hz);
+    let t = (age_ticks as f32 / span as f32).clamp(0.0, 1.0);
+    let dries = if pigment.dries.is_finite() { pigment.dries.clamp(0.0, 1.0) } else { 0.0 };
+    let along = if t < PIGMENT_KNOT_AGE {
+        t / PIGMENT_KNOT_AGE * PIGMENT_KNOT_SHARE
+    } else {
+        PIGMENT_KNOT_SHARE + (t - PIGMENT_KNOT_AGE) / (1.0 - PIGMENT_KNOT_AGE) * (1.0 - PIGMENT_KNOT_SHARE)
+    } * dries;
+    let mut srgb = [0.0f32; 3];
+    for c in 0..3 {
+        let f = if fresh[c].is_finite() { fresh[c] } else { 0.0 };
+        let to = if pigment.dried[c].is_finite() { pigment.dried[c].max(0.0) } else { 1.0 };
+        srgb[c] = (f * (1.0 + (to - 1.0) * along)).clamp(0.0, 1.0);
+    }
+    let rim = smoothstep(t / 0.6) * dries;
+    let roughness = s.wet_roughness + (s.dry_roughness - s.wet_roughness) * rim;
+    let craquelure = if t <= CRAQUELURE_ONSET { 0.0 } else { ((t - CRAQUELURE_ONSET) / (1.0 - CRAQUELURE_ONSET)).clamp(0.0, 1.0) * dries };
+    Appearance { srgb, roughness, rim, halo: 0.0, craquelure }
 }
 
 /// **The appearance at `age_ticks` of blood whose fresh colour is `fresh`** (encoded sRGB).
@@ -333,6 +374,67 @@ mod tests {
         );
         for bad in [0.0f32, -1.0, f32::NAN] {
             assert!(dry_ticks(bad, 60) >= 1, "a nonsense area must not produce a zero span");
+        }
+    }
+
+    /// **Blood through `appearance_in` is `appearance_with_fresh`**, the function itself, at every age and for every fresh colour a canvas hands it.
+    #[test]
+    fn blood_through_the_fluid_seam_is_the_walk_it_always_was() {
+        let s = BloodSettings { humidity: 0.8, ..Default::default() };
+        let span = dry_ticks(DRY_REF_AREA_M2, 60);
+        for fresh in [SRGB_OXY, [0.44, 0.13, 0.16], [0.9, 0.5, 0.4], [0.0, 0.0, 0.0]] {
+            for age in [0, 1, span / 3, span / 2, span, span * 2] {
+                assert_eq!(
+                    appearance_in(&Fluid::Blood, age, 60, DRY_REF_AREA_M2, &s, fresh),
+                    appearance_with_fresh(age, 60, DRY_REF_AREA_M2, &s, fresh),
+                    "blood moved at age {age} from {fresh:?}"
+                );
+            }
+        }
+    }
+
+    /// **A pigment dulls and never brightens, keeps its hue, and a thin film stays lighter than a thick one.** Every channel of every named pigment is
+    /// non-increasing in age, the colour is exactly the fresh one at age zero, and a fluid that does not set (`dries` of `0`) never changes at all.
+    #[test]
+    fn a_pigment_only_dulls_and_one_that_never_sets_never_changes() {
+        let s = BloodSettings::default();
+        let span = dry_ticks(DRY_REF_AREA_M2, 60);
+        for fluid in [Fluid::Ichor, Fluid::Green, Fluid::Blue, Fluid::Milk] {
+            for fresh in [[0.5, 0.8, 0.2], [0.1, 0.1, 0.1], [0.95, 0.95, 0.95]] {
+                let mut last = appearance_in(&fluid, 0, 60, DRY_REF_AREA_M2, &s, fresh);
+                assert_eq!(last.srgb, fresh, "{fluid:?} aged at age zero");
+                for age in 1..=span + 30 {
+                    let now = appearance_in(&fluid, age, 60, DRY_REF_AREA_M2, &s, fresh);
+                    for c in 0..3 {
+                        assert!(now.srgb[c] <= last.srgb[c] + 1.0e-6, "{fluid:?} channel {c} rose at age {age}");
+                    }
+                    assert!(now.roughness >= last.roughness - 1.0e-6, "{fluid:?} regained its gloss at age {age}");
+                    last = now;
+                }
+            }
+        }
+        let green = Fluid::Green.pigment().expect("green is a pigment");
+        let oil = Fluid::Custom(crate::bloodstain::Pigment { dries: 0.0, dried: [0.1, 0.1, 0.1], ..green });
+        let fresh = [0.3, 0.4, 0.2];
+        for age in [0, span / 2, span, span * 3] {
+            let a = appearance_in(&oil, age, 60, DRY_REF_AREA_M2, &s, fresh);
+            assert_eq!(a.srgb, fresh, "a fluid that never sets changed colour at age {age}");
+            assert_eq!(a.roughness, s.wet_roughness, "a fluid that never sets lost its gloss at age {age}");
+        }
+    }
+
+    /// **Ichor stays glossier than blood when both are dry, and no pigment grows a serum halo.** The halo is blood's red cells separating from plasma:
+    /// humid air gives blood one and gives a pigment none.
+    #[test]
+    fn ichor_stays_glossy_and_only_blood_haloes() {
+        let s = BloodSettings { humidity: 0.9, ..Default::default() };
+        let span = dry_ticks(DRY_REF_AREA_M2, 60);
+        let blood = appearance_in(&Fluid::Blood, span, 60, DRY_REF_AREA_M2, &s, SRGB_OXY);
+        let ichor = appearance_in(&Fluid::Ichor, span, 60, DRY_REF_AREA_M2, &s, [0.2, 0.15, 0.1]);
+        assert!(ichor.roughness < blood.roughness - 0.1, "dry ichor {} is no glossier than dry blood {}", ichor.roughness, blood.roughness);
+        assert!(blood.halo > 0.0, "humid blood grew no halo");
+        for fluid in [Fluid::Ichor, Fluid::Green, Fluid::Blue, Fluid::Milk] {
+            assert_eq!(appearance_in(&fluid, span, 60, DRY_REF_AREA_M2, &s, [0.5, 0.5, 0.5]).halo, 0.0, "{fluid:?} grew a serum halo");
         }
     }
 }
