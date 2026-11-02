@@ -50,20 +50,26 @@ image has its own grain), and no voids. Here the canvas is the blood: a smear **
 
 1. **`WetCanvas::smear_uv(&Smear, carry, full, tick, settings) -> carry`** (wetmap, UV space, integer bytes). A contact `width` wide moves from `from` to `to`. The texels under the swept rectangle are visited in
    **one canonical order**: by how far along the path, then across, then index (a sort of integer keys). At each texel (a) **it lifts**: `LIFT` of the wet blood there is taken (dry blood is not: "dry paint does
-   not move"), added to the carry; (b) **it deposits**: up to a target coverage set by the carry (`frac = sqrt(carry / full)`), a streak field and a feathered edge, **raising** the texel to the target with
-   what the carry holds, never above full coverage, never from nothing. **Every byte lifted is a byte carried and every byte deposited is a byte spent**: `sum(amount) + carry` is the same before and after, to the
-   byte (a test over random paths). A texel it raises is fresh blood, age 0.
-2. **The streaks** are a value noise stretched along the path: `GRAIN` (12 mm, a finger) across and twenty of them along, so a line runs a hand's length and a path crosses a few. Where the noise is under the load the
-   contact inks; as the load falls fewer lines ink and the rest are voids, as the sole's tread does in `print_uv` (`ink = smoothstep((pressed - streak) * 6 + 0.5)`), so the tail is feathered.
-3. **The bead**: the first `3 GRAIN` of a stroke, `Smear::bead`, inks regardless of the streaks, to a share of the load: the head of each finger line of the references.
-4. **The preset**: a `GoreSmear` message (`carrier`, `from`, `to`, `normal`, `width_m`, `load_m2`) and a `Smeared { load_m2 }` the carrier keeps, as `GoreStep` and `Tread` do. The surface under each end is cast
-   for along `-normal` (a floor's `+Y`, a wall's), the contact's path on its canvas is `smear_uv`'s, and the carrier's load is carried in **square metres of full coverage** (a film of about a tenth of a
-   millimetre: a millilitre is `0.01 m²`), converted to bytes by the canvas's texel area, so a hand moving from a wall to a floor carries the same blood. Per-frame segments, like steps.
+   not move"), added to the carry; (b) **it deposits**: up to a target coverage set by the carry (`frac = sqrt(carry / full)`, the target `PEAK * frac * ink * feather`, so the deposit falls to nothing as the
+   load does), a streak field and a feathered edge, **raising** the texel to the target with what the carry holds, never above full coverage, never from nothing. **Every byte lifted is a byte carried and every
+   byte deposited is a byte spent**: `sum(amount) + carry` is the same before and after, to the byte (a test over random paths). A texel it raises is fresh blood, age 0.
+2. **The streaks** are a value noise stretched along the path: `GRAIN` (7 mm, a fingertip's ridge) across and twenty of them along, so a line runs 14 cm and a path crosses a few. A line inks where the noise is
+   under what the contact presses (`ink = smoothstep((pressed - streak) * 6 + 0.5)`, `pressed = frac² × (1 − 0.4 × edge)`, as the sole's tread does in `print_uv`): **the lines drop out with the load itself, not its
+   root**, so the tail breaks into voids while the amounts are still falling, and the edge, where the contact presses less, is ragged.
+3. **The bead**: the head of a stroke (`Smear::bead`, set on a stroke's first segment). Each line of the contact **touches down at its own distance from the start**, up to `3 GRAIN`, a hash of its lane, so the
+   leading edge is ragged and some lines run longer into the mark than their neighbours: the thick rounded head of each finger line in the references, and not a rectangle.
+4. **The preset**: a `GoreSmear` message (`carrier`, `from`, `to`, `normal`, `width_m`, `load_m2`) and a `Smeared { load_m2 }` the carrier keeps, as `GoreStep` and `Tread` do (the stroke's seed, a place, and
+   the tick it was last heard from are private: two ticks of silence end a stroke and the next one touches down with a head). The surface under each end is cast for along `-normal` (a floor's `+Y`, a wall's),
+   within `2 × SURFACE_STAND_OFF`; a path whose ends are farther apart on the canvas than on the surface (a UV seam) is refused; the contact's path on its canvas is `smear_uv`'s, and the carrier's load is
+   carried in **square metres of full coverage** (a film of about a tenth of a millimetre: a millilitre is `0.01 m²`), converted to bytes by the canvas's texel area, so a hand moving from a wall to a floor
+   carries the same blood. Per-tick segments, like steps. A tier that draws no blood smears none.
 
 ## Parameters
 
-All **tuned by eye and against the reference measures** unless a source names them: `LIFT` 0.35, the peak target coverage 0.85, `full` as `SMEAR_FULL_M2` 0.004 m² (a hand's film), `GRAIN` 12 mm, the streak's length
-20 grains, the bead 3 grains, the feather over the outer 15 % of the width, `GoreSmear`'s default width 0.09 m (a hand), the load cap 0.05 m² (a litre-ish body). Each says so in its doc comment.
+All **tuned by eye and against the reference measures** unless a source names them: `LIFT` 0.35, the peak target coverage 0.85, `SMEAR_FULL_M2` 0.016 m² (a hand's width and thirty centimetres of film at three-fifths
+coverage: about a millilitre and a half), `SMEAR_GRAIN_M` 7 mm, the streak's length 20 grains, the bead 3 grains, the feather over the outer 15 % of the width, `SMEAR_WIDTH_M` 0.09 m (a hand), the load cap
+`SMEAR_LOAD_MAX_M2` 0.1 m² (six and a half full loads: a body bleeding as it is dragged), `SMEAR_GAP_TICKS` 2. Each says so in its doc comment. (The first draft of this note said 0.004 m² for a full load: a
+tenth of what a hand lays, found when the first render's smear ran out after a hand's length.)
 
 ## Validation targets
 
@@ -104,6 +110,44 @@ results for the films were posters and trailers): the gap is named under `## Pen
   unit; a mapping from `transfer_rate` to the cap is a design decision the crate does not take.
 - **Rigid surfaces only** (a `Gore::floor`, a `Gore::wall`): a skinned body is posed on the GPU and the preset has no cheap way to walk its UVs along a path. A hand dragged down a character is a later item.
 - **A hand's print** (palm, five fingers) is not drawn: a smear is the *drag*; a handprint is a `Print` with a different outline, an item of its own.
+- **A canvas is treated as isotropic.** `smear_uv` works in UV space, and `Gore::density()` is UV per metre in `u`. A surface whose UVs are stretched (the demo wall is 3 m by 2.4 m on one `0..1` square, 5.9 mm a
+  texel across and 4.7 mm down) lays a slanted stroke a few per cent off in width and a texel's area is taken from `u`, so the load a stroke keeps is off by about a fifth there. [INFERENCE] A level's UVs, in metres, usually are not stretched.
+- **No sag, no drip of the smear itself.** Blood on a wall runs under the wetmap's own passes only when a texel holds more than its threshold; a smear is film (`SMEAR_PEAK` 0.85 of full coverage at most) and
+  does not run. A heavy hand on a wall that should sag a little does not.
+
+## Outcome
+
+Five render rounds (`capture_skinned --smear`, seen from the left and above, clear of the sheet) and a sixth tried and reverted. Measures are `smear_stat`'s, on frame 245, the crop of each mark:
+
+| Mark | coherence (>= 0.45) | streak alignment (>= 0.95) | length / width (>= 1.5) | coverage by thirds | last / first (<= 0.6) |
+|---|---|---|---|---|---|
+| soaked hand down the wall | 0.57 | 1.00 | 5.0 | 0.982, 0.938, 0.529 | **0.54** |
+| less soaked hand, slanted | 0.46 | 1.00 | 6.8 | 0.861, 0.419, 0.488 | **0.57** |
+| body dragged out of the pool | 0.51 | 1.00 | 4.1 | 0.570, 0.542, 0.434 | 0.76 |
+
+(S1: 0.612, 1.0, thirds 0.236 / 0.162 / 0.136; S2: 0.56, L/W 5.1, thirds 0.604 / 0.338 / 0.023.)
+
+**What each round showed.** R1: the marks were solid bars with square heads that ended all at once, because a deposit of `0.55 + 0.45 frac` of the peak never fell to nothing; and the camera was behind the sheet.
+R2: the deposit falls with the load (`PEAK * frac`): the end is gradual. R3: **a square head and 12 mm lines made a slab**; 7 mm lines and a ragged touch-down per line made a head that reads as fingers.
+R4 (tried, reverted): `frac` to the three-halves made the tail thinner, but a contact with a little blood then laid almost nothing and kept most of it (5 778 of 8 000 bytes left), which is a hand that does not
+mark and does not run out. R5: the lines drop out with `frac²`, not its root, so the voids come while the amounts are still falling: last / first 0.66 and 0.62 became 0.54 and 0.57.
+
+**Critique, against S1 and S2.** The drag out of the pool is what S2 is: a pool grooved by the body's width, a fan of fine parallel lines leaving it, broken into dashes toward the end. The lightly loaded hand is
+what S1 is: a ragged head, lines that part and run out in dots. **Missed:** (1) the soaked hand's first two thirds are a solid slab, not striated lines (coverage 0.98 and 0.94): in the renders the film reads as opaque
+from roughly a third of full coverage (seen, not measured) and the lines sit at 0.4 to 0.85: the references show lines throughout a heavy head; (2) the dragged body's trail fades 0.76, not 0.6, because that body is fed every tick
+(`0.0004` m² each) and a bleeding body does not run dry in a metre and a half; the number is the demo's choice, and a drained one would fade; (3) the second hand's coherence, 0.46, is 0.01 over the floor
+of the target; (4) no film still was compared (named under Pending index).
+
+**Cost.** `smear_uv` on a 512 canvas, median / p99 over 500 to 2 000 calls, load 5: a hand's tick (1.2 cm by 9 cm) 1 / 2 microseconds; a body's (5 cm by 34 cm) 16 / 43; a one-shot 25 cm by 9 cm 41 / 66.
+`bench_carnage` (nothing smears in it; the plugin now runs one more system, with an empty reader): `carnage_frame_ms` 0.09507, 0.09540, 0.09796 against 0.09337, 0.09307, 0.09241
+before (median +2.5 %, load 5.7 against 5), `carnage_p99_ms` median 2.709 against 2.684 (+0.9 %); digest `0x4366a8b64352c85a` unchanged.
+
+**Reproducibility.** Every existing digest equals 0.8.8's in two runs (preset, skinned with every variant, entrails, flesh); `capture_gore`'s four module digests are equal in two runs and this change touches none of those modules; `--smear` prints `digest=b3f7357ae81ff12c` twice.
+
+**Mutations the tests caught:** `SMEAR_LIFT = 0` (`a_wipe_drags_a_pool_along_its_path`); the carry not decremented on a deposit (three tests: conservation, the fade, the wipe); the tier gate ignored (`a_smear_moves_a_carriers_blood_onto_the_floor_and_a_tier_that_draws_none_smears_nothing`).
+
+**Verdict: GREAT** for the kernel, the preset and the drag trail, and for a hand that is not soaked: the marks read as what they are and every measure but the trail's fade is on target. **NOT YET**, and named for
+the next pass that touches it: a soaked hand's head as a striated mass instead of a slab (probably `flesh.wesl`, which means a WebGL2 re-check; not tried).
 
 ## Pending index
 

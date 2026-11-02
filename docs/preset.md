@@ -22,6 +22,7 @@ a plausible-looking result that is quietly wrong.
 | 9 | **Gate the bake on your own state.** The plugin adds its systems with no run condition. | The caller owns the schedule, everywhere in this crate. |
 | 10 | **Heal a character you reuse with `GoreReset`**, not by despawning and dressing it again: a respawn, a pooled enemy, a restarted round. Send it with the root, and once more with each floor or wall you want wiped. See [Healing, respawning and pooling](#healing-respawning-and-pooling). | Dressing builds every canvas and image again; a reset overwrites the bytes it already has, re-arms the bone handoff and puts a slashed skin's own mesh back. |
 | 11 | **Send a `GoreStep` from your footstep event**, one per foot per step, and dress the floors characters walk on at about 6 mm a texel. See [Footprints](#footprints). | The preset cannot tell when a foot lands. Without steps nobody tracks blood; on a coarse floor a print is two drops. |
+| 12 | **Send a `GoreSmear` per tick for a contact that is moving over a floor or a wall**: a hand slid down a wall, a body dragged, a sleeve wiped. See [Smears](#smears). | Without it a contact leaves only the blood that was already there, and the blood a body carries out of a pool is lost. |
 
 Tangents are handled for you since 0.5.10: a skin mesh without `ATTRIBUTE_TANGENT` gets them when it
 is dressed, because the crater's normal map needs them.
@@ -445,6 +446,36 @@ the floor between them, while any of it is wet (0.5.58).
 
 ![The mannequin walks across a tiled floor through a spill of blood and out the other side, leaving a line of bloody boot prints, left and right, each paler and more broken than the last](https://raw.githubusercontent.com/bevy-coven/bevy_carnage/main/docs/skinned_stroll.gif)
 
+## Smears
+
+*(0.8.9, `docs/research/smear.md`.)* A hand slid down a wall, a body dragged out of a pool, a sleeve wiped through a splash. Send one `GoreSmear` per tick for a contact that is moving, from where it was to
+where it is, the way you send a `GoreStep` per step:
+
+```rust,ignore
+writer.write(GoreSmear::new(hand, last_position, position, wall_normal).width(0.09).loaded(0.014));
+```
+
+`carrier` names the hand, the body or the sleeve, and must be the same entity for every segment of one stroke; the preset keeps what it carries on it as a `Smeared`. `from` and `to` are world-space points
+**on the surface** (within `2 × SURFACE_STAND_OFF` of it), `normal` is which way the surface faces (a floor's is up, a wall's points into the room), `width_m` is the contact's width (`SMEAR_WIDTH_M`, 0.09 m, a
+hand's, by default) and `load_m2` the blood the contact brings from somewhere the preset cannot see, in **square metres of full coverage** (a film about a tenth of a millimetre thick: a millilitre is about
+`0.01`; `SMEAR_FULL_M2`, 0.016, is a full hand's load). Send `0` for a clean hand: it still wipes any wet blood it crosses.
+
+What happens at each tick's segment, on the canvas of the floor or wall under the contact (`WetCanvas::smear_uv`, public for a game that keeps its own canvases):
+
+- **The contact lifts first.** It takes `SMEAR_LIFT` (35 %) of the wet blood under it. Dry blood does not move.
+- **Then it lays what it carries** in streaks parallel to the motion, `SMEAR_GRAIN_M` (7 mm) across: heavy where the stroke touched down, with a ragged leading edge, and as the load falls the lines drop out and
+  the tail breaks into voids and dots. A stroke is **continuous across ticks**: its streaks go on from one segment to the next, and two ticks of silence (`SMEAR_GAP_TICKS`) end it, so the next touches down
+  with a head.
+- **No blood is made or lost**: `sum(amount) + carry` is the same after a segment as before, to the byte (a test over random strokes holds it). What the contact has not laid it keeps, up to
+  `SMEAR_LOAD_MAX_M2` (0.1), and the next stroke starts with it.
+- Once laid, it is wet blood like any other on the canvas: it runs and dries on the surface's clock.
+
+A tier that draws no blood or no decals smears nothing. **Floors and walls only** (a `Gore::floor` or `Gore::wall`): a skinned body is not smeared. A segment whose two ends are farther apart on the canvas than
+on the surface (a UV seam) is refused. The canvas is treated as isotropic, so a surface whose UVs are stretched lays a slanted stroke a little off. `GoreReset` of the carrier, or anything above it, wipes its `Smeared`.
+A segment costs 1 to 41 microseconds on a 512 canvas (a hand's, a body's, a long single stroke); a floor to be smeared wants about 6 mm a texel for the same reason a print does.
+
+`capture_skinned --smear` is the demo (`docs/DEMOS.md`): a body bleeding as it is dragged out of a pool, a soaked hand slid down a wall, a lighter one, and a clean one wiped across the first one's streaks.
+
 ## Healing, respawning and pooling
 
 A character that respawns, a pooled enemy coming back, a round that restarts: send
@@ -455,7 +486,7 @@ or below it goes back to how it was dressed, on the next `FixedUpdate`, before t
   holes and slits are mended (`WetCanvas::clear`, `FlayCanvas::clear`, `DermisCanvas::clear`,
   `ClothHoles::clear`, each public for a game that keeps its own canvases);
 - its bleeding, bruising and soaking stop (`Wounds`, `Bruising` and a cloth's pending soaks go), and
-  a foot's `Tread` is wiped;
+  a foot's `Tread` and a contact's `Smeared` are wiped;
 - a slashed skin draws its own mesh again, the shared handle it wore before the slash, and its wound
   bed is despawned;
 - the bone handoff is armed again, so the next wound to reach the cortex sends `BoneExposed`;
