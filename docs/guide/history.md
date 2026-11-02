@@ -4,7 +4,11 @@ Moved from the README on 2026-10-31, unchanged except for link paths, when the R
 
 ## Status
 
-**`0.8.12` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+**`0.8.13` in the repository and on crates.io. Pre-1.0 in the sense that matters: the API can still move.** It is developed here, on Bevy 0.20, and used by Sanctuary and by `bevy_grimoire`'s family integration (destructible props and the damage dials). Everything from `0.5.19` to `0.7.0` is in the `0.7.0` release, and the `0.5.18` before it is a Bevy 0.19 crate.
+
+### What `0.8.13` changed: a cut face is a wet surface
+
+- **The cut faces of a body that has broken glisten.** Every one was a flat polygon of one tone, so lit it took one shade and no highlight. The shader now lifts it by a slow undulation (a value noise 16 mm across and 4 mm high over its own planar coordinate, so it stays with the piece as it falls) and lifts its clear coat's normal three times as far, since a liquid's surface tilts further than the folds it lies on: a face shades unevenly and catches glints along them. **No colour changes**: inside the faces the local variation is 2.7 times what it was, 2.6 % of their pixels are brighter by 15 or more, and the mean colour moves by 2 of 255 (the glints). A PATCH, shader and documentation only; every recorder's digest is 0.8.12's. The item began as a film of blood per tissue so that the muscle strip shows through, which failed twice (food: cheese, salmon, brick) and is parked with its numbers (`docs/research/film-per-tissue.md`); `tools/webgl2/check.sh` now drives Firefox on Xvfb where there is no Chrome, and a cold wasm build on big is 3 min 24 s. `docs/research/cut-face-relief.md`, `docs/DEMOS.md` and `docs/media/relief.gif`.
 
 ### What `0.8.12` changed: a body that bursts stains the room
 
