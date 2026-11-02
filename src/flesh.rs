@@ -101,6 +101,13 @@
 //! raw and moist from the first moment. Bare, the graze was pale pink mottled with the fat's cream,
 //! and round every crater it read as a pale halo.
 //!
+//! **A face drains** (0.8.13, [`FleshParams::with_drained`]). One film, thick, hides what it lies on:
+//! a cut face drawn under it is a flat red sail and the muscle strip never shows. One film, thin, is
+//! pale beside a face just cut. So the film has two states and a share between them: a face just
+//! cut wears the one film, and as it drains each tissue comes to wear a thin film of its own, with a
+//! soft mottle (the fat paler than the lean), the blood left deep only in a crater's hollow. The
+//! preset takes a broken body's cut faces from one to the other as the bleed's perfusion runs out.
+//!
 //! **A crater is lit through its mouth** (0.5.52). In [`FleshMode::Canvas`], a texel below the skin
 //! looks out over the flaymap's own depth in eight directions, to 1, 3, 7 and 15 texels, for the
 //! highest wall it sees each way, and every light term on it — diffuse, coat, subsurface — is
@@ -238,7 +245,9 @@ pub struct FleshParams {
     /// span below the skin down, and a quarter of it at the skin, so the rim's fat shows through. See
     /// [`FleshParams::with_cut_film`]. `y` the layer span, mm — the depth a flaymap's `R` channel reads
     /// `1` at — which a crater's walls are measured in when the shader works out how much light
-    /// reaches its floor. `z` and `w` are unused.
+    /// reaches its floor. `z` how drained the cut film is, `[0, 1]`, `0` as shipped: a share of the
+    /// way from that one film to a thin one per tissue; see [`FleshParams::with_drained`]. `w` is
+    /// unused.
     pub cut: Vec4,
 }
 
@@ -273,6 +282,17 @@ impl FleshParams {
     /// cheese and a crater as a ring of fat.
     pub fn with_cut_film(mut self, film_mm: f32) -> Self {
         self.cut.x = if film_mm.is_finite() { film_mm.max(0.0) } else { 0.0 };
+        self
+    }
+
+    /// **The same dials, with the cut film drained to `share`** (`[0, 1]`; NaN is `0`): `0` is a face
+    /// just cut, one film of blood over everything (what a material is until told otherwise), and `1` is
+    /// a face whose bleeding has stopped, each tissue under a thin film of its own so that its colour
+    /// and the strip's structure show through. Between, the two are blended. It has no effect
+    /// without [`FleshParams::with_cut_film`]. A caller that keeps pieces lying about writes this on
+    /// the cap's material as they age (the preset does, from [`crate::bloodstain::bleed::envelope`]'s clot time).
+    pub fn with_drained(mut self, share: f32) -> Self {
+        self.cut.z = if share.is_finite() { share.clamp(0.0, 1.0) } else { 0.0 };
         self
     }
 

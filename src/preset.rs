@@ -2747,6 +2747,7 @@ impl Plugin for GorePlugin {
         app.init_resource::<GoreDials>()
             .init_resource::<MeshIndex>()
             .init_resource::<GoreClock>()
+            .init_resource::<CutFaces>()
             .add_message::<GoreHit>()
             .add_message::<GoreReset>()
             .add_message::<GoreStep>()
@@ -2767,6 +2768,7 @@ impl Plugin for GorePlugin {
                     spurt.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<Spurts>),
                     land_bursts.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<InFlight>),
                     pour_cut_faces,
+                    drain_cut_faces.run_if(|faces: Res<CutFaces>| !faces.0.is_empty()),
                     take_steps,
                     take_smears,
                     age_bruises,
@@ -3034,6 +3036,8 @@ struct HitContext<'w, 's> {
     mesh_events: MessageReader<'w, 's, AssetEvent<Mesh>>,
     /// Every burst of the tick, thrown after its hits.
     bursts: MessageReader<'w, 's, GoreBurst>,
+    /// The cap materials of bodies that broke, until each is drained.
+    cut_faces: ResMut<'w, CutFaces>,
 }
 
 /// What [`throw_spray`] needs from the batch it is in: the surfaces, the poses and boxes cached across
@@ -3601,6 +3605,7 @@ fn take_hits(
         index,
         mesh_events,
         bursts,
+        cut_faces,
     } = &mut cx;
     // A mesh Bevy reports changed is indexed again when it is next cast at; read every tick, hits or
     // none, so no report is missed.
@@ -4251,6 +4256,7 @@ fn take_hits(
                     })
                     .collect();
                 let cap = cap_material(region, atlas.as_deref(), standard, tables, flesh, dials);
+                cut_faces.0.push((cap.clone(), tick));
                 let pieces = place(leaves, root_xf, at_world, posing.as_ref().map(|p| (p, &**meshes)));
                 if dials.spawn_fragments {
                     spawn_pieces(&mut commands, meshes, tick, &pieces, &skin, &cap);
@@ -4263,6 +4269,7 @@ fn take_hits(
                 // The message goes out from `throw_bodies`, next in the chain this tick, once the
                 // leaves are meshes.
                 let cap = cap_material(region, atlas.as_deref(), standard, tables, flesh, dials);
+                cut_faces.0.push((cap.clone(), tick));
                 // The blow in the subject's own space: for a skinned body that is where it landed on
                 // the bind pose, since the fracture was baked there, not where the body is drawn.
                 let at_local = match (&posing, site_at) {
@@ -5378,6 +5385,49 @@ fn spurt(
     }
 }
 
+/// **How drained a cut face is `age_ticks` after it was cut**, `[0, 1]`: `0` while it still bleeds, which
+/// is [`BloodSettings::clot_ticks`], the schedule [`CutFaceBleed`] pours by, and from then rising smoothly
+/// to `1` over as many ticks again. A face just cut is bloody, so thick a film that it hides the tissue;
+/// once the perfusion has run out the blood on it drains and clots and the tissue comes out of it
+/// ([`FleshParams::with_drained`]). Tied to the clot time so that one dial moves both. **This crate's own**
+/// (`docs/research/film-per-tissue.md`): no source times how long a severed piece's face stays bloody.
+pub fn cut_face_drained(age_ticks: u32, s: &BloodSettings) -> f32 {
+    let after = age_ticks.saturating_sub(s.clot_ticks) as f32 / s.clot_ticks.max(1) as f32;
+    smooth01(after)
+}
+
+/// **How many steps a face's drain is written in**: 16. Each write re-uploads the material the broken
+/// body's pieces share, so a drain over twelve seconds is sixteen writes and not seven hundred.
+pub const CUT_FACE_DRAIN_STEPS: f32 = 16.0;
+
+/// **The cap materials of the bodies that broke and the tick each was cut on**, until each is drained:
+/// [`drain_cut_faces`] writes their [`FleshParams::with_drained`] share as they age. One material is
+/// shared by all of a body's pieces, so it is one entry however many pieces there are.
+#[derive(Resource, Default)]
+struct CutFaces(Vec<(Handle<FleshMaterial>, u32)>);
+
+/// **Drain every broken body's cut faces** as they age: the share [`cut_face_drained`] gives, in
+/// [`CUT_FACE_DRAIN_STEPS`] steps, written to the material only when it changes. A material nothing
+/// holds any more is let go of at its next write.
+fn drain_cut_faces(clock: Res<GoreClock>, dials: Res<GoreDials>, mut faces: ResMut<CutFaces>, flesh: Option<ResMut<Assets<FleshMaterial>>>) {
+    let Some(mut flesh) = flesh else {
+        return;
+    };
+    let tick = clock.0;
+    faces.0.retain(|(handle, born)| {
+        let share = (cut_face_drained(tick.saturating_sub(*born), &dials.blood) * CUT_FACE_DRAIN_STEPS).round() / CUT_FACE_DRAIN_STEPS;
+        let Some(now) = flesh.get(handle).map(|m| m.extension.params.cut.z) else {
+            return false;
+        };
+        if (now - share).abs() > 1.0e-6
+            && let Some(mut material) = flesh.get_mut(handle)
+        {
+            material.extension.params.cut.z = share;
+        }
+        share < 1.0
+    });
+}
+
 /// **Pour every cut face of a broken body onto the floor beneath it**, a pulse at a time, until its
 /// perfusion runs out ([`CutFaceBleed`]). Each pulse is a stain [`CUT_FACE_POUR`] of the radius a
 /// wound of the face's area paints, cast straight down from above the face's centre as the piece is
@@ -5694,6 +5744,7 @@ mod tests {
             .init_resource::<GoreDials>()
             .init_resource::<MeshIndex>()
             .init_resource::<GoreClock>()
+            .init_resource::<CutFaces>()
             .add_message::<GoreHit>()
             .add_message::<GoreReset>()
             .add_message::<GoreStep>()
@@ -5706,7 +5757,7 @@ mod tests {
             .init_resource::<WetSettings>()
             .init_resource::<FlaySettings>()
             .add_systems(FixedUpdate, scene_gore.before(dress))
-            .add_systems(FixedUpdate, (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, spurt.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<Spurts>), land_bursts.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<InFlight>), pour_cut_faces, take_steps, take_smears, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
+            .add_systems(FixedUpdate, (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, spurt.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<Spurts>), land_bursts.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<InFlight>), pour_cut_faces, drain_cut_faces.run_if(|faces: Res<CutFaces>| !faces.0.is_empty()), take_steps, take_smears, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
         let images = app.world_mut().resource_mut::<Assets<Image>>().reserve_handle();
         app.world_mut().resource_mut::<FleshTables>().luts = images;
         app
@@ -6652,6 +6703,60 @@ mod tests {
         assert!(later > 2 * at_break.max(1), "the floor held {at_break} when the body broke and {later} five seconds on");
     }
 
+    /// **A cut face is bloody while it bleeds and drains after.** Nothing for the clot time (the schedule
+    /// [`CutFaceBleed`] pours by), then a smooth rise to all of it over as long again, never backwards.
+    #[test]
+    fn a_cut_face_stays_bloody_while_it_bleeds_and_drains_after() {
+        let s = BloodSettings::default();
+        let clot = s.clot_ticks;
+        assert_eq!(cut_face_drained(0, &s), 0.0);
+        assert_eq!(cut_face_drained(clot, &s), 0.0, "a face still bleeding at the clot time is drained");
+        assert!((cut_face_drained(clot + clot / 2, &s) - 0.5).abs() < 0.01, "halfway through the drain it is {}", cut_face_drained(clot + clot / 2, &s));
+        assert_eq!(cut_face_drained(2 * clot, &s), 1.0);
+        assert_eq!(cut_face_drained(u32::MAX, &s), 1.0);
+        let mut last = 0.0;
+        for age in (0..=3 * clot).step_by(7) {
+            let now = cut_face_drained(age, &s);
+            assert!(now >= last, "the drain went backwards at {age}: {last} then {now}");
+            last = now;
+        }
+    }
+
+    /// **A broken body's cut faces are bloody when it breaks and drained twice the clot time later.** The
+    /// break registers the pieces' cap material; its drained share is `0` until the clot time, between
+    /// the two a part of the way, and `1` once the drain is done, when the preset lets the material go.
+    /// A body that broke later is the bloodier of two at the same moment.
+    #[test]
+    fn a_broken_bodys_cut_faces_drain_once_it_has_stopped_bleeding() {
+        let mut app = headless();
+        let (_, first, _) = breakable_body(&mut app);
+        app.world_mut().write_message(GoreHit::impact(first[0], Vec3::new(0.0, 1.0, 2.0), Vec3::NEG_Z, 0.03, 60.0));
+        app.world_mut().run_schedule(FixedUpdate);
+        let clot = GoreDials::default().blood.clot_ticks;
+        let (_, second, _) = breakable_body(&mut app);
+        for _ in 0..clot / 2 {
+            app.world_mut().run_schedule(FixedUpdate);
+        }
+        app.world_mut().write_message(GoreHit::impact(second[0], Vec3::new(0.0, 1.0, 2.0), Vec3::NEG_Z, 0.03, 60.0));
+        app.world_mut().run_schedule(FixedUpdate);
+        let caps: Vec<Handle<FleshMaterial>> = app.world().resource::<CutFaces>().0.iter().map(|(h, _)| h.clone()).collect();
+        assert_eq!(caps.len(), 2, "two bodies broke and {} cap materials were registered", caps.len());
+        let share = |app: &App, i: usize| app.world().resource::<Assets<FleshMaterial>>().get(&caps[i]).map(|m| m.extension.params.cut.z).unwrap_or(f32::NAN);
+        assert_eq!((share(&app, 0), share(&app, 1)), (0.0, 0.0), "a face just cut is not bloody");
+        // Three quarters of the way through the first body's bleeding, a half through the second's.
+        for _ in 0..clot * 3 / 2 - clot / 2 {
+            app.world_mut().run_schedule(FixedUpdate);
+        }
+        let (a, b) = (share(&app, 0), share(&app, 1));
+        assert!(a > 0.2 && a < 0.8, "the first body's faces are {a} drained half a clot time after its bleeding stopped");
+        assert_eq!(b, 0.0, "the second body's faces drained while it still bled");
+        for _ in 0..clot * 2 {
+            app.world_mut().run_schedule(FixedUpdate);
+        }
+        assert_eq!((share(&app, 0), share(&app, 1)), (1.0, 1.0), "the faces did not finish draining");
+        assert!(app.world().resource::<CutFaces>().0.is_empty(), "a drained material is still being written to");
+    }
+
     /// **A burn shows the zones its degree reached, deepest at the centre.** A third-degree burn is
     /// an eschar at its centre, near black and wholly shown; a pale ring round it; a red ring past the
     /// contact; and nothing at [`BURN_FLARE`]. A second-degree burn is pale at its centre in a red
@@ -6943,6 +7048,7 @@ mod tests {
             .init_resource::<FleshTables>()
             .insert_resource(GoreDials { bruise_hours_per_tick: 1.0, ..default() })
             .init_resource::<GoreClock>()
+            .init_resource::<CutFaces>()
             .add_message::<GoreHit>()
             .add_message::<GoreBurst>()
             .add_message::<GoreFractured>()
@@ -7053,6 +7159,7 @@ mod tests {
             .init_resource::<FleshTables>()
             .init_resource::<GoreDials>()
             .init_resource::<GoreClock>()
+            .init_resource::<CutFaces>()
             .add_message::<GoreHit>()
             .add_message::<GoreBurst>()
             .add_message::<GoreFractured>()

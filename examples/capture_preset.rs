@@ -97,7 +97,11 @@ fn main() {
     // family clip's two: measured, frame 0 was still blank at two and stable at six.
     rec.warm_up(6);
     let mut skin = digest::SkinTrace::default();
-    for frame in 0..FRAMES {
+    // `--frames N` runs the clip N frames (default 360) and `--stride K` writes every Kth: the cut faces drain over the twelve seconds after
+    // the body breaks at frame 120, which the default clip is too short to see. The digest folds every frame, written or not; at the defaults it is what it was.
+    let frames: u32 = common::arg("--frames").and_then(|s| s.parse().ok()).unwrap_or(FRAMES);
+    let stride: u32 = common::arg("--stride").and_then(|s| s.parse().ok()).filter(|k| *k > 0).unwrap_or(1);
+    for frame in 0..frames {
         {
             let world = rec.world();
             let part = |world: &mut World, i: usize| {
@@ -125,7 +129,12 @@ fn main() {
                 }
             }
         }
-        rec.shoot();
+        // Every `stride`th frame is written; the others are only drawn, so a long clip costs the disk what a short one does.
+        if frame % stride == 0 {
+            rec.shoot();
+        } else {
+            rec.step();
+        }
         skin.sample(rec.world());
     }
     let world = rec.world();

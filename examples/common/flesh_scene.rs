@@ -74,8 +74,14 @@ pub fn setup(
         .unwrap_or_else(|| StandardMaterial { base_color: Color::srgb(0.6, 0.2, 0.2), ..default() });
     let limb_wet = WetCanvas::new(&mut images, CANVAS, [0.5, 0.5, 0.5], 0.5);
     // `--film` gives the limb the preset's film of blood over exposed tissue (`CUT_FACE_FILM_MM`), as its cut faces and craters wear: the strip under it, tissue by tissue.
+    // `--drained S` (default 1) drains that film `S` of the way from the one film of a face just cut to the thin one per tissue of a face that has stopped bleeding.
     let limb_params = FleshParams::for_layers(&layers, FleshMode::Cap, scale.mm_per_unit);
     let limb_params = if std::env::args().any(|a| a == "--film") { limb_params.with_cut_film(bevy_carnage::preset::CUT_FACE_FILM_MM) } else { limb_params };
+    let limb_params = match std::env::args().skip_while(|a| a != "--drained").nth(1).and_then(|v| v.parse::<f32>().ok()) {
+        Some(share) => limb_params.with_drained(share),
+        None if std::env::args().any(|a| a == "--drained") => limb_params.with_drained(1.0),
+        None => limb_params,
+    };
     let limb_mat = flesh.add(tables.material(strip, limb_params, Some(limb_wet.roughness()), None));
     commands.spawn((
         Mesh3d(limb_mesh),
