@@ -24,6 +24,7 @@ a plausible-looking result that is quietly wrong.
 | 11 | **Send a `GoreStep` from your footstep event**, one per foot per step, and dress the floors characters walk on at about 6 mm a texel. See [Footprints](#footprints). | The preset cannot tell when a foot lands. Without steps nobody tracks blood; on a coarse floor a print is two drops. |
 | 12 | **Send a `GoreSmear` per tick for a contact that is moving over a floor or a wall**: a hand slid down a wall, a body dragged, a sleeve wiped. See [Smears](#smears). | Without it a contact leaves only the blood that was already there, and the blood a body carries out of a pool is lost. |
 | 13 | **Say a hit is arterial with `GoreHit::arterial()`** when a breached vessel should spurt, and keep a wall or a floor dressed (`Gore::wall`, `Gore::floor`) for it to land on. See [Arterial wounds](#arterial-wounds). | A wound that is only bleeding runs down the body and drips; an artery throws an arc a heartbeat across the room. |
+| 14 | **Send a `GoreBurst` with the hit that blows a body apart**, and keep walls, a floor and a ceiling dressed (`Gore::wall`, `Gore::floor`) for it to land on. See [Bursts](#bursts). | A wound's spray is a cone about its normal; a head that bursts throws blood every way, and the room round it should show it. |
 
 Tangents are handled for you since 0.5.10: a skin mesh without `ATTRIBUTE_TANGENT` gets them when it
 is dressed, because the crater's normal map needs them.
@@ -502,6 +503,35 @@ the speed the pressure gives (`ARTERIAL_SPEED` 8 m/s at full, falling with `pres
 
 `capture_skinned --hose` is the demo (`docs/DEMOS.md`), and `--hose --vein` the same hit as 0.8.9 threw it.
 
+## Bursts
+
+*(0.8.12, `docs/research/burst.md`.)* A body that comes apart throws its blood in every direction, and a wound's spray is a cone: `GoreBurst` is the air round a body that burst. Send it **with** the hit that breaks it:
+
+```rust,ignore
+// the wound, and the break and the guts it already caused (an impact to bone on a baked body):
+writer.write(GoreHit::impact(body, from, dir, 0.07, 45.0));
+// the cloud, from the middle of the head:
+bursts.write(GoreBurst::new(head_centre));          // .with_radius(0.12).with_droplets(960)
+```
+
+A burst is **not a wound**: it opens no crater and breaks nothing, which stays the hit's. What it adds is `BURST_DROPLETS` (960) droplets of `bloodstain::patterns::burst_spatter`, uniform on the sphere and obeying Comiskey,
+Yarin & Attinger's size-speed law (fine drops fast, large ones slow; more fine ones than a cone throws), and what they do:
+
+- **Each droplet flies the parabola** under `BloodSettings::gravity` (at the dial's `spatter_speed_scale`, 0.25 shipped) and is caught by **the first dressed surface its flight crosses**: a wall, a floor, a ceiling, the
+  part of a body still in the way, a cloth. What is behind a body is **shadowed** by it, and what stands in the way is stained. A droplet leaving the volume that burst does not stain that volume's inside (a back face within
+  `BURST_SHELL` (2) radii of the centre does not catch it); a hole in a cloth lets it through.
+- **It arrives when its flight ends**, not on the tick it leaves: the stain is queued on the surface it will land on and drawn then (`InFlight`; ticks, not seconds), the fine fast ones first and the large slow ones up
+  to three quarters of a second later. **At most `BURST_LANDINGS_PER_TICK` (24) a surface a tick**, so a burst is never one frame's cost whatever it throws.
+- **A droplet is drawn `BURST_DROP_SCALE` (3) times the generator's size** (gouts, not a bullet's mist), by `hard_stain` from the speed and slant it arrives with; a cloth takes the blob a spray's droplet does.
+- `GoreBurst` is `#[non_exhaustive]`: `GoreBurst::new(at)`, `.with_radius(m)`, `.with_droplets(n)`. A count is capped at `BURST_BUDGET` (2) times `BloodSettings::max_droplets_per_wound`. A tier that draws no
+  blood or no decals throws nothing; `GoreReset` of a surface takes its stains out of the air.
+- **Cost**: nothing on a tick without a burst or a stain in the air. The tick a burst is sent costs the casts: 0.5 to 0.8 ms for 960 droplets in a room of a floor, two walls and a body. The stains then land over
+  about forty ticks at 0.2 to 2.5 ms a tick (14 to 22 ms in all for the 630 to 740 that landed in `capture_skinned --burst`, with and without `--break`), where drawing them on the tick they were thrown cost about 9 ms for half as many.
+- **Not done**: the cloud in the air (a particle effect, which `vfx` does not build on Bevy 0.20 to give), the chunks and strings of the film's effect (the break's pieces are those), a droplet that bounces, and a body
+  that is not cast through (a droplet is caught by a surface the tick it is thrown: a body that moves meanwhile is stained where it was, which its UV carries to where it is).
+
+`capture_skinned --burst` is the demo (`docs/DEMOS.md`); `--burst --break` breaks the body with it, and `--burst --no-cloud` is the same shot as 0.8.11 threw it.
+
 ## Healing, respawning and pooling
 
 A character that respawns, a pooled enemy coming back, a round that restarts: send
@@ -512,7 +542,7 @@ or below it goes back to how it was dressed, on the next `FixedUpdate`, before t
   holes and slits are mended (`WetCanvas::clear`, `FlayCanvas::clear`, `DermisCanvas::clear`,
   `ClothHoles::clear`, each public for a game that keeps its own canvases);
 - its bleeding, bruising and soaking stop (`Wounds`, `Bruising` and a cloth's pending soaks go), and
-  a foot's `Tread`, a contact's `Smeared` and a wound's `Spurts` are wiped;
+  a foot's `Tread`, a contact's `Smeared`, a wound's `Spurts` and a burst's stains still in the air are wiped;
 - a slashed skin draws its own mesh again, the shared handle it wore before the slash, and its wound
   bed is despawned;
 - the bone handoff is armed again, so the next wound to reach the cortex sends `BoneExposed`;
