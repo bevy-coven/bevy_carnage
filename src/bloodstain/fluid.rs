@@ -14,7 +14,7 @@
 //!
 //! | fluid | what it is | its colour comes from |
 //! |---|---|---|
-//! | [`Fluid::Ichor`] | black oil | melanin: Jacques's `μa = 1.70×10¹² λ^-3.48 cm⁻¹`, a power law, so thin is brown and thick is black |
+//! | [`Fluid::Ichor`] | black oil | melanin: Jacques's power law (`μa = 1.70×10¹² λ^-3.48 cm⁻¹` for a melanosome, flattened here to `λ^-2.6` so the black is not a brown), so thin is brown and thick is black |
 //! | [`Fluid::Green`] | green blood | biliverdin (the Prasinohaema skinks'): a violet Soret band and a red Q band, green between them |
 //! | [`Fluid::Blue`] | blue blood | oxyhaemocyanin (octopus, horseshoe crab): copper-peroxide charge-transfer bands near 486, 570 and 625 nm |
 //! | [`Fluid::Milk`] | white blood | scattering and almost no absorption: Aernouts's and Stocker's milk, 1-8 × 10⁻³ mm⁻¹ |
@@ -90,9 +90,9 @@ impl Band {
 pub struct Pigment {
     /// A flat absorption under everything else, mm⁻¹. Milk's is Stocker's `1e-3` to `8e-3`.
     pub floor: f32,
-    /// A power-law continuum's absorption at 500 nm, mm⁻¹: melanin's, which falls with wavelength as `λ^-3.48`. `0` for none.
+    /// A power-law continuum's absorption at 500 nm, mm⁻¹: melanin's, which falls with wavelength as `λ^-exponent`. `0` for none.
     pub continuum: f32,
-    /// The continuum's exponent. Jacques's melanosome fit is `3.48`.
+    /// The continuum's exponent. Jacques's melanosome fit is `3.48`; [`Fluid::Ichor`] uses `2.6`, which greys the black.
     pub exponent: f32,
     /// Up to [`BANDS`] absorption bands.
     pub bands: [Band; BANDS],
@@ -144,7 +144,7 @@ pub enum Fluid {
     /// **Blood.** The Bosschaart table, the oxygen-saturation dial and the haemoglobin age walk. The default.
     #[default]
     Blood,
-    /// **Black oil**: melanin's `λ^-3.48` absorption in a scattering carrier. Brown where it is thin, black where it is thick,
+    /// **Black oil**: melanin's power-law absorption in a scattering carrier. Brown where it is thin, black where it is thick,
     /// and it **stays glossy**: Carmageddon's German "oil", *Evil Dead II*'s black.
     Ichor,
     /// **Green blood**: biliverdin's two bands with green between them, the pigment of the skinks whose blood is green and
@@ -159,7 +159,7 @@ pub enum Fluid {
     Custom(Pigment),
 }
 
-/// Melanin's ichor. See [`Fluid::Ichor`]. **This crate's own numbers**; the exponent is Jacques's (`3.48`).
+/// Melanin's ichor. See [`Fluid::Ichor`]. **This crate's own numbers**; the exponent is Jacques's `3.48` flattened to `2.6`.
 const ICHOR: Pigment = Pigment {
     floor: 0.02,
     continuum: 25.0,
@@ -403,7 +403,7 @@ mod tests {
         );
     }
 
-    /// **Thin melanin is brown and thick melanin is black**: Jacques's `λ^-3.48` lets the red through a thin film that the blue cannot cross. Over a
+    /// **Thin melanin is brown and thick melanin is black**: melanin's power law lets the red through a thin film that the blue cannot cross. Over a
     /// white substrate a thin ichor film is lighter than a thick one and redder than it is blue.
     #[test]
     fn thin_ichor_is_brown_and_thick_ichor_is_black() {
