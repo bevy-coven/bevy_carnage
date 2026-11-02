@@ -33,7 +33,15 @@ const FRAMES: u32 = 300;
 
 fn main() {
     let out = common::arg("--out").unwrap_or_else(|| "frames-flesh".to_string());
-    let camera = Transform::from_xyz(0.0, 0.9, 2.6).looking_at(Vec3::new(0.0, 0.15, 0.0), Vec3::Y);
+    // `--eye x,y,z` and `--at x,y,z` look at the scene from another place, close on the limb's strip or on
+    // a crater: the digest depends on neither.
+    let point = |name: &str| {
+        common::arg(name)
+            .map(|e| e.split(',').filter_map(|v| v.trim().parse::<f32>().ok()).collect::<Vec<_>>())
+            .and_then(|v| (v.len() == 3).then(|| Vec3::new(v[0], v[1], v[2])))
+    };
+    let camera = Transform::from_translation(point("--eye").unwrap_or(Vec3::new(0.0, 0.9, 2.6)))
+        .looking_at(point("--at").unwrap_or(Vec3::new(0.0, 0.15, 0.0)), Vec3::Y);
     let Some(mut rec) = Recorder::new_with(800, 500, camera, &out, |app| {
         app.add_plugins((CrossSectionPlugin, FlaymapPlugin, WetmapPlugin, FleshPlugin))
             .insert_resource(WetSettings { dry_ticks: 120, edge_samples: 4, ..default() })
