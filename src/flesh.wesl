@@ -109,6 +109,62 @@ const FILM_MAX_TILT_COS: f32 = 0.906;
 const GRAZE_FILM: f32 = 0.04;
 const GRAZE_RAMP: f32 = 0.06;
 
+// **How thick a film of its own blood each tissue wears when it is cut or peeled**, as a share of
+// `FleshParams::cut`'s `x`: fat 0.035, lean 0.14, marrow 0.04, bone none. Tissue cut open is wet with
+// its blood, and a practical-effects wound is painted tissue first and blood last, in the middle
+// (M. Cramer & Associates, "Prosthetic Wound Makeup: A Step-by-Step Guide": "Apply Blood and Ooze",
+// step 6, after "Color the Wound"). What a film hides is measured, not guessed (`blood_lut()`, venous,
+// the film over black and over white): by 0.05 mm the green and blue of what lies under it are 3 and 4 %
+// of what they are bare, so the tint is the blood's, but its red is still 61 %, 37 % at 0.14 mm, 17 %
+// at 0.3 and 5 % at 0.6, so a thin film leaves the tissue's light and dark in the red where a thick
+// one (the old 0.25 to 1 mm, 0.5.38) erased them. Fat is under 0.05 mm, a peach veiled in red and not
+// the candy red a thick film drew it; the lean, whose strip already is a 0.05 mm film over a pale
+// substrate (`MUSCLE_FILM_MM`), is deepened to 0.14, its fibres and septa still showing. The cortex
+// is dry bone. This crate's own numbers, tuned to the reference set in `docs/research/film-per-tissue.md`.
+const TISSUE_FILM_FAT: f32 = 0.035;
+const TISSUE_FILM_MUSCLE: f32 = 0.14;
+const TISSUE_FILM_MARROW: f32 = 0.04;
+// **How wet a cut tissue shines**: 0.75 of the clear coat and the lowered roughness a pooled film
+// has, a half of that over the thinnest film (`smoothstep(0.02, 0.15, film_mm)`). A thin film wets a
+// surface as a deep one does, and the Hellraiser reference's lean is all highlights. This crate's
+// own number.
+const TISSUE_SHINE: f32 = 0.75;
+// **Blood that has collected in a crater's hollow**: `POOL_SHARE` (0.6) of `cut.x`, reached by
+// `POOL_TO` (0.5) of the layer span below the skin and begun at `POOL_FROM` (0.2), the lean's top.
+// Deep enough to hide the floor, as the middle of a wound is in the references, and the only place
+// the film is. This crate's own numbers.
+const POOL_SHARE: f32 = 0.6;
+const POOL_FROM: f32 = 0.2;
+const POOL_TO: f32 = 0.5;
+
+// The share of `cut.x` a tissue's own film is: `layer` 1 fat, 2 lean, 3 cortex, 4 marrow.
+fn tissue_film(layer: f32) -> f32 {
+    var share = TISSUE_FILM_FAT;
+    if layer > 1.5 { share = TISSUE_FILM_MUSCLE; }
+    if layer > 2.5 { share = 0.0; }
+    if layer > 3.5 { share = TISSUE_FILM_MARROW; }
+    return share;
+}
+
+// **How patchy a cut tissue's film is**: a value noise in two octaves, in patches `MOTTLE_MM` (9 mm)
+// across, from `MOTTLE_LOW` (0.45) to `MOTTLE_HIGH` (1.55) of the tissue's share, mean 1. Blood does
+// not coat a cut face evenly: it wells where the vessels are and the tissue shows between, where one
+// even thin film drew all of fat one coral (the first draft of this model). Measured on the surface
+// in millimetres, over the cut face's planar coordinate (`UV_0`, in mesh units) so that it is stable
+// as a piece moves, and not over `UV_1`, which stripes. Hard-edged lumps of bare fat on red (the
+// "Deep Fatty Tissue Wound" reference's lobules) and a cellular net of red septa were both drawn
+// and read as camouflage and as cracked paint (`docs/research/film-per-tissue.md`): this is the
+// soft one. This crate's own numbers.
+const MOTTLE_MM: f32 = 9.0;
+const MOTTLE_LOW: f32 = 0.45;
+const MOTTLE_HIGH: f32 = 1.55;
+
+fn film_pattern(uv: vec2<f32>, mm_per_uv: f32) -> f32 {
+    let p = uv * (mm_per_uv / MOTTLE_MM);
+    let n = 0.65 * patch_noise(p) + 0.35 * patch_noise(p * 2.7 + vec2<f32>(17.3, 5.1));
+    return mix(MOTTLE_LOW, MOTTLE_HIGH, smoothstep(0.2, 0.8, n));
+}
+
 // The cubic B-spline weights of the four texels around a sample at fraction `v` between the middle two.
 fn bspline(v: f32) -> vec4<f32> {
     let n = vec4<f32>(1.0, 2.0, 3.0, 4.0) - v;
@@ -612,38 +668,48 @@ fn fragment(
     }
 }
     // ---- Exposed tissue, wet with its own blood (`FleshParams::cut`). ------------------------
-    // A cut face, and a crater's walls where the skin is peeled. Thickest where the vessels are, in
-    // the muscle, by the tissue's own depth below the skin (`UV_1.x` on a cap, the flaymap's depth on
-    // a canvas). A cap keeps a quarter of it over the fat at its rim, so a piece reads as meat with a
-    // paler edge and the bands still show; a crater's graze keeps `GRAZE_FILM` of it, the ooze of a
-    // fresh abrasion, so the dermis reads raw and the fat under it reddens, and the deep wound is
-    // dark with blood, where bare it was a ring of yellow fat. Its liquid shines. A value noise over
-    // `UV_1` was tried first, for patches, and on the preset's pieces it drew stripes across each
-    // face, not patches.
+    // A cut face, and a crater's walls where the skin is peeled. **Each tissue wears a film of its own
+    // thickness** (`TISSUE_FILM_*`, shares of `cut.x`): the tissue's own colour shows through a thin
+    // one, so the strip's bellies and septa on a cap and a crater's fat and lean read as meat, and
+    // only blood that has collected in a hollow (`POOL_SHARE`, a crater's floor) is deep enough to
+    // hide what it lies on. A cap has no hollow, so it never pools. A crater's graze keeps
+    // `GRAZE_FILM` of it, the ooze of a fresh abrasion, so the dermis reads raw and the fat under it
+    // reddens. Its liquid shines. Until 0.8.13 one film, `cut.x` thick from half the layer span
+    // down, lay over everything: opaque past 0.15 mm, so a cut face was a flat red sail and the
+    // muscle strip a cap carries (0.8.11) never showed. A value noise over `UV_1` was tried first,
+    // for patches, and on the preset's pieces it drew stripes across each face, not patches.
+    let layer = layer_of(depth_frac);
     var cut_coat = 0.0;
     var exposed = 0.0;
-    var rim = 0.0;
+    var share = 0.0;   // of `cut.x`
+    var shine = 0.0;   // how wet the tissue shines, `[0, 1]`
 @if(VERTEX_UVS_B) {
     if mode == MODE_CAP {
         exposed = 1.0;
-        rim = 0.25;
     }
 }
     if mode == MODE_CANVAS {
         exposed = peeled;
-        rim = GRAZE_FILM * smoothstep(0.0, GRAZE_RAMP, depth_frac);
+        share = GRAZE_FILM * smoothstep(0.0, GRAZE_RAMP, depth_frac);
+        shine = 2.0 * share;
     }
     if flesh.cut.x > 0.0 && exposed > 0.0 {
-        let thick = smoothstep(0.08, 0.5, depth_frac);
-        let film_mm = flesh.cut.x * mix(rim, 1.0, thick);
-        // How wet it shines: a half where a cap's rim film lies, a little on a graze, all of it deep.
-        let shine = mix(2.0 * rim, 1.0, thick) * exposed;
+        if layer > 0.5 {
+            share = max(share, tissue_film(layer) * film_pattern(in.uv, select(flay_mm_per_uv, flesh.sss.y, mode == MODE_CAP)));
+            // A film is wetter where it is deeper: a half of the shine over the thinnest, all of it over blood.
+            shine = max(shine, TISSUE_SHINE * mix(0.5, 1.0, smoothstep(0.02, 0.15, flesh.cut.x * share)));
+        }
+        if mode == MODE_CANVAS {
+            let pool = smoothstep(POOL_FROM, POOL_TO, depth_frac);
+            share = max(share, POOL_SHARE * pool);
+            shine = max(shine, pool);
+        }
+        let film_mm = flesh.cut.x * share;
         let tissue = pbr_input.material.base_color.rgb;
         pbr_input.material.base_color = vec4<f32>(mix(tissue, blood_over(tissue, film_mm, 0.0), exposed), pbr_input.material.base_color.a);
-        pbr_input.material.perceptual_roughness = mix(pbr_input.material.perceptual_roughness, 0.45, shine);
-        cut_coat = flesh.wet.x * shine;
+        pbr_input.material.perceptual_roughness = mix(pbr_input.material.perceptual_roughness, 0.45, shine * exposed);
+        cut_coat = flesh.wet.x * shine * exposed;
     }
-    let layer = layer_of(depth_frac);
 
     // ---- Blood: composite the film over whatever is under it, on the GPU. -------------------
     // The wetmap's own albedo image already carries this film over a grey; reading the amount byte
