@@ -73,7 +73,9 @@ pub fn setup(
         .and_then(|h| plain.get(&h).cloned())
         .unwrap_or_else(|| StandardMaterial { base_color: Color::srgb(0.6, 0.2, 0.2), ..default() });
     let limb_wet = WetCanvas::new(&mut images, CANVAS, [0.5, 0.5, 0.5], 0.5);
+    // `--film` gives the limb the preset's film of blood over exposed tissue (`CUT_FACE_FILM_MM`), as its cut faces and craters wear: the strip under it, tissue by tissue.
     let limb_params = FleshParams::for_layers(&layers, FleshMode::Cap, scale.mm_per_unit);
+    let limb_params = if std::env::args().any(|a| a == "--film") { limb_params.with_cut_film(bevy_carnage::preset::CUT_FACE_FILM_MM) } else { limb_params };
     let limb_mat = flesh.add(tables.material(strip, limb_params, Some(limb_wet.roughness()), None));
     commands.spawn((
         Mesh3d(limb_mesh),
