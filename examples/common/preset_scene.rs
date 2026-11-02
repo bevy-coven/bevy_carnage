@@ -364,6 +364,11 @@ pub struct Backdrop;
 /// back of the slab, dressed as [`Gore::wall`] so the exit's forward spatter lands on it and runs.
 /// Its canvas is 512 a side, since a spatter dot at the floor's 12 mm a texel is a smudge.
 pub fn spawn_wall(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>) {
+    spawn_wall_at(commands, meshes, materials, -1.2);
+}
+
+/// [`spawn_wall`] at `z` metres: the same plaster wall, nearer or further behind the body, which is how a burst is seen at a metre or at a hand's breadth from it.
+pub fn spawn_wall_at(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, z: f32) {
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::new(Vec3::Z, Vec2::new(1.5, 1.2)).mesh().build())),
         MeshMaterial3d(materials.add(StandardMaterial {
@@ -371,9 +376,30 @@ pub fn spawn_wall(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials:
             perceptual_roughness: 0.85,
             ..default()
         })),
-        Transform::from_xyz(0.0, 1.2, -1.2),
+        Transform::from_xyz(0.0, 1.2, z),
         Gore::wall().with_canvas(512),
         Backdrop,
+    ));
+}
+
+/// **The rest of the corner `--burst` stands in**: a wall to the body's left and a ceiling over it, as [`spawn_wall_at`] makes the one behind at `back_z`, so a body that comes apart has a room to stain and not
+/// an island. The left wall faces `+X` and its canvas runs down its `u`; the ceiling faces down and nothing runs on it. Both run from the back wall to the front edge of the slab.
+pub fn spawn_corner(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, back_z: f32) {
+    let plaster = |materials: &mut Assets<StandardMaterial>| {
+        MeshMaterial3d(materials.add(StandardMaterial { base_color: Color::srgb(0.74, 0.72, 0.68), perceptual_roughness: 0.85, ..default() }))
+    };
+    let (depth, middle) = ((1.5 - back_z) * 0.5, (1.5 + back_z) * 0.5);
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::new(Vec3::X, Vec2::new(1.2, depth)).mesh().build())),
+        plaster(materials),
+        Transform::from_xyz(-1.5, 1.2, middle),
+        Gore::wall().with_canvas(512).with_gravity_uv(Vec2::new(1.0, 0.0)),
+    ));
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::new(1.5, depth)).mesh().build())),
+        plaster(materials),
+        Transform::from_xyz(0.0, 2.4, middle).with_rotation(Quat::from_rotation_x(std::f32::consts::PI)),
+        Gore::wall().with_canvas(512).with_gravity_uv(Vec2::ZERO),
     ));
 }
 

@@ -28,7 +28,7 @@ pub use droplet::{
 pub use dry::{Appearance, appearance, appearance_of, appearance_with_fresh};
 pub use origin::area_of_origin;
 pub use patterns::{
-    PatternClass, arterial_arc, cast_off, drip_trail, expirated, impact_spatter, transfer,
+    PatternClass, arterial_arc, burst_spatter, cast_off, drip_trail, expirated, impact_spatter, transfer,
 };
 pub use pool::{POOL_CAP_SLACK, Pool, absorb, spread_pools};
 pub use rheo::{flows, viscosity, yield_stress};

@@ -2496,6 +2496,59 @@ pub const EXIT_SCALE: f32 = 1.6;
 /// the entrance a round hole, the exit a hub of radiating splits. A design default.
 pub const EXIT_TEAR: f32 = 1.0;
 
+/// **How many droplets a burst throws unless it is told otherwise**: `960`, nine tenths of what the leaf's budget allows a burst ([`crate::bloodstain::patterns::BURST_BUDGET`] times
+/// [`BloodSettings::max_droplets_per_wound`]). It is the one event that throws more than a wound's worth at once, and a wall a metre off takes about a sixth of it; what bounds the cost is
+/// [`BURST_LANDINGS_PER_TICK`], not the count. This crate's own number (`docs/research/burst.md`).
+pub const BURST_DROPLETS: u32 = 960;
+
+/// **How much larger than the generator's a burst's droplets are drawn**: `3.0`. The sizes of `burst_spatter` are a bullet's: 0.8 to 6 mm, and a body that comes apart throws gouts and ligaments, not a
+/// mist (*Scanners*' effect is "a lot of stringy stuff"), which at a game camera's 5 mm to a pixel on a wall are half a pixel each and read as dust. The hose draws its droplets at 3.5 times for the same reason
+/// ([`HOSE_DROP_SCALE`]). The flight is not scaled: only the stain. A design default, **this crate's own**.
+pub const BURST_DROP_SCALE: f32 = 3.0;
+
+/// **The radius of the volume a burst leaves, metres**, unless it is told otherwise: `0.12`, a head's. A droplet leaves at this far from the burst's centre along its own direction, so the cloud has a size and not
+/// a point for a source. This crate's own number.
+pub const BURST_RADIUS_M: f32 = 0.12;
+
+/// **How far, in radii of the burst, a back face of a mesh does not catch a droplet**: `2.0`. A droplet that leaves the head it burst from passes out through that head's own inside, and a burst that stained
+/// the inside of the thing that burst would paint it from within. Past it every face catches. This crate's own number.
+pub const BURST_SHELL: f32 = 2.0;
+
+/// **A body that comes apart throws its blood in every direction at once.** A cloud of droplets leaves `at`, `radius_m` from it, along directions uniform on the sphere
+/// ([`crate::bloodstain::patterns::burst_spatter`]: Comiskey, Yarin & Attinger's percolation law, fine drops fast and large ones slow, and more fine ones than a wound's cone throws). Each flies the parabola
+/// under [`BloodSettings::gravity`] and is caught by the first dressed surface its flight crosses: a wall, a floor, the part of a body still standing in the way, a cloth, so what is behind a body is shadowed by
+/// it. A droplet is stained where it lands as a spray's is. **It is not a wound**: it opens no crater and breaks nothing. The game sends the [`GoreHit`] that breaks the body or opens its head
+/// *alongside*, which is also what throws the pieces and spills the guts. A tier that draws no blood or no decals throws nothing.
+///
+/// `#[non_exhaustive]`: build it with [`GoreBurst::new`] and the `with_` methods.
+#[derive(Message, Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct GoreBurst {
+    /// Where the body came apart, world space: the middle of the head, of the chest.
+    pub at: Vec3,
+    /// The radius of the volume the blood leaves, metres.
+    pub radius_m: f32,
+    /// How many droplets it throws, at most [`BloodSettings::max_droplets_per_wound`].
+    pub droplets: u32,
+}
+
+impl GoreBurst {
+    /// A burst at `at`, [`BURST_RADIUS_M`] across and [`BURST_DROPLETS`] strong.
+    pub fn new(at: Vec3) -> Self {
+        Self { at, radius_m: BURST_RADIUS_M, droplets: BURST_DROPLETS }
+    }
+    /// The same burst from a volume of `radius_m`: a hand's, a head's, a torso's.
+    pub fn with_radius(mut self, radius_m: f32) -> Self {
+        self.radius_m = radius_m;
+        self
+    }
+    /// The same burst throwing `droplets` droplets.
+    pub fn with_droplets(mut self, droplets: u32) -> Self {
+        self.droplets = droplets;
+        self
+    }
+}
+
 /// **A hit, addressed to a dressed entity or to a character.**
 ///
 /// **Address it to whatever your physics found.** A game's raycast finds a collider, a capsule on the
@@ -2698,6 +2751,7 @@ impl Plugin for GorePlugin {
             .add_message::<GoreReset>()
             .add_message::<GoreStep>()
             .add_message::<GoreSmear>()
+            .add_message::<GoreBurst>()
             .add_message::<GoreFractured>()
             .add_systems(FixedUpdate, scene_gore.before(dress).in_set(GoreSystems))
             .configure_sets(FixedUpdate, GoreSystems.before(VisceraSystems))
@@ -2711,6 +2765,7 @@ impl Plugin for GorePlugin {
                     throw_bodies,
                     bleed,
                     spurt.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<Spurts>),
+                    land_bursts.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<InFlight>),
                     pour_cut_faces,
                     take_steps,
                     take_smears,
@@ -2977,6 +3032,8 @@ struct HitContext<'w, 's> {
     /// The rigid meshes hits are cast at, indexed across ticks, and what Bevy reports changing them.
     index: ResMut<'w, MeshIndex>,
     mesh_events: MessageReader<'w, 's, AssetEvent<Mesh>>,
+    /// Every burst of the tick, thrown after its hits.
+    bursts: MessageReader<'w, 's, GoreBurst>,
 }
 
 /// What [`throw_spray`] needs from the batch it is in: the surfaces, the poses and boxes cached across
@@ -3174,6 +3231,203 @@ fn throw_spray(
     }
 }
 
+/// **One stain of a burst still in the air**, on the surface it will land on: where on its canvas, what shape, whether it is a hard surface's drop or a cloth's blob, and the tick its flight ends.
+#[derive(Clone, Copy)]
+struct Due {
+    tick: u32,
+    uv: Vec2,
+    shape: StainShape,
+    hard: bool,
+}
+
+/// **The stains of every burst that have not landed yet**, kept on the surface they will land on, in the order they were thrown: [`land_bursts`] draws each on the tick its flight ends and takes no
+/// more than [`BURST_LANDINGS_PER_TICK`] from one surface a tick, so the cost of a burst is spread over the half second it takes to arrive and is bounded whatever a burst throws. A
+/// [`GoreReset`] of the surface drops them.
+#[derive(Component, Default)]
+struct InFlight(Vec<Due>);
+
+/// **How many of a burst's stains one surface takes in a tick**: `24`. A stain of a burst costs about `50` microseconds to draw (the largest, on a skin, 300), so a surface takes about a millisecond a tick at
+/// most and a burst's landings, which come over 20 to 40 ticks, are never one frame's cost. Per surface and not per tick, so that which stains land when does not depend on the order a query yields surfaces
+/// in. This crate's own number.
+pub const BURST_LANDINGS_PER_TICK: usize = 24;
+
+/// **Where a burst's droplets land and when.** Each droplet of [`crate::bloodstain::patterns::burst_spatter`] leaves `radius_m` from `burst.at` along its own direction and flies the parabola
+/// `p + v t - g t² / 2` under [`BloodSettings::gravity`], walked as chords of [`HOSE_CHORD_M`] until it has fallen to the lowest floor or [`HOSE_MAX_FLIGHT_S`] has passed, each chord cast at **every dressed
+/// surface** through the mesh index (a skinned body is posed once a batch, as a hit's spray poses it). The nearest landing within the chord is where it ends: a wall, a floor, the part of a body still in the way, a
+/// cloth, so what is behind a body is shadowed by it. A back face within [`BURST_SHELL`] radii of the centre does not catch it (a droplet leaves the head it burst out of by its inside), and a hole in a cloth lets
+/// it through. The stain it makes is `hard_stain` from the speed and slant it arrives with (a cloth takes the blob, as a spray's), **and is queued on the surface for the tick the flight ends**
+/// ([`InFlight`], drawn by [`land_bursts`]): what is cast now is where the surfaces are now, which is where a body's UV says the stain belongs however it has moved by the time it lands.
+#[allow(clippy::too_many_arguments)]
+fn throw_burst(
+    burst: &GoreBurst,
+    salt: u32,
+    thrown: &mut Thrown,
+    meshes: &Assets<Mesh>,
+    rigging: &Rigging,
+    dials: &GoreDials,
+    commands: &mut Commands,
+) {
+    let Thrown { surfaces, posed, bounds, identity, tick, holes, opened, index, refits, .. } = thrown;
+    let index: &MeshIndex = index;
+    let (tick, identity) = (*tick, &**identity);
+    if !burst.at.is_finite() {
+        return;
+    }
+    let droplets = crate::bloodstain::patterns::burst_spatter(burst.at.to_array(), burst.droplets, salt, &dials.blood);
+    if droplets.is_empty() {
+        return;
+    }
+    let radius = if burst.radius_m.is_finite() { burst.radius_m.max(0.0) } else { 0.0 };
+    let gravity = dials.blood.gravity;
+    // Where each surface can be reached, once per batch, and which are drawn in the world as they are posed.
+    for s in surfaces.iter() {
+        if !bounds.contains_key(&s.entity)
+            && let Some(asset) = meshes.get(&s.mesh)
+        {
+            let reach = reach_of(s, asset, rigging, posed, identity, index);
+            bounds.insert(s.entity, reach);
+        }
+    }
+    let drawn: Vec<Option<Castable<(&Surface, bool)>>> = surfaces
+        .iter()
+        .map(|s| match bounds.get(&s.entity) {
+            Some(Reach::Never) | None => None,
+            Some(reach) => {
+                let world = meshes.get(&s.mesh).is_some_and(|a| s.skin.is_some() && Rig::of(a).is_some());
+                Some(((s, world), reach.bounds()))
+            }
+        })
+        .collect();
+    let lowest = surfaces.iter().filter(|s| s.gore.kind == GoreKind::Floor).map(|s| s.xf.translation().y).reduce(f32::min);
+    let shell = BURST_SHELL * radius;
+    let q = |x: f32| (x / crate::bloodstain::WELD).round() as i64 as u32;
+    let place = q(burst.at.x) ^ q(burst.at.y).wrapping_mul(0x9E37_79B9) ^ q(burst.at.z).wrapping_mul(2_654_435_761) ^ salt.wrapping_mul(0x27D4_EB2F);
+    let mut air: Vec<Vec<Due>> = vec![Vec::new(); drawn.len()];
+    let mut order: Vec<(f32, usize)> = Vec::with_capacity(drawn.len());
+    for (i, d) in droplets.iter().enumerate() {
+        let dir = Vec3::from_array(d.dir);
+        let (p0, v) = (burst.at + dir * radius, dir * d.speed);
+        let t_end = lowest.and_then(|y| fall_time(p0.y, v.y, gravity, y)).unwrap_or(HOSE_MAX_FLIGHT_S).min(HOSE_MAX_FLIGHT_S);
+        if !(t_end > 0.0) {
+            continue;
+        }
+        let arc = v.length() * t_end + 0.5 * gravity * t_end * t_end;
+        let chords = ((arc / HOSE_CHORD_M).ceil().clamp(1.0, HOSE_MAX_CHORDS as f32)) as u32;
+        let dt = t_end / chords as f32;
+        let mut landed: Option<(usize, Landing, f32)> = None;
+        for c in 0..chords {
+            let t0 = c as f32 * dt;
+            let (a, b) = (flown(p0, v, gravity, t0), flown(p0, v, gravity, t0 + dt));
+            let step = b - a;
+            if !(step.length() > 1.0e-6) {
+                continue;
+            }
+            let cast = |k: usize| -> Option<Landing> {
+                let ((s, _), _) = drawn.get(k)?.as_ref()?;
+                let asset = meshes.get(&s.mesh)?;
+                let (m, xf) = cast_at(s, asset, rigging, posed, identity)?;
+                ray_cast(m, cast_index(index, refits, s, asset, m), xf, a, step)
+            };
+            let through = |t: &(&Surface, bool), l: &Landing| {
+                let (s, world) = *t;
+                if s.gore.kind == GoreKind::Cloth
+                    && (holes.get(s.entity).is_ok_and(|h| h.is_open_at(l.uv)) || opened.iter().any(|(e, uv, r)| *e == s.entity && uv.distance(l.uv) < *r))
+                {
+                    return true;
+                }
+                // A droplet that meets a back face near the centre is leaving the thing that burst, by its inside.
+                let xf = if world { identity } else { &s.xf };
+                let facing = xf.affine().transform_vector3(l.normal).normalize_or_zero();
+                facing.dot(step) > 0.0 && (a + step * l.t - burst.at).length() < shell
+            };
+            if let Some((k, l)) = nearest_landing_within(1.0, &drawn, a, step, &mut order, cast, through).filter(|(_, l)| l.t <= 1.0) {
+                landed = Some((k, l, t0 + dt * l.t));
+                break;
+            }
+        }
+        let Some((k, l, t)) = landed else { continue };
+        let Some(Some(((s, _), _))) = drawn.get(k) else { continue };
+        let Some(asset) = meshes.get(&s.mesh) else { continue };
+        let Some((m, xf)) = drawn_now(s, asset, posed, identity) else { continue };
+        let seed = place ^ (i as u32).wrapping_mul(0x85EB_CA6B);
+        // The droplet as it arrives: the velocity it has gained over `t` seconds of fall.
+        let velocity = v - Vec3::Y * (gravity * t);
+        let arrives = crate::bloodstain::Droplet { dir: velocity.normalize_or_zero().to_array(), speed: velocity.length(), diameter: d.diameter * BURST_DROP_SCALE };
+        let hard = matches!(s.gore.kind, GoreKind::Wall | GoreKind::Floor | GoreKind::Skin(_));
+        let shape = if hard {
+            match hard_stain(m, xf, &l, &arrives, &dials.blood, seed) {
+                Some(stain) => stain,
+                None => continue,
+            }
+        } else {
+            // A cloth takes the blob it always has, from the droplet's own size: its weave and `Soaking` read it, and the gout scale is for a stipple.
+            let radius = crate::bloodstain::stain::stain_radius(&crate::bloodstain::Droplet { diameter: d.diameter, ..arrives }, arrives.speed, &dials.blood);
+            StainShape { major: radius * 2.4, minor: radius * 1.6, spines: 2, satellites: 1, direction: [0.0, 1.0], seed }
+        };
+        // Ticks, not seconds: the flight's time is turned into a count once, here.
+        let lands = tick.saturating_add((t * dials.hz as f32).ceil().max(0.0) as u32);
+        if let Some(queue) = air.get_mut(k) {
+            queue.push(Due { tick: lands, uv: l.uv, shape, hard });
+        }
+    }
+    for (entry, mut flying) in drawn.iter().zip(air) {
+        if let (Some(((s, _), _)), false) = (entry, flying.is_empty())
+            && let Ok(mut e) = commands.get_entity(s.entity)
+        {
+            // Landing order is flight order, ties in the order thrown: a stable sort of what the burst queued.
+            flying.sort_by_key(|d| d.tick);
+            e.queue(move |mut e: EntityWorldMut| match e.get_mut::<InFlight>() {
+                Some(mut older) => {
+                    older.0.extend(flying);
+                    older.0.sort_by_key(|d| d.tick);
+                }
+                None => {
+                    e.insert(InFlight(flying));
+                }
+            });
+        }
+    }
+}
+
+/// **Draw the stains of a burst whose flights end this tick** ([`InFlight`]): each on its surface's canvas as a spray's is, a cloth's also a `Soaking` landing, at most [`BURST_LANDINGS_PER_TICK`] a
+/// surface a tick, the rest on the next. A surface with nothing left in the air loses the component.
+fn land_bursts(
+    mut commands: Commands,
+    clock: Res<GoreClock>,
+    dials: Res<GoreDials>,
+    wet_settings: Option<Res<WetSettings>>,
+    mut flying: Query<(Entity, &Gore, &mut WetCanvas, &mut InFlight, Option<&mut Soaking>)>,
+) {
+    let tick = clock.0;
+    let edges = edge_settings(&dials, wet_settings.as_deref());
+    for (entity, gore, mut wet, mut air, mut soaking) in &mut flying {
+        let texels = wet.size();
+        let mut taken = 0;
+        let mut waiting: Vec<Due> = Vec::new();
+        for due in air.0.drain(..) {
+            if due.tick > tick || taken >= BURST_LANDINGS_PER_TICK {
+                waiting.push(due);
+                continue;
+            }
+            taken += 1;
+            if due.hard {
+                paint_drop(&mut wet, gore, due.uv, &due.shape, tick, &edges);
+            } else {
+                wet.paint_uv_with(due.uv, &shape_on(gore, &due.shape, texels), tick, &edges);
+            }
+            if gore.kind == GoreKind::Cloth
+                && let Some(soaking) = soaking.as_mut()
+            {
+                soaking.landings.push((due.uv, due.shape, tick));
+            }
+        }
+        if waiting.is_empty() {
+            commands.entity(entity).remove::<InFlight>();
+        }
+        air.0 = waiting;
+    }
+}
+
 /// **A droplet as it arrives on a plane `fall` below where it left**: the horizontal velocity it left with and the
 /// vertical one it has gained over the drop, downward whichever way it set out. The closed form
 /// `crate::bloodstain::landing` lands it by, and what `hard_stain` reads its slant and its downrange from.
@@ -3272,6 +3526,20 @@ fn nearest_landing<T>(
     from: Vec3,
     dir: Vec3,
     order: &mut Vec<(f32, usize)>,
+    cast: impl FnMut(usize) -> Option<Landing>,
+    lets_through: impl FnMut(&T, &Landing) -> bool,
+) -> Option<(usize, Landing)> {
+    nearest_landing_within(f32::INFINITY, drawn, from, dir, order, cast, lets_through)
+}
+
+/// **[`nearest_landing`] for a ray that is only a step long**: a surface whose box the ray enters past `limit` multiples of `dir` is not cast at. A flight walked as chords, each cast `dir` long, has no use
+/// for a wall three metres on, and the caller then asks only for a landing at `t <= 1`. With an infinite `limit` it is [`nearest_landing`].
+fn nearest_landing_within<T>(
+    limit: f32,
+    drawn: &[Option<Castable<T>>],
+    from: Vec3,
+    dir: Vec3,
+    order: &mut Vec<(f32, usize)>,
     mut cast: impl FnMut(usize) -> Option<Landing>,
     mut lets_through: impl FnMut(&T, &Landing) -> bool,
 ) -> Option<(usize, Landing)> {
@@ -3279,7 +3547,7 @@ fn nearest_landing<T>(
     order.extend(drawn.iter().enumerate().filter_map(|(k, entry)| {
         let (_, b) = entry.as_ref()?;
         match b {
-            Some(b) => b.entry(from, dir).map(|t| (t, k)),
+            Some(b) => b.entry(from, dir).filter(|t| *t <= limit).map(|t| (t, k)),
             None => Some((0.0, k)),
         }
     }));
@@ -3332,6 +3600,7 @@ fn take_hits(
         organ_look,
         index,
         mesh_events,
+        bursts,
     } = &mut cx;
     // A mesh Bevy reports changed is indexed again when it is next cast at; read every tick, hits or
     // none, so no report is missed.
@@ -3367,7 +3636,8 @@ fn take_hits(
         }
     }
     let hits: Vec<GoreHit> = hits.read().copied().collect();
-    if hits.is_empty() {
+    let bursts: Vec<GoreBurst> = bursts.read().copied().collect();
+    if hits.is_empty() && bursts.is_empty() {
         return;
     }
     let edges = edge_settings(dials, wet_settings.as_deref());
@@ -4008,6 +4278,14 @@ fn take_hits(
             }
         }
     }
+    // **Every burst of the tick**, after its hits: what a hit left on a body is there for the cloud to stain over, and the burst's own order is the order the messages were sent in.
+    if spray {
+        for (n, burst) in bursts.iter().enumerate() {
+            let mut thrown =
+                Thrown { surfaces: &surfaces, posed: &mut posed, bounds: &mut bounds, identity: &identity, edges: &edges, tick, holes: cloth_holes, opened: &opened, index, refits: &mut refits };
+            throw_burst(burst, tick ^ (n as u32).wrapping_mul(0x9E37_79B9), &mut thrown, meshes, &rigging, dials, &mut commands);
+        }
+    }
 }
 
 /// One piece of a body, in its local frame, before it is placed.
@@ -4255,7 +4533,7 @@ fn reset_gore(
             if let Some(untorn) = untorn {
                 entity.try_insert(Mesh3d(untorn.0.clone()));
             }
-            entity.try_remove::<(Wounds, Bruising, Laceration, Untorn, Broken, ThrowNow, CutFaceBleed, Tread, Smeared, Spurts)>();
+            entity.try_remove::<(Wounds, Bruising, Laceration, Untorn, Broken, ThrowNow, CutFaceBleed, Tread, Smeared, Spurts, InFlight)>();
         }
     }
 }
@@ -5420,6 +5698,7 @@ mod tests {
             .add_message::<GoreReset>()
             .add_message::<GoreStep>()
             .add_message::<GoreSmear>()
+            .add_message::<GoreBurst>()
             .add_message::<GoreFractured>()
             .add_message::<BoneExposed>()
             .add_message::<Wounded>()
@@ -5427,7 +5706,7 @@ mod tests {
             .init_resource::<WetSettings>()
             .init_resource::<FlaySettings>()
             .add_systems(FixedUpdate, scene_gore.before(dress))
-            .add_systems(FixedUpdate, (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, spurt.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<Spurts>), pour_cut_faces, take_steps, take_smears, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
+            .add_systems(FixedUpdate, (advance_clock, dress, reset_gore, take_hits, throw_bodies, bleed, spurt.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<Spurts>), land_bursts.run_if(bevy::ecs::schedule::common_conditions::any_with_component::<InFlight>), pour_cut_faces, take_steps, take_smears, age_bruises, soak_cloth, tick_canvases, flush_dermis, fly).chain());
         let images = app.world_mut().resource_mut::<Assets<Image>>().reserve_handle();
         app.world_mut().resource_mut::<FleshTables>().luts = images;
         app
@@ -6665,6 +6944,7 @@ mod tests {
             .insert_resource(GoreDials { bruise_hours_per_tick: 1.0, ..default() })
             .init_resource::<GoreClock>()
             .add_message::<GoreHit>()
+            .add_message::<GoreBurst>()
             .add_message::<GoreFractured>()
             .add_message::<BoneExposed>()
             .add_message::<Wounded>()
@@ -6774,6 +7054,7 @@ mod tests {
             .init_resource::<GoreDials>()
             .init_resource::<GoreClock>()
             .add_message::<GoreHit>()
+            .add_message::<GoreBurst>()
             .add_message::<GoreFractured>()
             .add_message::<BoneExposed>()
             .add_message::<Wounded>()
@@ -8133,5 +8414,194 @@ mod tests {
             wet.sort_by(f64::total_cmp);
             println!("METRIC wet_tick_ms_median_{label}={:.4}", wet[wet.len() / 2]);
         }
+    }
+
+    /// **A room for a burst**: a floor three metres across, a wall at `z = -1.5` and one at `x = -1.5` facing in, as [`room`] makes them, a body (a flat box `1.2 x 1.2 x 0.2`) where the caller puts it, if
+    /// at all. Returns `(floor, back wall, left wall, body)`.
+    fn burst_room(app: &mut App, body_at: Option<Vec3>) -> (Entity, Entity, Entity, Option<Entity>) {
+        let world = app.world_mut();
+        let (floor_mesh, back_mesh, left_mesh, box_mesh) = {
+            let mut meshes = world.resource_mut::<Assets<Mesh>>();
+            (
+                meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.5)).mesh().build()),
+                meshes.add(Plane3d::new(Vec3::Z, Vec2::new(1.5, 1.2)).mesh().build()),
+                meshes.add(Plane3d::new(Vec3::X, Vec2::new(1.2, 1.5)).mesh().build()),
+                meshes.add(Cuboid::new(1.2, 1.2, 0.2).mesh().build()),
+            )
+        };
+        let floor = world.spawn((Mesh3d(floor_mesh), Transform::IDENTITY, GlobalTransform::IDENTITY, Gore::floor().with_uv_per_metre(1.0 / 3.0).with_canvas(256))).id();
+        let at = Transform::from_xyz(0.0, 1.2, -1.5);
+        let back = world.spawn((Mesh3d(back_mesh), at, GlobalTransform::from(at), Gore::wall().with_uv_per_metre(1.0 / 3.0).with_canvas(512))).id();
+        let at = Transform::from_xyz(-1.5, 1.2, 0.0);
+        let left = world.spawn((Mesh3d(left_mesh), at, GlobalTransform::from(at), Gore::wall().with_uv_per_metre(1.0 / 3.0).with_gravity_uv(Vec2::new(1.0, 0.0)).with_canvas(512))).id();
+        let body = body_at.map(|p| {
+            let at = Transform::from_translation(p);
+            world.spawn((Mesh3d(box_mesh), at, GlobalTransform::from(at), Gore::skin(Region::Torso))).id()
+        });
+        world.run_schedule(FixedUpdate);
+        (floor, back, left, body)
+    }
+
+    fn wetted(app: &App, e: Entity) -> f32 {
+        app.world().get::<WetCanvas>(e).map_or(0.0, |w| w.wetted_area())
+    }
+
+    /// **A burst reaches every surface round it, and not on the tick it leaves.** A burst at head height in a corner of two walls and a floor: on its own tick nothing is drawn (the fastest droplet takes
+    /// six ticks to cross a metre); a second later the floor, the wall behind and the wall to the side are all wet. Each stain is drawn when its flight ends, so the cloud arrives over ticks and the cost of a
+    /// burst is not one tick's.
+    #[test]
+    fn a_burst_reaches_every_surface_round_it_and_arrives_over_ticks() {
+        let mut app = headless();
+        let (floor, back, left, _) = burst_room(&mut app, None);
+        app.world_mut().write_message(GoreBurst::new(Vec3::new(0.0, 1.5, 0.0)));
+        app.world_mut().run_schedule(FixedUpdate);
+        let first = [floor, back, left].map(|e| wetted(&app, e));
+        assert_eq!(first, [0.0; 3], "something was drawn on the tick the burst left: {first:?}");
+        let mut covered = Vec::new();
+        for _ in 0..90 {
+            app.world_mut().run_schedule(FixedUpdate);
+            covered.push([floor, back, left].map(|e| wetted(&app, e)).iter().sum::<f32>());
+        }
+        let last = [floor, back, left].map(|e| wetted(&app, e));
+        assert!(last.iter().all(|a| *a > 0.0), "a surface was left dry: floor, back, left = {last:?}");
+        let (early, late) = (covered[10], *covered.last().unwrap_or(&0.0));
+        assert!(early > 0.0 && late > 1.5 * early, "the cloud did not arrive over time: {early} m2 at ten ticks, {late} at ninety");
+    }
+
+    /// **A burst leaves a spray of many sizes on a wall a metre off, not a handful of blobs of one**: at least forty separate stains, the widest at least four times the narrowest. The count is the cloud's
+    /// (`BURST_DROPLETS` over a sphere, a sixth of it toward a wall), the spread the percolation law's (the small drops fast and far, the large slow and near) drawn at the canvas's resolution.
+    #[test]
+    fn a_burst_leaves_many_stains_of_many_sizes_on_a_wall_a_metre_off() {
+        let mut app = headless();
+        let (_, back, _, _) = burst_room(&mut app, None);
+        app.world_mut().write_message(GoreBurst::new(Vec3::new(0.0, 1.2, -0.5)));
+        for _ in 0..60 {
+            app.world_mut().run_schedule(FixedUpdate);
+        }
+        let Some(wet) = app.world().get::<WetCanvas>(back) else { panic!("the wall has no canvas") };
+        let stains = stains_on(wet);
+        let widest = stains.iter().map(|s| s.1).max().unwrap_or(0);
+        let narrowest = stains.iter().map(|s| s.1).min().unwrap_or(0).max(1);
+        assert!(stains.len() >= 40, "a burst left {} stains on the wall: a spray is dozens", stains.len());
+        assert!(widest >= 4 * narrowest, "the stains run from {narrowest} to {widest} texels across: one size is a stamp, not a spray");
+    }
+
+    /// **A burst's droplets fall as they fly.** The same burst level with the middle of the wall behind it, under the shipped gravity and under none: the stains' centre of mass is more than ten centimetres
+    /// lower with it. Cast straight the two would be the same wall. (The canvas runs a wet stain down a wall in either, which is why the two are compared and not one measured against the burst's height.)
+    #[test]
+    fn a_burst_falls_as_it_flies() {
+        let centre = |gravity: f32| {
+            let mut app = headless();
+            app.world_mut().resource_mut::<GoreDials>().blood.gravity = gravity;
+            let (_, back, _, _) = burst_room(&mut app, None);
+            app.world_mut().write_message(GoreBurst::new(Vec3::new(0.0, 1.2, 0.0)));
+            for _ in 0..120 {
+                app.world_mut().run_schedule(FixedUpdate);
+            }
+            let Some(wet) = app.world().get::<WetCanvas>(back) else { panic!("the wall has no canvas") };
+            let n = wet.size();
+            let (mut rows, mut total) = (0.0f64, 0.0f64);
+            for y in 0..n {
+                for x in 0..n {
+                    let a = wet.amount_at(x, y) as f64;
+                    rows += a * y as f64;
+                    total += a;
+                }
+            }
+            assert!(total > 0.0, "the wall took nothing at gravity {gravity}");
+            // The wall is 2.4 m high at 512 texels, its UV running down.
+            rows / total * 2.4 / n as f64
+        };
+        let (heavy, none) = (centre(18.0), centre(0.0));
+        assert!(heavy - none > 0.10, "the stains' centre is {:.3} m lower with gravity: they were not thrown on a parabola", heavy - none);
+    }
+
+    /// **A body in the way is stained and shadows what is behind it.** The same burst, 0.5 m in front of the wall's centre, with and without a box 1.2 m across between it and the wall: the box
+    /// is stained itself, and the wall takes less than a quarter of the blood it took with nothing there (about a twentieth, measured). (A droplet is cast from where it is thrown to where it lands, not through what stands between.)
+    #[test]
+    fn a_body_in_the_way_catches_the_burst_and_shadows_the_wall() {
+        let run = |body: Option<Vec3>| {
+            let mut app = headless();
+            let (_, back, _, body) = burst_room(&mut app, body);
+            app.world_mut().write_message(GoreBurst::new(Vec3::new(0.0, 1.2, 0.5)).with_radius(0.05));
+            for _ in 0..120 {
+                app.world_mut().run_schedule(FixedUpdate);
+            }
+            (wetted(&app, back), body.map_or(0.0, |b| wetted(&app, b)))
+        };
+        let ((open, _), (shadowed, on_body)) = (run(None), run(Some(Vec3::new(0.0, 1.2, -0.3))));
+        assert!(open > 0.0, "the open wall took nothing");
+        assert!(on_body > 0.0, "the body in the way was not stained");
+        assert!(shadowed < 0.25 * open, "the wall took {shadowed} m2 behind the body against {open} m2 open: no shadow");
+    }
+
+    /// **A body that bursts is not stained from inside, and does not stop its own cloud.** The burst's own centre inside a closed sphere a little over its radius across: a droplet leaves by the sphere's back
+    /// faces, which do not catch it within `BURST_SHELL` radii of the centre, so the sphere takes nothing and the wall behind it takes at least four fifths of what it takes with no sphere there.
+    #[test]
+    fn a_burst_leaves_the_body_it_burst_from_by_its_inside() {
+        let run = |sphere: bool| {
+            let mut app = headless();
+            let (_, back, _, _) = burst_room(&mut app, None);
+            let head = sphere.then(|| {
+                let world = app.world_mut();
+                let mesh = world.resource_mut::<Assets<Mesh>>().add(Sphere::new(0.15).mesh().uv(24, 12));
+                let at = Transform::from_xyz(0.0, 1.2, 0.0);
+                world.spawn((Mesh3d(mesh), at, GlobalTransform::from(at), Gore::skin(Region::Head))).id()
+            });
+            app.world_mut().run_schedule(FixedUpdate);
+            app.world_mut().write_message(GoreBurst::new(Vec3::new(0.0, 1.2, 0.0)));
+            for _ in 0..120 {
+                app.world_mut().run_schedule(FixedUpdate);
+            }
+            (wetted(&app, back), head.map_or(0.0, |h| wetted(&app, h)))
+        };
+        let ((open, _), (through, on_head)) = (run(false), run(true));
+        assert!(open > 0.0, "the open wall took nothing");
+        assert_eq!(on_head, 0.0, "the body that burst was stained from inside: {on_head} m2");
+        assert!(through >= 0.8 * open, "the wall took {through} m2 behind the body that burst, {open} m2 with nothing there: the body stopped its own cloud");
+    }
+
+    /// **A burst is reproducible, and a second one in the same place is another cloud.** Two runs of one burst fold to one digest on every surface; the same burst sent a tick later (another salt) does
+    /// not.
+    #[test]
+    fn a_burst_is_reproducible_and_never_the_same_cloud_twice() {
+        let run = |skip: u32| {
+            let mut app = headless();
+            let (floor, back, left, _) = burst_room(&mut app, None);
+            for _ in 0..skip {
+                app.world_mut().run_schedule(FixedUpdate);
+            }
+            app.world_mut().write_message(GoreBurst::new(Vec3::new(0.0, 1.5, 0.0)));
+            for _ in 0..90 {
+                app.world_mut().run_schedule(FixedUpdate);
+            }
+            [floor, back, left].map(|e| app.world().get::<WetCanvas>(e).map_or(0, |w| w.digest()))
+        };
+        assert_eq!(run(0), run(0), "two runs of one burst differ");
+        assert_ne!(run(0), run(1), "a burst a tick later threw the same cloud");
+    }
+
+    /// **A tier that draws no decals throws no burst, and a reset takes a cloud out of the air.** A policy that keeps blood and refuses what lands on the world leaves every surface dry; and healing a
+    /// wall on the tick after a burst leaves it dry while the others take theirs.
+    #[test]
+    fn a_tier_that_refuses_decals_throws_no_burst_and_a_reset_takes_one_out_of_the_air() {
+        let mut app = headless();
+        app.world_mut().insert_resource(GorePolicy { blood_decals: false, ..GorePolicy::for_tier(crate::GoreTier::Blood) });
+        let (floor, back, left, _) = burst_room(&mut app, None);
+        app.world_mut().write_message(GoreBurst::new(Vec3::new(0.0, 1.5, 0.0)));
+        for _ in 0..90 {
+            app.world_mut().run_schedule(FixedUpdate);
+        }
+        assert_eq!([floor, back, left].map(|e| wetted(&app, e)), [0.0; 3], "a tier that refuses decals still drew a burst");
+        let mut app = headless();
+        let (floor, back, left, _) = burst_room(&mut app, None);
+        app.world_mut().write_message(GoreBurst::new(Vec3::new(0.0, 1.5, 0.0)));
+        app.world_mut().run_schedule(FixedUpdate);
+        app.world_mut().write_message(GoreReset::new(back));
+        for _ in 0..90 {
+            app.world_mut().run_schedule(FixedUpdate);
+        }
+        assert_eq!(wetted(&app, back), 0.0, "a reset left the wall its cloud");
+        assert!(wetted(&app, floor) > 0.0 && wetted(&app, left) > 0.0, "a reset of one wall took the others' blood");
     }
 }
