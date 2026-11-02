@@ -4,6 +4,9 @@
 //! cargo run --release -p bevy_carnage --example capture_preset -- --out frames-preset
 //! ```
 //!
+//! `--eye x,y,z` renders from another camera position, aimed at `--at x,y,z` (default the body's middle, low): neither changes a
+//! digest. It is how a cut face is seen close, at the pieces' own scale, which the default view is too far to show.
+//!
 //! Writes `frame0000.png …` and prints one digest line; two runs must print the same line. `digest=`
 //! folds the wetmaps as the clip ends; `flay=` and `dermis=` fold the craters and the bruises and burns,
 //! which `digest=` cannot see, over every frame (the body breaks at frame 120 and is gone at the end).
@@ -37,7 +40,15 @@ fn main() {
     // On the windowed demos' sweep, near straight ahead: the body, the sheet beside it and the floor
     // spatter in front all in frame. From the old (1.1, 1.5, 2.9) the sheet stood in front of the
     // right arm and the scalded thigh for the whole clip (R1-13).
-    let camera = common::preset_scene::view(-0.08);
+    let point = |flag: &str| {
+        common::arg(flag)
+            .map(|s| s.split(',').filter_map(|p| p.trim().parse::<f32>().ok()).collect::<Vec<_>>())
+            .and_then(|v| (v.len() == 3).then(|| Vec3::new(v[0], v[1], v[2])))
+    };
+    let camera = match point("--eye") {
+        Some(eye) => Transform::from_translation(eye).looking_at(point("--at").unwrap_or(Vec3::new(0.15, 0.55, 0.3)), Vec3::Y),
+        None => common::preset_scene::view(-0.08),
+    };
     // `--tier 0|1|2|3` (or `stylised|blood|gore|gross`) replays the same script under that
     // `GorePolicy`. Absent, the shipped policy is in force, which is what the committed clip shows.
     let tier = common::arg("--tier").map(|t| {

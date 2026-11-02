@@ -15,6 +15,10 @@
 #   WEBGL2_WORKTREE  detached git worktree the wasm build runs in (default $WEBGL2_WORK/worktree)
 #   WEBGL2_TARGET    cargo target dir for the wasm build (default $WEBGL2_WORK/target)
 #
+# Browser: Chrome or Chromium driven over CDP (Node 22+) where there is one (macOS), else Firefox on an Xvfb
+# display with Mesa's software GL (a Linux box with neither Chrome nor Node; it sends no input, so CLICKS is
+# ignored). `WEBGL2_DRIVER=firefox` forces the second. The two see the same console log and screenshot checks.
+#
 # Verdict: `WEBGL2 PIPELINE OK` only when the module initialised, the page had a WebGL2 context,
 # no console line matches the error patterns, and the screenshot is non-blank.
 # Exit: 0 OK, 1 FAIL, 2 usage or harness error.
@@ -41,6 +45,9 @@ LOG=$WORK/console.log
 SHOT=$WORK/shot-$(date +%Y%m%d-%H%M%S).png
 SERVER_PID=""
 CHROME_PROFILE=""
+FF_PID=""
+XVFB_PID=""
+FF_PROFILE=""
 
 cleanup() {
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null
@@ -49,6 +56,9 @@ cleanup() {
     sleep 1
     rm -rf "$CHROME_PROFILE" 2>/dev/null
   fi
+  [ -n "$FF_PID" ] && kill "$FF_PID" 2>/dev/null
+  [ -n "$XVFB_PID" ] && kill "$XVFB_PID" 2>/dev/null
+  [ -n "$FF_PROFILE" ] && { sleep 1; rm -rf "$FF_PROFILE" 2>/dev/null; }
   true
 }
 trap cleanup EXIT
@@ -58,14 +68,13 @@ need() { command -v "$1" >/dev/null 2>&1 || die "missing prerequisite '$1': $2";
 need git "source checkout and worktree"
 need rsync "file sync into the worktree"
 need perl "Cargo.toml feature swap"
-need shasum "source fingerprint"
+if command -v shasum >/dev/null 2>&1; then SHA="shasum -a 256"
+elif command -v sha256sum >/dev/null 2>&1; then SHA="sha256sum"
+else die "missing prerequisite 'shasum' or 'sha256sum': source fingerprint"; fi
 need curl "server readiness probe"
 need rustup "installs the wasm32 target"
 need cargo "builds the wasm module"
 need python3 "serves the page and checks the screenshot (standard library only)"
-need node "drives Chrome over CDP (Node 22+)"
-[ "$(node -e 'console.log(Number(process.versions.node.split(".")[0]) >= 22 ? "yes" : "no")')" = yes ] \
-  || die "node $(node --version) is too old: shoot.mjs needs Node 22+ (global WebSocket and fetch)"
 
 find_chrome() {
   if [ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]; then
@@ -76,7 +85,17 @@ find_chrome() {
   done
 }
 CHROME=$(find_chrome)
-[ -n "$CHROME" ] || die "no Chrome: install Google Chrome, or put google-chrome or chromium on PATH"
+NODE_OK=no
+if command -v node >/dev/null 2>&1 && [ "$(node -e 'console.log(Number(process.versions.node.split(".")[0]) >= 22 ? "yes" : "no")')" = yes ]; then NODE_OK=yes; fi
+# Chrome over CDP when there is a Chrome and a Node 22+ to drive it; otherwise Firefox on Xvfb. `WEBGL2_DRIVER=firefox` forces the latter.
+if [ -n "$CHROME" ] && [ "$NODE_OK" = yes ] && [ "${WEBGL2_DRIVER:-}" != firefox ]; then
+  DRIVER=chrome
+elif command -v firefox >/dev/null 2>&1 && command -v Xvfb >/dev/null 2>&1 && command -v import >/dev/null 2>&1; then
+  DRIVER=firefox
+else
+  die "no browser driver: Chrome or Chromium with Node 22+ (drives it over CDP), or Firefox with Xvfb and ImageMagick's import"
+fi
+echo "driver: $DRIVER"
 
 mkdir -p "$WORK" "$TOOLS" "$WWW" "$RUNS" || die "cannot create work dir $WORK"
 
@@ -133,7 +152,7 @@ grep -q '"webgpu"\] }' "$WT/Cargo.toml" && die "webgpu still selected in $WT/Car
 # Fingerprint of the SOURCE tree (not the worktree, which also holds the swapped Cargo.toml).
 # `find` exits 1 when a directory such as benches/ is absent, so its status is ignored.
 fingerprint() {
-  { find src examples tests benches Cargo.toml Cargo.lock -type f 2>/dev/null || true; } | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256 | cut -d' ' -f1
+  { find src examples tests benches Cargo.toml Cargo.lock -type f 2>/dev/null || true; } | LC_ALL=C sort | xargs $SHA | $SHA | cut -d' ' -f1
 }
 MANIFEST=$(cd "$SRC" && fingerprint)
 if [ "$MANIFEST" != "$(cat "$WORK/sync.manifest" 2>/dev/null)" ]; then
@@ -235,20 +254,48 @@ for _ in $(seq 1 50); do
 done
 curl -fsS -o /dev/null "http://127.0.0.1:$PORT/index.html" || die "server did not come up on $PORT"
 
-CHROME_PROFILE=$WORK/profile-$$
-mkdir -p "$CHROME_PROFILE"
-"$CHROME" --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader \
-  --ignore-gpu-blocklist --enable-webgl --window-size=1280,800 --no-first-run \
-  --no-default-browser-check --disable-background-networking --remote-debugging-port="$CDP" \
-  --user-data-dir="$CHROME_PROFILE" about:blank >"$WORK/chrome.stderr" 2>&1 &
+if [ "$DRIVER" = chrome ]; then
+  CHROME_PROFILE=$WORK/profile-$$
+  mkdir -p "$CHROME_PROFILE"
+  "$CHROME" --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader \
+    --ignore-gpu-blocklist --enable-webgl --window-size=1280,800 --no-first-run \
+    --no-default-browser-check --disable-background-networking --remote-debugging-port="$CDP" \
+    --user-data-dir="$CHROME_PROFILE" about:blank >"$WORK/chrome.stderr" 2>&1 &
 
-# --- 6. drive the page --------------------------------------------------------------------------
-DRIVE_JSON=$(node "$SELF_DIR/shoot.mjs" "$CDP" "http://127.0.0.1:$PORT/index.html" "$LOG" "$SETTLE" "$SHOT" 240)
-DRIVE_RC=$?
-echo "drive: $DRIVE_JSON (rc $DRIVE_RC)"
-[ $DRIVE_RC -eq 0 ] || die "shoot.mjs failed (rc $DRIVE_RC): $DRIVE_JSON"
-LOADED=$(node -e 'try { const j = JSON.parse(process.argv[1]); console.log(j.loaded === true ? "yes" : "no"); } catch (e) { console.log("no"); }' "$DRIVE_JSON")
-WEBGL2=$(node -e 'try { const j = JSON.parse(process.argv[1]); console.log(j.page && j.page.webgl2 === true ? "yes" : "no"); } catch (e) { console.log("no"); }' "$DRIVE_JSON")
+  # --- 6. drive the page ------------------------------------------------------------------------
+  DRIVE_JSON=$(node "$SELF_DIR/shoot.mjs" "$CDP" "http://127.0.0.1:$PORT/index.html" "$LOG" "$SETTLE" "$SHOT" 240)
+  DRIVE_RC=$?
+  echo "drive: $DRIVE_JSON (rc $DRIVE_RC)"
+  [ $DRIVE_RC -eq 0 ] || die "shoot.mjs failed (rc $DRIVE_RC): $DRIVE_JSON"
+  LOADED=$(node -e 'try { const j = JSON.parse(process.argv[1]); console.log(j.loaded === true ? "yes" : "no"); } catch (e) { console.log("no"); }' "$DRIVE_JSON")
+  WEBGL2=$(node -e 'try { const j = JSON.parse(process.argv[1]); console.log(j.page && j.page.webgl2 === true ? "yes" : "no"); } catch (e) { console.log("no"); }' "$DRIVE_JSON")
+else
+  # Firefox on a virtual X display: Mesa's llvmpipe gives it a WebGL2 context where headless Firefox has none
+  # (AG-109). It is shown the page full screen, left to settle, and the screen is photographed; no input is sent.
+  [ -z "${CLICKS:-}" ] || echo "note: CLICKS is ignored by the firefox driver (it sends no input)"
+  XDISP=""
+  for n in $(seq 90 109); do
+    [ -e "/tmp/.X11-unix/X$n" ] || [ -e "/tmp/.X$n-lock" ] || { XDISP=":$n"; break; }
+  done
+  [ -n "$XDISP" ] || die "no free X display between :90 and :109"
+  Xvfb "$XDISP" -screen 0 1280x800x24 >"$WORK/xvfb.stderr" 2>&1 &
+  XVFB_PID=$!
+  sleep 2
+  FF_PROFILE=$WORK/ffprofile-$$
+  mkdir -p "$FF_PROFILE"
+  printf '%s\n' 'user_pref("webgl.force-enabled", true);' 'user_pref("webgl.disabled", false);' \
+    'user_pref("browser.shell.checkDefaultBrowser", false);' 'user_pref("datareporting.policy.dataSubmissionEnabled", false);' \
+    'user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);' > "$FF_PROFILE/user.js"
+  DISPLAY="$XDISP" firefox --no-remote --profile "$FF_PROFILE" --kiosk "http://127.0.0.1:$PORT/index.html" >"$WORK/firefox.stderr" 2>&1 &
+  FF_PID=$!
+  # --- 6. drive the page ------------------------------------------------------------------------
+  for _ in $(seq 1 240); do grep -q 'init resolved' "$LOG" && break; sleep 1; done
+  sleep "$SETTLE"
+  DISPLAY="$XDISP" import -window root "$SHOT" 2>"$WORK/import.stderr" || echo "screenshot: import failed ($(head -c 200 "$WORK/import.stderr"))"
+  LOADED=no; grep -q 'init resolved' "$LOG" && LOADED=yes
+  WEBGL2=no; grep -q 'webgl2 context: yes' "$LOG" && WEBGL2=yes
+  echo "drive: firefox on $XDISP, module initialised: $LOADED, webgl2: $WEBGL2"
+fi
 
 # --- 7. screenshot check (python3 standard library: PNG decoded by hand) ------------------------
 read -r -d '' SHOT_PY <<'PY'
