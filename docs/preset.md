@@ -330,7 +330,12 @@ under a tier; it draws the spark at `Stylised` from the `Wounded` message, the w
   over the muscle and a quarter of it over the fat at the rim, with its clear coat
   (`FleshParams::with_cut_film`); bare, the fat band read as cheese. A skin's craters wear the same
   film over the tissue they bare (0.5.42), none on the graze and all of it in the muscle; bare, a
-  crater was a ring of yellow fat.
+  crater was a ring of yellow fat. **Since 0.8.13 a cut face is also a wet surface** and not a flat
+  polygon of one tone: the shader lifts it by a slow undulation (a value noise 16 mm across and 4 mm high
+  over its own planar coordinate, so it stays with the piece as it falls) and lifts its clear coat's
+  normal by three times as much, so a face shades unevenly and catches glints along its folds. No colour
+  changes. `docs/research/cut-face-relief.md`; `capture_preset --eye x,y,z --at x,y,z` looks at a heap of
+  pieces close.
 - `Wounds`, a component on each hurt part: every wound it is bleeding, each a UV on its wetmap and
   a point on its mesh. A hit away from the open wounds opens another, up to
   `GoreDials::open_wounds` (16), and a hit inside one reopens it. A wound leaves the list once its
