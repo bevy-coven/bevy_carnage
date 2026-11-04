@@ -392,6 +392,7 @@ name = "bevy_carnage"
 # amended, so that correction shipped as a patch release. No code changed between those two.
 version = "0.9.0"
 edition = "2024"
+rust-version = "1.97.1"
 description = "Deterministic runtime gore for Bevy: plane-cut a character's own meshes into watertight-capped chunks, bore bullet channels through them, and drive blood, spatter and impact feel off the wounds that result."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevy-coven/bevy_carnage"
