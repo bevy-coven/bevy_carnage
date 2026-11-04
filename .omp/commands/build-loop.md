@@ -110,7 +110,7 @@ a build cache's worth of disk, and one with `main` checked out stops anything el
 **The numbers are the state.** This crate's cost lands on its caller's frame and its output must be
 reproducible, so measure both the way a caller pays for them:
 
-- **Cost:** `$CARGO_TARGET_DIR/release/examples/bench_carnage` (sixteen scripted bodies, 360 ticks, no
+- **Cost:** `$CARGO_TARGET_DIR/release/examples/bench_carnage` (sixteen scripted bodies, 600 ticks — `const TICKS: u32 = 600` in the example, no
   window, no GPU). Record its `METRIC carnage_frame_ms=`, `METRIC carnage_total_ms=` and
   `METRIC carnage_p99_ms=` lines and its `digest` line in `/tmp/cN/before/bench.txt`. It refuses to
   report a timing when the carnage moved or the fastest reps disagree ("NO STABLE PLATEAU"): that refusal
@@ -298,8 +298,8 @@ made to look like the films it learns from, so every iteration cites **three** k
 1. a **physics** source: blood rheology and haemodynamics (shear-thinning, yield stress, clotting,
    drying), droplet ballistics and impact, bloodstain pattern analysis, wound and skin biomechanics,
    tissue optics, fracture mechanics. Search home-still (`distill_search`, then `paper_search`); the
-   papers already quoted in `docs/bloodstain-citations.md`, `src/layers.rs`, `src/curve.rs` and
-   `src/tear.rs` (Comiskey, Stam, O'Brien, Bargteil & Hodgins 2002, Müller, Chentanez & Kim 2013) are the
+   papers already quoted in `docs/bloodstain-citations.md`, `src/cross_section/layers.rs`,
+   `src/laceration/curve.rs` and `src/laceration/tear.rs` (Comiskey, Stam, O'Brien, Bargteil & Hodgins 2002, Müller, Chentanez & Kim 2013) are the
    models in use;
 2. a **horror-film reference** source, mandatory for anything visible: the 4-6 references section 2
    gathered (practical-effects stills from *The Thing*, *Evil Dead*, *Hellraiser*, *Re-Animator*,
@@ -404,12 +404,14 @@ reading anything you are proud of.
   1. `cargo build` (declared features only, no dev-dependencies: the only build that proves the crate
      compiles with exactly the features a consumer gets)
   2. `cargo build --release` (load-bearing, `CLAUDE.md`)
-  3. `cargo test`
+  3. `cargo nextest run` and `cargo test --doc` (nextest does not run doctests)
   4. `cargo build --examples`
 
   Clippy, rustfmt and wasm are not gates here (CI runs none of them, and clippy has a standing backlog of
   warnings); add no new clippy warning in a file you touch, and run `cargo fmt` on the files you touch.
   `--all-features` is not a gate until `vfx` builds on Bevy 0.20.
+
+Fast testing across the home cloud — the host matrix, mold, sccache and the measured numbers — is `agents/TESTING.md` in the codex_fs depot: `/mnt/codex_fs/agents/TESTING.md`, or `ssh three cat /mnt/codex_fs/agents/TESTING.md` from a host that does not mount it.
 
 ## 8. Ship
 

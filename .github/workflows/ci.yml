@@ -41,9 +41,13 @@ jobs:
       - name: Build with only the declared features
         run: cargo build
 
-      # No GPU is used: every test in this crate is CPU geometry.
+      # No GPU is used: every test in this crate is CPU geometry. nextest runs each test in its own
+      # process, so the test binaries go in parallel; it does not run doctests, hence the second step.
+      - uses: taiki-e/install-action@nextest
       - name: Test
-        run: cargo test
+        run: cargo nextest run --no-fail-fast
+      - name: Doctests (nextest does not run them)
+        run: cargo test --doc
 
       # Both examples must compile — a crate nobody can run is a crate nobody adopts. `explode` opens
       # a window when run, but building it needs no display.

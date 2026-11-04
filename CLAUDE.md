@@ -23,12 +23,14 @@ Since 2026-10-19 (the owner's call, Sanctuary decision 0241) this repository is 
 A leaf — `bevy` with defaults off, optional `serde`, `isomesh` for validation, and optional `bevy_hanabi` behind the `vfx` feature — so it builds and tests on its own. In the monorepo it is a workspace member, so reach it with `-p bevy_carnage`; the mirrored copy has no workspace above it and takes no flag.
 
 ```
-cargo test              # 16 unit + leaf.rs + doctests
+cargo nextest run       # 16 unit + leaf.rs
+cargo test --doc        # the doctests; nextest does not run them
 cargo build --release   # NOT redundant: see below
 cargo build --examples
 ```
 
-**`cargo build --release` is the load-bearing one.** `cargo test` compiles dev-dependencies, and the dev-dependency here is the *full* `bevy` umbrella (the windowed example needs winit and the render pipeline). Cargo unifies features, so under `cargo test` this crate silently gets every `bevy` feature there is and a missing entry in its own `[dependencies]` list cannot fail. That is not hypothetical — `WorldAsset` was reached for while only `bevy_scene` was declared, not `bevy_world_serialization`, and every test passed on a crate that did not build.
+**`cargo build --release` is the load-bearing one.** Any test run (`cargo nextest run` as much as
+`cargo test`) compiles dev-dependencies, and the dev-dependency here is the *full* `bevy` umbrella (the windowed example needs winit and the render pipeline). Cargo unifies features, so under `cargo test` this crate silently gets every `bevy` feature there is and a missing entry in its own `[dependencies]` list cannot fail. That is not hypothetical — `WorldAsset` was reached for while only `bevy_scene` was declared, not `bevy_world_serialization`, and every test passed on a crate that did not build.
 
 ## The non-negotiable: the bake is reproducible, or it does not happen
 
